@@ -1,0 +1,32 @@
+# Java
+**/target/
+*.class
+*.log
+
+# Node / Angular
+**/node_modules/
+**/dist/
+**/.angular/
+
+# IDE / OS
+.idea/
+**/.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env
+*.env.local
+
+# Local uploads (dev storage)
+**/data/uploads/
+backend/data/
+admin/backend/data/
+
+# Local leftovers (archives, manual backups, tool output)
+*.tgz
+*.bak
+_backup/
+tools-check.txt

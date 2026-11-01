@@ -1,0 +1,181 @@
+
+:root {
+  --fo-bg: #f4f6f8;
+  --fo-surface: #ffffff;
+  --fo-border: #e5e7eb;
+  --fo-text: #0f172a;
+  --fo-muted: #64748b;
+  --fo-sidebar-bg: #0f2a2e;
+  --fo-sidebar-fg: #e6f4f3;
+  --fo-offcanvas: -100%;
+  --fo-radius: 14px;
+}
+
+html[dir='rtl'] {
+  --fo-offcanvas: 100%;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--fo-bg);
+  color: var(--fo-text);
+  font-family: 'IBM Plex Sans Arabic', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+
+// Phone numbers, prices and codes stay left-to-right inside Arabic text.
+.ltr {
+  direction: ltr;
+  unicode-bidi: isolate;
+  display: inline-block;
+}
+
+// ---------- Page scaffolding used by every feature page ----------
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-block-end: 1.25rem;
+
+  h1 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+  }
+
+  p {
+    margin: 0.25rem 0 0;
+    color: var(--fo-muted);
+  }
+}
+
+.panel {
+  background: var(--fo-surface);
+  border: 1px solid var(--fo-border);
+  border-radius: var(--fo-radius);
+  padding: 1.25rem;
+}
+
+.panel-flush {
+  @extend .panel;
+  padding: 0;
+  overflow-x: auto;
+
+  // Tables scroll sideways on phones instead of squashing columns.
+  .p-datatable-table {
+    min-width: 640px;
+  }
+}
+
+a {
+  color: var(--p-primary-600);
+}
+
+.toolbar-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 1rem 1.25rem;
+  border-block-end: 1px solid var(--fo-border);
+}
+
+.muted {
+  color: var(--fo-muted);
+}
+
+.empty {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: var(--fo-muted);
+
+  i {
+    font-size: 2rem;
+    display: block;
+    margin-block-end: 0.5rem;
+    opacity: 0.6;
+  }
+}
+
+// ---------- Forms ----------
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem 1.25rem;
+
+  .full {
+    grid-column: 1 / -1;
+  }
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+
+  label {
+    font-weight: 500;
+    font-size: 0.9rem;
+  }
+
+  small.error {
+    color: var(--p-red-500);
+  }
+
+  small.hint {
+    color: var(--fo-muted);
+  }
+
+  input,
+  textarea,
+  .p-select,
+  .p-inputnumber,
+  .p-password {
+    width: 100%;
+  }
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-block-start: 1.5rem;
+}
+
+.row-actions {
+  display: flex;
+  gap: 0.25rem;
+  justify-content: flex-end;
+}
+
+.color-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+  vertical-align: middle;
+  margin-inline-end: 0.5rem;
+}
+
+// Directional icons drawn for RTL (e.g. "back" arrow) are mirrored in LTR.
+html[dir='ltr'] .rtl-flip {
+  transform: scaleX(-1);
+}
+
+// Destructive entries in popup menus (e.g. "Cancel booking" under "More").
+.p-menu .menu-danger .p-menu-item-label,
+.p-menu .menu-danger .p-menu-item-icon {
+  color: var(--p-red-600);
+}

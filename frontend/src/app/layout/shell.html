@@ -1,0 +1,117 @@
+<div class="shell" [class.menu-open]="menuOpen()" [class.collapsed]="collapsed()">
+  <aside class="sidebar">
+    <!-- brand -->
+    <div class="brand">
+      <span class="brand-mark"><i class="pi pi-sparkles"></i></span>
+      <div class="brand-text">
+        <strong [title]="tenants.tenant()?.name ?? ''">{{ tenants.tenant()?.name ?? ('app.name' | translate) }}</strong>
+        <small>{{ 'app.tagline' | translate }}</small>
+      </div>
+      <button
+        type="button"
+        class="collapse-btn"
+        (click)="toggleCollapsed()"
+        [attr.aria-label]="(collapsed() ? 'shell.expand' : 'shell.collapse') | translate"
+        [pTooltip]="(collapsed() ? 'shell.expand' : 'shell.collapse') | translate"
+        [tooltipPosition]="tooltipSide()"
+      >
+        <i class="pi pi-angle-double-right"></i>
+      </button>
+    </div>
+
+    <!-- navigation -->
+    <nav>
+      @for (s of sections(); track s.key) {
+        <div class="section">
+          <span class="section-label">{{ 'shell.sections.' + s.key | translate }}</span>
+          @for (item of s.items; track item.path) {
+            @if (isLocked(item)) {
+              <button
+                type="button"
+                class="nav-link locked"
+                (click)="upgrade.prompt(item.feature)"
+                [pTooltip]="'upgrade.lockedNav' | translate"
+                [tooltipPosition]="tooltipSide()"
+              >
+                <span class="nav-icon"><i [class]="item.icon"></i></span>
+                <span class="nav-label">{{ item.label | translate }}</span>
+                <i class="pi pi-lock lock-icon"></i>
+              </button>
+            } @else {
+            <a
+              [routerLink]="item.path"
+              routerLinkActive="active"
+              class="nav-link"
+              [pTooltip]="item.label | translate"
+              [tooltipPosition]="tooltipSide()"
+              [tooltipDisabled]="!collapsed()"
+            >
+              <span class="nav-icon"><i [class]="item.icon"></i></span>
+              <span class="nav-label">{{ item.label | translate }}</span>
+            </a>
+            }
+          }
+        </div>
+      }
+    </nav>
+
+    <!-- trial -->
+    @if (tenants.trialDaysLeft(); as days) {
+      <div class="trial" [pTooltip]="'shell.trialDaysLeft' | translate: { days }" [tooltipPosition]="tooltipSide()" [tooltipDisabled]="!collapsed()">
+        <div class="trial-head">
+          <i class="pi pi-bolt trial-icon"></i>
+          <strong>{{ 'shell.trialDaysLeft' | translate: { days } }}</strong>
+          @if (auth.hasRole('OWNER')) {
+            <button type="button" class="trial-btn" (click)="upgrade.prompt()">{{ 'shell.upgrade' | translate }}</button>
+          }
+        </div>
+        <div class="trial-bar"><span [style.width.%]="trialProgress()"></span></div>
+      </div>
+    }
+  </aside>
+
+  <div class="backdrop" (click)="menuOpen.set(false)"></div>
+
+  <div class="main">
+    <header class="topbar">
+      <p-button
+        class="menu-toggle"
+        icon="pi pi-bars"
+        [text]="true"
+        [rounded]="true"
+        (onClick)="menuOpen.set(!menuOpen())"
+        [ariaLabel]="'shell.menu' | translate"
+      />
+      @if (isOffice()) {
+        <app-global-search class="search" />
+      }
+      <span class="spacer"></span>
+      @if (isOffice()) {
+        <app-notification-bell />
+      }
+      <p-button
+        class="lang-btn"
+        [label]="lang.current() === 'ar' ? 'English' : 'العربية'"
+        [text]="true"
+        size="small"
+        (onClick)="lang.toggle()"
+      />
+      <button type="button" class="account" (click)="accountMenu.toggle($event)" [attr.aria-label]="'shell.account' | translate">
+        <span class="avatar">{{ initials() }}</span>
+        <span class="account-text">
+          <strong>{{ auth.user()?.name }}</strong>
+          <small>{{ 'roles.' + auth.role() | translate }}</small>
+        </span>
+        <i class="pi pi-chevron-down account-more"></i>
+      </button>
+      <p-menu #accountMenu [model]="accountItems()" [popup]="true" appendTo="body" />
+    </header>
+
+    <main class="content">
+      <router-outlet />
+    </main>
+  </div>
+</div>
+
+<!-- outside .shell: an extra grid child would push the page content out of its column -->
+<app-upgrade-dialog [(visible)]="upgradeOpen" />
