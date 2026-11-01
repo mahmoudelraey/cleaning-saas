@@ -22,8 +22,8 @@ Thumbs.db
 
 # Local uploads (dev storage)
 **/data/uploads/
-backend/data/
-admin/backend/data/
+backend/admin/data/
+backend/portal/data/
 
 # Local leftovers (archives, manual backups, tool output)
 *.tgz

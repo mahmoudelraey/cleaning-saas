@@ -8,11 +8,11 @@
         <groupId>com.fieldops</groupId>
         <artifactId>fieldops-parent</artifactId>
         <version>0.1.0-SNAPSHOT</version>
-        <relativePath>../../pom.xml</relativePath>
+        <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>fieldops-portal-backend</artifactId>
-    <name>fieldops-portal-backend</name>
+    <artifactId>fieldops-portal</artifactId>
+    <name>fieldops-portal</name>
     <description>Customer portal API on the shared core module and the shared database</description>
 
     <dependencies>
@@ -43,12 +43,6 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-configuration-processor</artifactId>
-            <optional>true</optional>
-        </dependency>
-
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>

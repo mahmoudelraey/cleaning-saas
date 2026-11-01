@@ -56,13 +56,11 @@
         <dependency>
             <groupId>com.github.librepdf</groupId>
             <artifactId>openpdf</artifactId>
-            <version>${openpdf.version}</version>
         </dependency>
         <!-- ZATCA QR code on simplified tax invoices -->
         <dependency>
             <groupId>com.google.zxing</groupId>
             <artifactId>core</artifactId>
-            <version>${zxing.version}</version>
         </dependency>
         <!-- S3-compatible object storage (used only when app.storage.type=s3) -->
         <dependency>
@@ -70,10 +68,5 @@
             <artifactId>s3</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-configuration-processor</artifactId>
-            <optional>true</optional>
-        </dependency>
     </dependencies>
 </project>

@@ -1,0 +1,4 @@
+# Build context for the backend images (docker build -f admin/Dockerfile backend).
+**/target
+**/data
+**/.idea

@@ -2,15 +2,23 @@
 
 Two apps, one database, one shared domain module:
 
-| Folder | What | Ports (dev) |
-|---|---|---|
-| `core` | Shared Java library: entities, repositories and business services (pricing, scheduling, booking state machine, OTP, WhatsApp/SMS outbox, billing), tenant isolation (Hibernate `@TenantId` + PostgreSQL RLS), errors. No controllers, no jobs. | — |
-| `admin/backend` | Spring Boot API for companies (owners, coordinators, technicians). **Owns the database schema (Flyway)** and runs the background jobs (sending messages, reminders, automatic invoices). | 8080 |
-| `admin/frontend` | Angular admin app (PrimeNG) | 4200 |
-| `portal/backend` | Spring Boot API for each company's **customers**: sign-in by mobile + code, visits, booking, cancelling, invoices. Uses `core` directly against the same database. See [portal/backend/README.md](portal/backend/README.md). | 8090 |
-| `portal/frontend` | Angular customer portal (mobile-first, Arabic/English), opened at `/p/{company-slug}` | 4300 |
+```
+backend/          one Maven build (backend/pom.xml) with three modules
+├── core          shared Java library: entities, repositories, business services, tenant isolation
+├── admin         admin API (owns the database schema with Flyway, runs the background jobs)   :8080
+└── portal        customer portal API                                                          :8090
+frontend/
+├── admin         Angular admin app (PrimeNG)                                                  :4200
+└── portal        Angular customer portal at /p/{company-slug} (mobile-first)                  :4300
+```
 
-The root `pom.xml` builds `core`, `admin/backend` and `portal/backend` together (`mvn verify`). Open the root folder in IntelliJ to get all three modules.
+| Module | What |
+|---|---|
+| `backend/core` | Entities, repositories and business services (pricing, scheduling, booking state machine, OTP, WhatsApp/SMS outbox, billing), tenant isolation (Hibernate `@TenantId` + PostgreSQL RLS), errors. No controllers, no jobs. |
+| `backend/admin` | API for companies (owners, coordinators, technicians). **Owns the database schema (Flyway)** and runs the background jobs (sending messages, reminders, automatic invoices). |
+| `backend/portal` | API for each company's **customers**: sign-in by mobile + code, visits, booking, cancelling, invoices. Uses `core` directly against the same database. See [backend/portal/README.md](backend/portal/README.md). |
+
+All versions and plugins live in `backend/pom.xml`; the module poms only list what each module uses. Open the `backend` folder (or the repository) in IntelliJ to get the three modules.
 
 `start-dev.bat` starts all four (plus PostgreSQL in Docker). `docker compose up --build` runs everything in containers: admin on :8081, portal on :8082.
 
@@ -42,17 +50,18 @@ Requirements: JDK 21, Maven 3.9+, Docker. Node 24 is a project devDependency, so
 docker compose up -d db
 
 # 2. Backend  → http://localhost:8080  (Swagger: /swagger-ui.html)
+cd backend
 mvn -q -DskipTests install                     # builds core (repeat after changing core/)
-mvn -pl admin/backend spring-boot:run -Dspring-boot.run.profiles=local
+mvn -pl admin spring-boot:run -Dspring-boot.run.profiles=local
 
 # 3. Frontend → http://localhost:4200  (/api proxied to :8080)
-cd admin/frontend
+cd frontend/admin
 npm install
 npm start
 
 # 4. Customer portal (optional) → http://localhost:4300/p/{company-slug}
-mvn -pl portal/backend spring-boot:run -Dspring-boot.run.profiles=local
-cd portal/frontend
+cd backend && mvn -pl portal spring-boot:run -Dspring-boot.run.profiles=local
+cd frontend/portal
 npx -y -p node@24.22.0 -p npm@10 -- npm install
 npm start
 ```
@@ -66,18 +75,18 @@ Run the whole stack in containers instead: `docker compose up --build`, then ope
 ### Tests
 
 ```bash
-mvn verify                              # all backends: unit + integration tests (Docker must be running)
-mvn test                                # unit tests only
-cd admin/frontend && npx ng test --watch=false
+cd backend && mvn verify                # all backends: unit + integration tests (Docker must be running)
+cd backend && mvn test                  # unit tests only
+cd frontend/admin && npx ng test --watch=false
 ```
 
 ## Project layout
 
-Java packages are `com.fieldops.app.*` in `core` and `admin/backend` (same packages, split by role),
-and `com.fieldops.portal.*` in `portal/backend`.
+Java packages are `com.fieldops.app.*` in `core` and `admin` (same packages, split by role),
+and `com.fieldops.portal.*` in `portal`.
 
 ```
-core/src/main/java/com/fieldops/app            domain shared by both apps
+backend/core/src/main/java/com/fieldops/app    domain shared by both apps
 ├── common          tenant context, RLS transaction manager, storage, errors, current user
 ├── tenant          companies, plans, plan features, settings
 ├── auth            staff users and account rules
@@ -91,15 +100,15 @@ core/src/main/java/com/fieldops/app            domain shared by both apps
 ├── publicpage      booking page, one-time codes
 ├── reporting       reports
 └── customerportal  what a customer may do in the portal (book, cancel, sign in)
-admin/backend/src/main/java/com/fieldops/app   controllers, staff sign-in (JWT + refresh), security, jobs
-admin/backend/src/main/resources/db/migration  Flyway SQL (the only schema owner)
-portal/backend/src/main/java/com/fieldops/portal  controllers, customer tokens, read models (SQL)
-admin/frontend/src/app
+backend/admin/src/main/java/com/fieldops/app   controllers, staff sign-in (JWT + refresh), security, jobs
+backend/admin/src/main/resources/db/migration  Flyway SQL (the only schema owner)
+backend/portal/src/main/java/com/fieldops/portal  controllers, customer tokens, read models (SQL)
+frontend/admin/src/app
 ├── core          auth (service, interceptor, guards), i18n/RTL, API types, errors
 ├── layout        app shell (sidebar, top bar)
 ├── features      bookings, calendar, customers, services, technicians, billing, reports, settings…
 └── shared        SAR/phone/date formatting
-portal/frontend/src/app                        customer portal (shell, login, home, visits, booking, invoices)
+frontend/portal/src/app                        customer portal (shell, login, home, visits, booking, invoices)
 ```
 
 ## Key design decisions

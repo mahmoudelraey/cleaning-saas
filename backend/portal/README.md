@@ -1,13 +1,13 @@
 # FieldOps customer portal — backend
 
-Spring Boot API for the customer portal (`portal/frontend`). Port **8090**.
+Spring Boot API for the customer portal (`frontend/portal`). Port **8090**.
 
 ## How it fits
 
 ```
-portal/frontend ──► portal/backend ──┐
-                                     ├── core (same entities, services, rules) ──► PostgreSQL (shared)
-admin/frontend  ──► admin/backend  ──┘
+frontend/portal ──► backend/portal ──┐
+                                     ├── backend/core (same entities, services, rules) ──► PostgreSQL (shared)
+frontend/admin  ──► backend/admin  ──┘
 ```
 
 * **Same code, same database.** The portal runs the shared `core` module, so booking, pricing,
@@ -25,11 +25,11 @@ admin/frontend  ──► admin/backend  ──┘
 
 ## Run locally
 
-From the repository root, with the admin backend already running (it migrates the database):
+From the `backend` folder, with the admin backend already running (it migrates the database):
 
 ```bash
 mvn -q -DskipTests install                     # builds core (repeat after changing core/)
-mvn -pl portal/backend spring-boot:run -Dspring-boot.run.profiles=local
+mvn -pl portal spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
 With the `local` profile the sign-in code is returned to the screen (no WhatsApp/SMS needed).

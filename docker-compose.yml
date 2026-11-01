@@ -22,8 +22,8 @@ services:
   # Owns the database schema (Flyway) and runs the background jobs (messages, reminders, invoices).
   backend:
     build:
-      context: .
-      dockerfile: admin/backend/Dockerfile
+      context: ./backend
+      dockerfile: admin/Dockerfile
     depends_on:
       db:
         condition: service_healthy
@@ -42,7 +42,7 @@ services:
       - "8080:8080"
 
   frontend:
-    build: ./admin/frontend
+    build: ./frontend/admin
     depends_on:
       - backend
     ports:
@@ -52,8 +52,8 @@ services:
   # It starts after the admin backend, which migrates the schema.
   portal-backend:
     build:
-      context: .
-      dockerfile: portal/backend/Dockerfile
+      context: ./backend
+      dockerfile: portal/Dockerfile
     depends_on:
       db:
         condition: service_healthy
@@ -72,7 +72,7 @@ services:
       - "8090:8090"
 
   portal-frontend:
-    build: ./portal/frontend
+    build: ./frontend/portal
     depends_on:
       - portal-backend
     ports:

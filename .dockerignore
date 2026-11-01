@@ -1,8 +1,0 @@
-# Root build context (backend images). Frontend images build from their own folders.
-**/target
-**/node_modules
-**/dist
-**/.angular
-.git
-_backup
-*.tgz
