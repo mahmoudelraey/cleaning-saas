@@ -189,6 +189,8 @@
     "techniciansNote": "Technicians are managed on the Technicians page."
   },
   "settings": {
+    "portal": "Customer portal",
+    "portalHint": "Send this link to your customers: they sign in with their mobile to follow their visits, book and download invoices. It is also shown on every invoice and quote page.",
     "title": "Settings",
     "subtitle": "Company details and subscription",
     "company": "Company",
@@ -556,6 +558,7 @@
     "OTHER": "Other"
   },
   "doc": {
+    "myBookings": "My bookings",
     "invoice": "Invoice",
     "taxInvoice": "Tax invoice",
     "simplifiedTaxInvoice": "Simplified tax invoice",

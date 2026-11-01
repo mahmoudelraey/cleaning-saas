@@ -117,11 +117,20 @@ import { NotificationSettingsPanel } from './notification-settings.panel';
           </div>
           <div class="link-row">
             <code class="ltr">{{ tenants.bookingUrl() }}</code>
-            <p-button icon="pi pi-copy" [text]="true" size="small" (onClick)="copyLink()" [ariaLabel]="'common.copy' | translate" />
+            <p-button icon="pi pi-copy" [text]="true" size="small" (onClick)="copyLink(tenants.bookingUrl())" [ariaLabel]="'common.copy' | translate" />
             <a [href]="tenants.bookingUrl()" target="_blank" rel="noopener"><p-button icon="pi pi-external-link" [text]="true" size="small" /></a>
           </div>
           <p-button [label]="'common.save' | translate" size="small" [loading]="pageSaving()" (onClick)="savePage()" />
           }
+        </div>
+        <div class="panel" style="margin-top: 1rem">
+          <h2>{{ 'settings.portal' | translate }}</h2>
+          <p class="hint">{{ 'settings.portalHint' | translate }}</p>
+          <div class="link-row">
+            <code class="ltr">{{ tenants.portalUrl() }}</code>
+            <p-button icon="pi pi-copy" [text]="true" size="small" (onClick)="copyLink(tenants.portalUrl())" [ariaLabel]="'common.copy' | translate" />
+            <a [href]="tenants.portalUrl()" target="_blank" rel="noopener"><p-button icon="pi pi-external-link" [text]="true" size="small" /></a>
+          </div>
         </div>
         <div class="panel" style="margin-top: 1rem">
           <h2>{{ 'settings.subscription' | translate }}</h2>
@@ -267,8 +276,8 @@ export class SettingsPage implements OnInit {
     });
   }
 
-  copyLink(): void {
-    void navigator.clipboard?.writeText(this.tenants.bookingUrl()).then(() =>
+  copyLink(url: string): void {
+    void navigator.clipboard?.writeText(url).then(() =>
       this.messages.add({ severity: 'success', summary: this.translate.instant('common.copied') }),
     );
   }

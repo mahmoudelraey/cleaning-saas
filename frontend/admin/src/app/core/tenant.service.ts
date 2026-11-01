@@ -4,6 +4,7 @@ import { Observable, finalize, of, shareReplay, tap } from 'rxjs';
 
 import { TenantInfo } from './api.types';
 import { PlanFeatureKey } from './plan-features';
+import { portalUrl } from './portal';
 
 export interface TenantUpdate {
   name: string;
@@ -62,6 +63,12 @@ export class TenantService {
   readonly bookingUrl = computed(() => {
     const t = this.tenant();
     return t ? `${location.origin}/book/${t.slug}` : '';
+  });
+
+  /** Customers sign in here to see their visits, book and download invoices. */
+  readonly portalUrl = computed(() => {
+    const t = this.tenant();
+    return t ? portalUrl(t.slug) : '';
   });
 
   load(): Observable<TenantInfo> {

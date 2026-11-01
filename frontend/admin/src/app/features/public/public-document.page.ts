@@ -9,6 +9,7 @@ import { errorMessage } from '../../core/http/api-error';
 import { LanguageService } from '../../core/i18n/language.service';
 import { BillingApi } from '../billing/billing.api';
 import { DocumentView, invoiceView, quoteView } from '../billing/document-view';
+import { portalUrl } from '../../core/portal';
 
 /**
  * What the end customer opens from WhatsApp: /i/:token (invoice) or /q/:token (quote, with accept/reject).
@@ -47,6 +48,7 @@ import { DocumentView, invoiceView, quoteView } from '../billing/document-view';
             <p-button [label]="lang.current() === 'ar' ? 'English' : 'العربية'" [text]="true" size="small" (onClick)="lang.toggle()" />
             <a [href]="pdfUrl()" target="_blank" rel="noopener"><p-button icon="pi pi-download" [label]="'doc.pdf' | translate" [outlined]="true" size="small" /></a>
             <p-button icon="pi pi-print" [label]="'doc.print' | translate" [outlined]="true" size="small" (onClick)="print()" />
+            <a [href]="portalLink(c.slug)" target="_blank" rel="noopener"><p-button icon="pi pi-calendar" [label]="'doc.myBookings' | translate" [outlined]="true" size="small" /></a>
             @if (c.phone) {
               <a [href]="'https://wa.me/' + c.phone.replace('+', '')" target="_blank" rel="noopener">
                 <p-button icon="pi pi-whatsapp" [label]="'doc.contact' | translate" severity="success" size="small" />
@@ -96,6 +98,7 @@ export class PublicDocumentPage implements OnInit {
   protected readonly error = signal<string | null>(null);
   protected readonly busy = signal(false);
 
+  protected readonly portalLink = portalUrl;
   protected readonly company = computed<PublicCompany | null>(
     () => this.invoice()?.company ?? this.quote()?.company ?? null,
   );

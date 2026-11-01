@@ -10,7 +10,10 @@
   },
   "landing": {
     "title": "Open your company's link",
-    "lead": "Each cleaning company has its own customer portal link. You'll find it in their WhatsApp messages or on your invoice."
+    "lead": "Each cleaning company has its own portal link. You'll find it on your invoice or quote page, or ask the company. You can also enter the company code here.",
+    "code": "Company code or link",
+    "codePlaceholder": "e.g. sparkle-clean",
+    "open": "Open"
   },
   "login": {
     "title": "Sign in",
