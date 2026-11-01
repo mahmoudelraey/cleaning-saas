@@ -1,5 +1,5 @@
 @echo off
 cd /d "%~dp0"
 docker compose stop db
-echo Close the "FieldOps backend" and "FieldOps frontend" windows to stop those.
+echo Close the four "FieldOps ..." windows to stop the apps.
 pause

@@ -1,0 +1,374 @@
+// Customer portal. One family (IBM Plex Sans Arabic), a calm "clean water" palette, and a single bold
+// element: the next-visit ticket on the home page. Everything else stays quiet.
+:root {
+  --ink: #0f2a3d;
+  --ink-2: #4a6273;
+  --ink-3: #7d93a2;
+  --mist: #edf4f6;
+  --surface: #ffffff;
+  --line: #d9e6ea;
+  --tide: #0b7a83;
+  --tide-deep: #075c63;
+  --foam: #d3ecee;
+  --sun: #f0a92e;
+  --sun-soft: #fdf1da;
+  --rose: #c2413b;
+  --rose-soft: #fbe7e6;
+  --leaf: #2f8f5b;
+  --r-lg: 22px;
+  --r-md: 14px;
+  --r-sm: 10px;
+  --shadow: 0 18px 40px -24px rgba(15, 42, 61, 0.45);
+  --tabbar: 68px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--mist);
+  color: var(--ink);
+  font-family: 'IBM Plex Sans Arabic', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+a {
+  color: var(--tide);
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  line-height: 1.25;
+}
+
+.ltr {
+  direction: ltr;
+  unicode-bidi: isolate;
+  display: inline-block;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+.muted {
+  color: var(--ink-2);
+}
+
+// ---------- page frame ----------
+.page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 20px 16px calc(var(--tabbar) + 32px + env(safe-area-inset-bottom));
+}
+
+.page-title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.page-sub {
+  color: var(--ink-2);
+  margin: 0 0 20px;
+}
+
+.section-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 28px 0 10px;
+}
+
+// ---------- buttons ----------
+.btn {
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  font: inherit;
+  font-weight: 600;
+  font-size: 1rem;
+  min-height: 48px;
+  padding: 0 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s, transform 0.1s;
+
+  &:active {
+    transform: scale(0.98);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--tide) 45%, transparent);
+    outline-offset: 2px;
+  }
+}
+
+.btn-primary {
+  background: var(--tide);
+  color: #fff;
+
+  &:hover:not(:disabled) {
+    background: var(--tide-deep);
+  }
+}
+
+.btn-quiet {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--line);
+
+  &:hover:not(:disabled) {
+    background: var(--mist);
+  }
+}
+
+.btn-danger {
+  background: var(--rose-soft);
+  color: var(--rose);
+}
+
+.btn-block {
+  width: 100%;
+}
+
+.link-btn {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--tide);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+// ---------- form ----------
+.field {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 16px;
+
+  label {
+    font-weight: 600;
+    font-size: 0.92rem;
+  }
+
+  small {
+    color: var(--ink-3);
+    font-size: 0.8rem;
+  }
+}
+
+.input,
+textarea.input,
+select.input {
+  width: 100%;
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1.5px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+  min-height: 50px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+
+  &:focus {
+    outline: none;
+    border-color: var(--tide);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--tide) 15%, transparent);
+  }
+}
+
+// ---------- surfaces ----------
+.sheet {
+  background: var(--surface);
+  border-radius: var(--r-lg);
+  padding: 18px;
+}
+
+.rows {
+  background: var(--surface);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  color: inherit;
+  text-decoration: none;
+
+  & + .row {
+    border-top: 1px solid var(--line);
+  }
+}
+
+a.row:hover,
+button.row:hover {
+  background: color-mix(in srgb, var(--mist) 60%, var(--surface));
+}
+
+button.row {
+  width: 100%;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+// status words, coloured by meaning (not a rainbow of tags)
+.status {
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--ink-2);
+
+  &.s-NEW,
+  &.s-CONFIRMED,
+  &.s-ASSIGNED {
+    color: var(--tide);
+  }
+
+  &.s-ON_THE_WAY,
+  &.s-IN_PROGRESS {
+    color: #b7791f;
+  }
+
+  &.s-COMPLETED {
+    color: var(--leaf);
+  }
+
+  &.s-CANCELLED,
+  &.s-NO_SHOW {
+    color: var(--rose);
+  }
+}
+
+.empty {
+  text-align: center;
+  padding: 36px 20px;
+  color: var(--ink-2);
+
+  i {
+    font-size: 1.8rem;
+    color: var(--ink-3);
+    display: block;
+    margin-bottom: 10px;
+  }
+
+  p {
+    margin: 0 0 16px;
+  }
+}
+
+.spinner {
+  display: grid;
+  place-items: center;
+  padding: 48px 0;
+  color: var(--ink-3);
+  font-size: 1.4rem;
+}
+
+// segmented control (upcoming / past)
+.segmented {
+  display: inline-flex;
+  background: var(--surface);
+  border-radius: 999px;
+  padding: 4px;
+  margin-bottom: 16px;
+
+  button {
+    border: 0;
+    background: none;
+    font: inherit;
+    font-weight: 600;
+    color: var(--ink-2);
+    padding: 8px 18px;
+    border-radius: 999px;
+    cursor: pointer;
+
+    &.on {
+      background: var(--ink);
+      color: #fff;
+    }
+  }
+}
+
+// bottom sheet dialog (mobile) / centred (desktop)
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 42, 61, 0.45);
+  z-index: 50;
+  display: grid;
+  align-items: end;
+  justify-items: center;
+}
+
+.dialog {
+  width: 100%;
+  max-width: 520px;
+  background: var(--surface);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  padding: 22px 18px calc(18px + env(safe-area-inset-bottom));
+  animation: sheet 0.22s ease-out;
+
+  h2 {
+    font-size: 1.2rem;
+    margin-bottom: 6px;
+  }
+
+  .actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 18px;
+  }
+}
+
+@media (min-width: 720px) {
+  .backdrop {
+    align-items: center;
+  }
+
+  .dialog {
+    border-radius: var(--r-lg);
+  }
+}
+
+@keyframes sheet {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dialog {
+    animation: none;
+  }
+}
+
+// arrows that point "back" flip with the reading direction
+html[dir='ltr'] .rtl-flip {
+  transform: scaleX(-1);
+}

@@ -1,5 +1,7 @@
-# Local stack:  docker compose up --build   → http://localhost:8081
-# Dev loop:     docker compose up -d db     → run backend with -Dspring-boot.run.profiles=local, `npm start` in frontend
+# Local stack:  docker compose up --build
+#   admin app       → http://localhost:8081      (admin backend :8080)
+#   customer portal → http://localhost:8082/p/{company-slug}   (portal backend :8090)
+# Dev loop:     docker compose up -d db  → see start-dev.bat / README
 services:
   db:
     image: postgres:16-alpine
@@ -17,8 +19,9 @@ services:
       timeout: 3s
       retries: 10
 
+  # Owns the database schema (Flyway) and every business rule.
   backend:
-    build: ./backend
+    build: ./admin/backend
     depends_on:
       db:
         condition: service_healthy
@@ -28,6 +31,8 @@ services:
       DB_PASSWORD: fieldops
       # Local only. Generate a real one with: openssl rand -base64 48
       JWT_SECRET: ${JWT_SECRET:-ZGV2LW9ubHktc2VjcmV0LWNoYW5nZS1tZS1iZWZvcmUtcHJvZHVjdGlvbi0xMjM0NTY=}
+      # Shared secret for the portal backend's /internal/** calls. Local only.
+      PORTAL_INTERNAL_TOKEN: ${PORTAL_INTERNAL_TOKEN:-local-portal-internal-token-change-me}
       CORS_ORIGINS: http://localhost:8081,http://localhost:4200
       SERVER_FORWARD_HEADERS_STRATEGY: native
       STORAGE_LOCAL_DIR: /app/data/uploads
@@ -37,11 +42,40 @@ services:
       - "8080:8080"
 
   frontend:
-    build: ./frontend
+    build: ./admin/frontend
     depends_on:
       - backend
     ports:
       - "8081:80"
+
+  # Customer portal: same database (read-only, RLS), changes go through the admin backend's internal API.
+  portal-backend:
+    build: ./portal/backend
+    depends_on:
+      db:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/fieldops
+      DB_USER: fieldops
+      DB_PASSWORD: fieldops
+      ADMIN_API_URL: http://backend:8080
+      ADMIN_PUBLIC_URL: http://localhost:8080
+      PORTAL_INTERNAL_TOKEN: ${PORTAL_INTERNAL_TOKEN:-local-portal-internal-token-change-me}
+      # Local only, and different from JWT_SECRET on purpose.
+      PORTAL_JWT_SECRET: ${PORTAL_JWT_SECRET:-cG9ydGFsLWRldi1vbmx5LXNlY3JldC1jaGFuZ2UtbWUtYmVmb3JlLXByb2R1Y3Rpb24=}
+      CORS_ORIGINS: http://localhost:8082,http://localhost:4300
+      SERVER_FORWARD_HEADERS_STRATEGY: native
+    ports:
+      - "8090:8090"
+
+  portal-frontend:
+    build: ./portal/frontend
+    depends_on:
+      - portal-backend
+    ports:
+      - "8082:80"
 
 volumes:
   pgdata:

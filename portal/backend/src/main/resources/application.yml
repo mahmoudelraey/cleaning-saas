@@ -1,0 +1,46 @@
+spring:
+  application:
+    name: fieldops-portal
+  # Same database as the admin app. The admin backend owns the schema (Flyway); the portal never migrates.
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/fieldops}
+    username: ${DB_USER:fieldops}
+    password: ${DB_PASSWORD:fieldops}
+    hikari:
+      maximum-pool-size: ${DB_POOL:5}
+  jackson:
+    time-zone: UTC
+    default-property-inclusion: non_null
+
+server:
+  port: ${PORT:8090}
+  error:
+    include-stacktrace: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+app:
+  db:
+    # Same restricted role as the admin app, so Row Level Security applies to every portal query.
+    rls-role: fieldops_app
+  admin:
+    # Internal URL of the admin backend (business commands go there).
+    base-url: ${ADMIN_API_URL:http://localhost:8080}
+    # Must equal the admin backend's app.portal.internal-token.
+    internal-token: ${PORTAL_INTERNAL_TOKEN:}
+    # Public origin of the admin backend, for company logos (served at /api/v1/public/tenants/{slug}/logo).
+    public-url: ${ADMIN_PUBLIC_URL:http://localhost:8080}
+  security:
+    jwt:
+      # Separate from the admin app's key: customer tokens must never open the admin API.
+      secret: ${PORTAL_JWT_SECRET:}
+      issuer: fieldops-portal
+      access-ttl: 30d
+    cors-origins: ${CORS_ORIGINS:http://localhost:4300}
+  rate-limit:
+    # Sign-in requests (code send / verify) per IP per minute
+    auth-per-minute: 10

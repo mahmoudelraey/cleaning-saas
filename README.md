@@ -1,5 +1,16 @@
 # FieldOps: SaaS for small cleaning & maintenance companies
 
+Two apps, one database:
+
+| Folder | What | Ports (dev) |
+|---|---|---|
+| `admin/backend` | Spring Boot API for companies (owners, coordinators, technicians). **Owns the database schema (Flyway) and all business rules.** | 8080 |
+| `admin/frontend` | Angular admin app (PrimeNG) | 4200 |
+| `portal/backend` | Spring Boot API for each company's **customers**: sign-in by mobile + code, visits, booking, cancelling, invoices. Reads the shared DB under the same RLS; every change goes through the admin backend's internal API (`/internal/portal/**`, shared secret). See [portal/backend/README.md](portal/backend/README.md). | 8090 |
+| `portal/frontend` | Angular customer portal (mobile-first, Arabic/English), opened at `/p/{company-slug}` | 4300 |
+
+`start-dev.bat` starts all four (plus PostgreSQL in Docker). `docker compose up --build` runs everything in containers: admin on :8081, portal on :8082.
+
 Arabic-first (RTL) multi-tenant SaaS. Companies manage customers, services and technicians in one place instead of WhatsApp and spreadsheets.
 
 This repository covers **weeks 1–2 of the 10-week plan**: the foundation and the first CRUD features.
@@ -28,14 +39,23 @@ Requirements: JDK 21, Maven 3.9+, Docker. Node 24 is a project devDependency, so
 docker compose up -d db
 
 # 2. Backend  → http://localhost:8080  (Swagger: /swagger-ui.html)
-cd backend
+cd admin/backend
 mvn spring-boot:run -Dspring-boot.run.profiles=local
 
 # 3. Frontend → http://localhost:4200  (/api proxied to :8080)
-cd frontend
+cd admin/frontend
 npm install
 npm start
+
+# 4. Customer portal (optional) → http://localhost:4300/p/{company-slug}
+cd portal/backend
+mvn spring-boot:run -Dspring-boot.run.profiles=local
+cd portal/frontend
+npx -y -p node@24.22.0 -p npm@10 -- npm install
+npm start
 ```
+
+The company slug is the booking link in the admin app's Settings. With the `local` profile the sign-in code is shown on screen (no WhatsApp/SMS needed).
 
 Open http://localhost:4200/signup, create a company, and you are signed in as its owner.
 
@@ -44,15 +64,15 @@ Run the whole stack in containers instead: `docker compose up --build`, then ope
 ### Tests
 
 ```bash
-cd backend && mvn verify        # unit + integration tests (Docker must be running)
-cd backend && mvn test          # unit tests only
-cd frontend && npx ng test --watch=false
+cd admin/backend && mvn verify        # unit + integration tests (Docker must be running)
+cd admin/backend && mvn test          # unit tests only
+cd admin/frontend && npx ng test --watch=false
 ```
 
 ## Project layout
 
 ```
-backend/src/main/java/com/fieldops/app
+admin/backend/src/main/java/com/fieldops/app
 ├── common        security (JWT, roles), tenant context, RLS transaction manager, errors, rate limit
 ├── tenant        companies, plans, settings
 ├── auth          signup/login/refresh, staff users

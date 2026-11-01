@@ -1,0 +1,16 @@
+# Local development profile: mvn spring-boot:run -Dspring-boot.run.profiles=local
+app:
+  security:
+    jwt:
+      # DEV ONLY. Never use this key outside your machine.
+      secret: ZGV2LW9ubHktc2VjcmV0LWNoYW5nZS1tZS1iZWZvcmUtcHJvZHVjdGlvbi0xMjM0NTY=
+  portal:
+    # DEV ONLY: must match portal/backend's application-local.yml
+    internal-token: dev-portal-internal-token-change-me
+  otp:
+    # DEV ONLY: the booking page shows the verification code, since no SMS/WhatsApp is configured locally.
+    expose-code: true
+
+logging:
+  level:
+    com.fieldops: DEBUG
