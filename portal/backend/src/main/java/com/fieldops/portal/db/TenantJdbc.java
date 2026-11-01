@@ -4,7 +4,7 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 
-import com.fieldops.portal.config.PortalProperties;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
@@ -12,9 +12,9 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Read-only access to the shared database for one company, with the same isolation as the admin app:
- * each transaction switches to the restricted role and sets {@code app.tenant_id}, so PostgreSQL Row
- * Level Security only shows that company's rows. Queries still filter by tenant/customer explicitly.
+ * Fast read models for the portal screens (plain SQL instead of loading entity graphs). Each transaction
+ * switches to the restricted role and sets {@code app.tenant_id} for the given company, so PostgreSQL Row
+ * Level Security only shows that company's rows; queries still filter by tenant/customer explicitly.
  */
 @Component
 public class TenantJdbc {
@@ -26,12 +26,11 @@ public class TenantJdbc {
     private final TransactionTemplate readOnly;
     private final String rlsRole;
 
-    public TenantJdbc(JdbcTemplate jdbc, PlatformTransactionManager txm, PortalProperties props) {
+    public TenantJdbc(JdbcTemplate jdbc, PlatformTransactionManager txm, @Value("${app.db.rls-role:}") String role) {
         this.jdbc = jdbc;
         this.named = new NamedParameterJdbcTemplate(jdbc);
         this.readOnly = new TransactionTemplate(txm);
         this.readOnly.setReadOnly(true);
-        String role = props.db().rlsRole();
         if (role != null && !role.isBlank() && !ROLE_NAME.matcher(role).matches()) {
             throw new IllegalArgumentException("Invalid RLS role name: " + role);
         }

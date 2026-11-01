@@ -45,9 +45,6 @@ springdoc:
     path: /swagger-ui.html
 
 app:
-  portal:
-    # Shared secret for /internal/** calls from the customer portal backend. Empty = internal API off.
-    internal-token: ${PORTAL_INTERNAL_TOKEN:}
   plans:
     # Automatic customer messages per month on plans with "whatsapp_limited" (Basic). OTP codes don't count.
     limited-whatsapp-monthly: ${LIMITED_WHATSAPP_MONTHLY:100}

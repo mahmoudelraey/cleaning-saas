@@ -9,6 +9,7 @@ import com.fieldops.app.common.security.CurrentUser;
 import com.fieldops.app.common.security.Role;
 import com.fieldops.app.common.tenant.TenantContext;
 import com.fieldops.app.common.web.ApiException;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,16 +20,17 @@ public class UserService {
 
     private final UserRepository users;
     private final PasswordEncoder passwordEncoder;
-    private final AuthService authService;
-    private final RefreshTokenService refreshTokens;
+    private final AccountRules rules;
+    /** Present in the admin app (refresh tokens); the portal has no staff sessions to revoke. */
+    private final ObjectProvider<UserSessions> sessions;
     private final Clock clock;
 
-    public UserService(UserRepository users, PasswordEncoder passwordEncoder, AuthService authService,
-                       RefreshTokenService refreshTokens, Clock clock) {
+    public UserService(UserRepository users, PasswordEncoder passwordEncoder, AccountRules rules,
+                       ObjectProvider<UserSessions> sessions, Clock clock) {
         this.users = users;
         this.passwordEncoder = passwordEncoder;
-        this.authService = authService;
-        this.refreshTokens = refreshTokens;
+        this.rules = rules;
+        this.sessions = sessions;
         this.clock = clock;
     }
 
@@ -45,10 +47,10 @@ public class UserService {
 
     @Transactional
     public User create(String name, String rawPhone, String email, String password, Role role) {
-        String phone = AuthService.normalizePhone(rawPhone);
-        String normalizedEmail = AuthService.normalizeEmail(email);
-        authService.assertIdentifiersFree(phone, normalizedEmail);
-        AuthService.assertStrongPassword(password);
+        String phone = AccountRules.normalizePhone(rawPhone);
+        String normalizedEmail = AccountRules.normalizeEmail(email);
+        rules.assertIdentifiersFree(phone, normalizedEmail);
+        AccountRules.assertStrongPassword(password);
         User user = new User(TenantContext.require(), name.trim(), phone, normalizedEmail,
                 passwordEncoder.encode(password), role);
         // The owner chose this password, so the new user must replace it at first sign-in.
@@ -59,7 +61,7 @@ public class UserService {
     @Transactional
     public User update(UUID id, String name, String email, Role role, boolean active) {
         User user = get(id);
-        String normalizedEmail = AuthService.normalizeEmail(email);
+        String normalizedEmail = AccountRules.normalizeEmail(email);
         if (normalizedEmail != null && !normalizedEmail.equalsIgnoreCase(user.getEmail())
                 && users.existsByEmailIgnoreCase(normalizedEmail)) {
             throw ApiException.conflict("email_taken", "This email is already registered");
@@ -71,7 +73,7 @@ public class UserService {
         guardLastOwner(user, role, active);
         user.update(name.trim(), normalizedEmail, role, active);
         if (!active) {
-            refreshTokens.revokeAll(user.getId());
+            sessions.ifAvailable(x -> x.revokeAll(user.getId()));
         }
         return user;
     }
@@ -82,7 +84,7 @@ public class UserService {
         guardLastOwner(user, user.getRole(), active);
         user.setActive(active);
         if (!active) {
-            refreshTokens.revokeAll(user.getId());
+            sessions.ifAvailable(x -> x.revokeAll(user.getId()));
         }
     }
 
@@ -96,9 +98,9 @@ public class UserService {
         if (user.getId().equals(CurrentUser.idOrNull())) {
             throw ApiException.badRequest("cannot_reset_self", "Use \"Change password\" for your own account");
         }
-        AuthService.assertStrongPassword(newPassword);
+        AccountRules.assertStrongPassword(newPassword);
         user.setTemporaryPassword(passwordEncoder.encode(newPassword), Instant.now(clock));
-        refreshTokens.revokeAll(user.getId());
+        sessions.ifAvailable(x -> x.revokeAll(user.getId()));
     }
 
     /** A company must always keep at least one active owner, and owners cannot lock themselves out. */

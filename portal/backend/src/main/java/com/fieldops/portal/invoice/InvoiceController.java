@@ -5,8 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import com.fieldops.portal.admin.AdminClient;
-import com.fieldops.portal.admin.AdminDtos;
+import com.fieldops.app.customerportal.CustomerPortalService;
 import com.fieldops.portal.db.TenantJdbc;
 import com.fieldops.portal.security.CurrentCustomer;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,11 +20,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class InvoiceController {
 
     private final TenantJdbc db;
-    private final AdminClient admin;
+    private final CustomerPortalService portal;
 
-    public InvoiceController(TenantJdbc db, AdminClient admin) {
+    public InvoiceController(TenantJdbc db, CustomerPortalService portal) {
         this.db = db;
-        this.admin = admin;
+        this.portal = portal;
     }
 
     public record InvoiceRow(UUID id, long number, UUID bookingId, Long bookingNumber, Instant issuedAt, String status,
@@ -48,8 +47,11 @@ public class InvoiceController {
     }
 
     @PostMapping("/{id}/link")
-    public AdminDtos.Link link(@PathVariable String slug, @PathVariable UUID id) {
+    public LinkDto link(@PathVariable String slug, @PathVariable UUID id) {
         CurrentCustomer me = CurrentCustomer.require(slug);
-        return admin.post(slug, "/customers/" + me.customerId() + "/invoices/" + id + "/link", Map.of(), AdminDtos.Link.class);
+        return new LinkDto(portal.invoiceLink(slug, me.customerId(), id));
+    }
+
+    public record LinkDto(String url) {
     }
 }

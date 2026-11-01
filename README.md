@@ -1,13 +1,16 @@
 # FieldOps: SaaS for small cleaning & maintenance companies
 
-Two apps, one database:
+Two apps, one database, one shared domain module:
 
 | Folder | What | Ports (dev) |
 |---|---|---|
-| `admin/backend` | Spring Boot API for companies (owners, coordinators, technicians). **Owns the database schema (Flyway) and all business rules.** | 8080 |
+| `core` | Shared Java library: entities, repositories and business services (pricing, scheduling, booking state machine, OTP, WhatsApp/SMS outbox, billing), tenant isolation (Hibernate `@TenantId` + PostgreSQL RLS), errors. No controllers, no jobs. | — |
+| `admin/backend` | Spring Boot API for companies (owners, coordinators, technicians). **Owns the database schema (Flyway)** and runs the background jobs (sending messages, reminders, automatic invoices). | 8080 |
 | `admin/frontend` | Angular admin app (PrimeNG) | 4200 |
-| `portal/backend` | Spring Boot API for each company's **customers**: sign-in by mobile + code, visits, booking, cancelling, invoices. Reads the shared DB under the same RLS; every change goes through the admin backend's internal API (`/internal/portal/**`, shared secret). See [portal/backend/README.md](portal/backend/README.md). | 8090 |
+| `portal/backend` | Spring Boot API for each company's **customers**: sign-in by mobile + code, visits, booking, cancelling, invoices. Uses `core` directly against the same database. See [portal/backend/README.md](portal/backend/README.md). | 8090 |
 | `portal/frontend` | Angular customer portal (mobile-first, Arabic/English), opened at `/p/{company-slug}` | 4300 |
+
+The root `pom.xml` builds `core`, `admin/backend` and `portal/backend` together (`mvn verify`). Open the root folder in IntelliJ to get all three modules.
 
 `start-dev.bat` starts all four (plus PostgreSQL in Docker). `docker compose up --build` runs everything in containers: admin on :8081, portal on :8082.
 
@@ -39,8 +42,8 @@ Requirements: JDK 21, Maven 3.9+, Docker. Node 24 is a project devDependency, so
 docker compose up -d db
 
 # 2. Backend  → http://localhost:8080  (Swagger: /swagger-ui.html)
-cd admin/backend
-mvn spring-boot:run -Dspring-boot.run.profiles=local
+mvn -q -DskipTests install                     # builds core (repeat after changing core/)
+mvn -pl admin/backend spring-boot:run -Dspring-boot.run.profiles=local
 
 # 3. Frontend → http://localhost:4200  (/api proxied to :8080)
 cd admin/frontend
@@ -48,8 +51,7 @@ npm install
 npm start
 
 # 4. Customer portal (optional) → http://localhost:4300/p/{company-slug}
-cd portal/backend
-mvn spring-boot:run -Dspring-boot.run.profiles=local
+mvn -pl portal/backend spring-boot:run -Dspring-boot.run.profiles=local
 cd portal/frontend
 npx -y -p node@24.22.0 -p npm@10 -- npm install
 npm start
@@ -64,33 +66,40 @@ Run the whole stack in containers instead: `docker compose up --build`, then ope
 ### Tests
 
 ```bash
-cd admin/backend && mvn verify        # unit + integration tests (Docker must be running)
-cd admin/backend && mvn test          # unit tests only
+mvn verify                              # all backends: unit + integration tests (Docker must be running)
+mvn test                                # unit tests only
 cd admin/frontend && npx ng test --watch=false
 ```
 
 ## Project layout
 
+Java packages are `com.fieldops.app.*` in `core` and `admin/backend` (same packages, split by role),
+and `com.fieldops.portal.*` in `portal/backend`.
+
 ```
-admin/backend/src/main/java/com/fieldops/app
-├── common        security (JWT, roles), tenant context, RLS transaction manager, errors, rate limit
-├── tenant        companies, plans, settings
-├── auth          signup/login/refresh, staff users
-├── customer      customers + addresses (soft delete)
-├── catalog       services + add-ons (prices in halalas)
-├── scheduling    technicians, work hours, plan limits
-├── booking       ⏭ week 3: bookings + state machine
-├── field         ⏭ week 4: technician PWA, photos
-├── notification  ⏭ week 5: WhatsApp / SMS
-├── billing       ⏭ week 6: quotes, invoices, PDF
-└── reporting     ⏭ week 7
-backend/src/main/resources/db/migration   Flyway SQL
-frontend/src/app
+core/src/main/java/com/fieldops/app            domain shared by both apps
+├── common          tenant context, RLS transaction manager, storage, errors, current user
+├── tenant          companies, plans, plan features, settings
+├── auth            staff users and account rules
+├── customer        customers + addresses (soft delete)
+├── catalog         services + add-ons (prices in halalas)
+├── scheduling      technicians, work hours, availability, plan limits
+├── booking         bookings, pricing, state machine, history, calendar
+├── field           technician visits, photos
+├── notification    WhatsApp / SMS outbox, templates, dispatcher
+├── billing         quotes, invoices, payments, PDF, ZATCA QR
+├── publicpage      booking page, one-time codes
+├── reporting       reports
+└── customerportal  what a customer may do in the portal (book, cancel, sign in)
+admin/backend/src/main/java/com/fieldops/app   controllers, staff sign-in (JWT + refresh), security, jobs
+admin/backend/src/main/resources/db/migration  Flyway SQL (the only schema owner)
+portal/backend/src/main/java/com/fieldops/portal  controllers, customer tokens, read models (SQL)
+admin/frontend/src/app
 ├── core          auth (service, interceptor, guards), i18n/RTL, API types, errors
 ├── layout        app shell (sidebar, top bar)
-├── features      auth, dashboard, customers, services, technicians, users, settings
-└── shared        SAR/phone formatting
-frontend/public/i18n   ar.json, en.json
+├── features      bookings, calendar, customers, services, technicians, billing, reports, settings…
+└── shared        SAR/phone/date formatting
+portal/frontend/src/app                        customer portal (shell, login, home, visits, booking, invoices)
 ```
 
 ## Key design decisions

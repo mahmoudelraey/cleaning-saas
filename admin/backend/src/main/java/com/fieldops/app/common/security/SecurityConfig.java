@@ -13,8 +13,6 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.factory.PasswordEncoderFactories;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
@@ -50,8 +48,6 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/public/**").permitAll()
                         // Provider callbacks authenticate with their own signatures, not user tokens.
                         .requestMatchers("/api/v1/webhooks/**").permitAll()
-                        // Server-to-server, guarded by InternalTokenFilter (shared secret), not by user tokens.
-                        .requestMatchers("/internal/**").permitAll()
                         .requestMatchers("/api/v1/plans").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/geo/**").permitAll()
                         .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
@@ -98,11 +94,6 @@ public class SecurityConfig {
     @Bean
     JwtDecoder jwtDecoder(JwtService jwtService) {
         return jwtService.decoder();
-    }
-
-    @Bean
-    PasswordEncoder passwordEncoder() {
-        return PasswordEncoderFactories.createDelegatingPasswordEncoder();
     }
 
     @Bean

@@ -35,8 +35,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "app.storage.local-dir=${java.io.tmpdir}/fieldops-test-uploads",
         "app.jobs.enabled=false",
         "app.notifications.whatsapp.app-secret=test-webhook-secret",
-        "app.otp.expose-code=true",
-        "app.portal.internal-token=test-internal-token"
+        "app.otp.expose-code=true"
 })
 @AutoConfigureMockMvc
 public abstract class IntegrationTest {

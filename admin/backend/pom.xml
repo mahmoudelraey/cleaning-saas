@@ -5,57 +5,31 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.5.6</version>
-        <relativePath/>
+        <groupId>com.fieldops</groupId>
+        <artifactId>fieldops-parent</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <groupId>com.fieldops</groupId>
     <artifactId>fieldops-backend</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
     <name>fieldops-backend</name>
-    <description>Multi-tenant SaaS for small cleaning and maintenance companies</description>
-
-    <properties>
-        <java.version>21</java.version>
-        <springdoc.version>2.8.9</springdoc.version>
-        <aws-sdk.version>2.28.0</aws-sdk.version>
-        <shedlock.version>5.16.0</shedlock.version>
-        <openpdf.version>2.0.3</openpdf.version>
-        <zxing.version>3.5.3</zxing.version>
-    </properties>
-
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>software.amazon.awssdk</groupId>
-                <artifactId>bom</artifactId>
-                <version>${aws-sdk.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
+    <description>Admin API for cleaning and maintenance companies. Owns the database schema (Flyway) and runs the background jobs.</description>
 
     <dependencies>
+        <!-- Shared domain (entities, repositories, services) used by this app and the customer portal. -->
+        <dependency>
+            <groupId>com.fieldops</groupId>
+            <artifactId>fieldops-core</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-validation</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-jpa</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
-        <!-- JWT encode/decode via Nimbus (HS256), managed by Boot -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
@@ -95,25 +69,6 @@
             <groupId>net.javacrumbs.shedlock</groupId>
             <artifactId>shedlock-provider-jdbc-template</artifactId>
             <version>${shedlock.version}</version>
-        </dependency>
-
-        <!-- Arabic PDF invoices/quotes (RTL shaping with an embedded IBM Plex Sans Arabic font) -->
-        <dependency>
-            <groupId>com.github.librepdf</groupId>
-            <artifactId>openpdf</artifactId>
-            <version>${openpdf.version}</version>
-        </dependency>
-        <!-- ZATCA QR code on simplified tax invoices -->
-        <dependency>
-            <groupId>com.google.zxing</groupId>
-            <artifactId>core</artifactId>
-            <version>${zxing.version}</version>
-        </dependency>
-
-        <!-- S3-compatible object storage (used only when app.storage.type=s3) -->
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>s3</artifactId>
         </dependency>
 
         <dependency>

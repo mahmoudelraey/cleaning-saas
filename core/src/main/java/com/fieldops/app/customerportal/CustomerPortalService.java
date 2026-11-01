@@ -1,4 +1,4 @@
-package com.fieldops.app.portalapi;
+package com.fieldops.app.customerportal;
 
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -37,9 +37,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
-/** Business operations the customer portal is allowed to perform, always for one tenant and one customer. */
+/**
+ * Everything a company's customer may do in the customer portal, always for one company and one
+ * customer. Used by portal/backend; built on the same services as the admin app, so pricing,
+ * availability, the booking state machine, history and customer messages behave identically.
+ */
 @Service
-public class PortalApiService {
+public class CustomerPortalService {
 
     /** Customers can cancel online until this long before the visit. */
     public static final Duration CANCEL_NOTICE = Duration.ofHours(6);
@@ -58,7 +62,7 @@ public class PortalApiService {
     private final TransactionTemplate tx;
     private final Clock clock;
 
-    public PortalApiService(TenantService tenants, OtpService otp, CustomerService customers,
+    public CustomerPortalService(TenantService tenants, OtpService otp, CustomerService customers,
                             CustomerRepository customerRepo, CatalogService catalog, BookingPricing pricing,
                             CalendarService calendar, BookingService bookings, BillingService billing,
                             InvoiceRepository invoices, TransactionTemplate tx, Clock clock) {

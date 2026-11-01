@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.UUID;
 
 import com.fieldops.portal.config.PortalProperties;
-import com.fieldops.portal.web.ApiException;
+import com.fieldops.app.common.web.ApiException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -18,8 +18,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class CustomerTokenServiceTest {
 
     private static PortalProperties props(String secret) {
-        return new PortalProperties(new PortalProperties.Db("fieldops_app"),
-                new PortalProperties.Admin("http://admin", "x", "http://admin"),
+        return new PortalProperties("http://admin",
                 new PortalProperties.Security(new PortalProperties.Jwt(secret, "fieldops-portal", Duration.ofDays(30)),
                         List.of("http://localhost:4300")),
                 new PortalProperties.RateLimit(10));

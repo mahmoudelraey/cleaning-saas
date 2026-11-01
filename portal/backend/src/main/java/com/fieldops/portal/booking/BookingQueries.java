@@ -11,7 +11,7 @@ import java.util.UUID;
 
 import com.fieldops.portal.db.TenantJdbc;
 import com.fieldops.portal.security.CurrentCustomer;
-import com.fieldops.portal.web.ApiException;
+import com.fieldops.app.common.web.ApiException;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
 

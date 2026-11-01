@@ -5,14 +5,8 @@ import java.util.List;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-@ConfigurationProperties(prefix = "app")
-public record PortalProperties(Db db, Admin admin, Security security, RateLimit rateLimit) {
-
-    public record Db(String rlsRole) {
-    }
-
-    public record Admin(String baseUrl, String internalToken, String publicUrl) {
-    }
+@ConfigurationProperties(prefix = "portal")
+public record PortalProperties(String adminPublicUrl, Security security, RateLimit rateLimit) {
 
     public record Security(Jwt jwt, List<String> corsOrigins) {
     }

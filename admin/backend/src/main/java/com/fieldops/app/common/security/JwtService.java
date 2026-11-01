@@ -24,8 +24,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class JwtService {
 
-    public static final String ROLE_CLAIM = "role";
-    public static final String NAME_CLAIM = "name";
+    public static final String ROLE_CLAIM = CurrentUser.ROLE_CLAIM;
+    public static final String NAME_CLAIM = CurrentUser.NAME_CLAIM;
     /** Present (true) only while the user must replace a temporary password; see PasswordChangeFilter. */
     public static final String PASSWORD_CHANGE_CLAIM = "pwd_change";
 

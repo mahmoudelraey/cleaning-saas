@@ -23,7 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
  * every session of that user is revoked.
  */
 @Service
-public class RefreshTokenService {
+public class RefreshTokenService implements UserSessions {
 
     private static final Logger log = LoggerFactory.getLogger(RefreshTokenService.class);
     private static final SecureRandom RANDOM = new SecureRandom();
@@ -83,6 +83,7 @@ public class RefreshTokenService {
     }
 
     @Transactional
+    @Override
     public void revokeAll(UUID userId) {
         repo.revokeAllForUser(userId, Instant.now(clock));
     }

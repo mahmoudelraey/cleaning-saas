@@ -2,7 +2,6 @@ package com.fieldops.app.auth;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -29,14 +28,16 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokens;
+    private final AccountRules rules;
     private final Clock clock;
     /** Compared against when the user does not exist, so response time does not reveal valid accounts. */
     private final String dummyHash;
 
     public AuthService(UserRepository users, TenantRepository tenants, TenantService tenantService,
                        PasswordEncoder passwordEncoder, JwtService jwtService,
-                       RefreshTokenService refreshTokens, Clock clock) {
+                       RefreshTokenService refreshTokens, AccountRules rules, Clock clock) {
         this.users = users;
+        this.rules = rules;
         this.tenants = tenants;
         this.tenantService = tenantService;
         this.passwordEncoder = passwordEncoder;
@@ -61,9 +62,9 @@ public class AuthService {
     @Transactional
     public Tokens signup(String companyName, String slug, String ownerName, String rawPhone, String email,
                          String password) {
-        String phone = normalizePhone(rawPhone);
-        String normalizedEmail = normalizeEmail(email);
-        assertIdentifiersFree(phone, normalizedEmail);
+        String phone = AccountRules.normalizePhone(rawPhone);
+        String normalizedEmail = AccountRules.normalizeEmail(email);
+        rules.assertIdentifiersFree(phone, normalizedEmail);
 
         Tenant tenant = tenantService.createTrialTenant(companyName, slug);
         User owner = users.save(new User(tenant.getId(), ownerName.trim(), phone, normalizedEmail,
@@ -118,21 +119,13 @@ public class AuthService {
         if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
             throw ApiException.badRequest("wrong_password", "Current password is incorrect");
         }
-        assertStrongPassword(newPassword);
+        AccountRules.assertStrongPassword(newPassword);
         if (passwordEncoder.matches(newPassword, user.getPasswordHash())) {
             throw ApiException.badRequest("password_reused", "Choose a password different from the current one");
         }
         user.changeOwnPassword(passwordEncoder.encode(newPassword), Instant.now(clock));
         refreshTokens.revokeAll(user.getId());
         return issueTokens(user);
-    }
-
-    /** At least 8 characters with a letter and a digit (the same rule the UI shows). */
-    static void assertStrongPassword(String password) {
-        if (password == null || password.length() < 8 || password.length() > 100
-                || !password.chars().anyMatch(Character::isLetter) || !password.chars().anyMatch(Character::isDigit)) {
-            throw ApiException.badRequest("weak_password", "Use at least 8 characters including letters and numbers");
-        }
     }
 
     public void logout(String rawRefreshToken) {
@@ -172,23 +165,5 @@ public class AuthService {
             // Allowed to authenticate later for billing; for now block with a clear code the UI can explain.
             throw ApiException.forbidden("subscription_inactive", "Your subscription is not active");
         }
-    }
-
-    void assertIdentifiersFree(String phone, String email) {
-        if (users.existsByPhone(phone)) {
-            throw ApiException.conflict("phone_taken", "This phone number is already registered");
-        }
-        if (email != null && users.existsByEmailIgnoreCase(email)) {
-            throw ApiException.conflict("email_taken", "This email is already registered");
-        }
-    }
-
-    static String normalizePhone(String raw) {
-        return PhoneNumbers.normalizeSaudiMobile(raw)
-                .orElseThrow(() -> ApiException.badRequest("invalid_phone", "Invalid Saudi mobile number"));
-    }
-
-    static String normalizeEmail(String email) {
-        return email == null || email.isBlank() ? null : email.trim().toLowerCase(Locale.ROOT);
     }
 }

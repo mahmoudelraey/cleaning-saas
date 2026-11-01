@@ -2,7 +2,7 @@ package com.fieldops.portal.security;
 
 import java.util.UUID;
 
-import com.fieldops.portal.web.ApiException;
+import com.fieldops.app.common.web.ApiException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;

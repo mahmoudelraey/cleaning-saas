@@ -1,8 +1,10 @@
 # Local development profile: mvn spring-boot:run -Dspring-boot.run.profiles=local
 app:
-  admin:
-    # DEV ONLY: must match admin/backend's application-local.yml (app.portal.internal-token)
-    internal-token: dev-portal-internal-token-change-me
+  otp:
+    # DEV ONLY: the sign-in screen shows the code, since no SMS/WhatsApp is configured locally.
+    expose-code: true
+
+portal:
   security:
     jwt:
       # DEV ONLY. Never use this key outside your machine.

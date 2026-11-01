@@ -1,13 +1,21 @@
 spring:
   application:
     name: fieldops-portal
-  # Same database as the admin app. The admin backend owns the schema (Flyway); the portal never migrates.
+  # Same database as the admin app. The admin app owns the schema (Flyway); the portal only validates it.
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/fieldops}
     username: ${DB_USER:fieldops}
     password: ${DB_PASSWORD:fieldops}
     hikari:
       maximum-pool-size: ${DB_POOL:5}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
   jackson:
     time-zone: UTC
     default-property-inclusion: non_null
@@ -23,17 +31,32 @@ management:
       exposure:
         include: health,info
 
+# Settings read by the shared core module (keep in line with admin/backend's application.yml).
 app:
   db:
-    # Same restricted role as the admin app, so Row Level Security applies to every portal query.
+    # Same restricted role as the admin app, so Row Level Security applies to every portal transaction.
     rls-role: fieldops_app
-  admin:
-    # Internal URL of the admin backend (business commands go there).
-    base-url: ${ADMIN_API_URL:http://localhost:8080}
-    # Must equal the admin backend's app.portal.internal-token.
-    internal-token: ${PORTAL_INTERNAL_TOKEN:}
-    # Public origin of the admin backend, for company logos (served at /api/v1/public/tenants/{slug}/logo).
-    public-url: ${ADMIN_PUBLIC_URL:http://localhost:8080}
+  # Admin app origin: invoice links open its public invoice page.
+  public-base-url: ${PUBLIC_BASE_URL:http://localhost:4200}
+  default-timezone: Asia/Riyadh
+  otp:
+    # Never true in production: returns the sign-in code in the API response.
+    expose-code: false
+  plans:
+    limited-whatsapp-monthly: ${LIMITED_WHATSAPP_MONTHLY:100}
+  storage:
+    type: ${STORAGE_TYPE:local}
+    local-dir: ${STORAGE_LOCAL_DIR:./data/uploads}
+    s3:
+      endpoint: ${S3_ENDPOINT:}
+      region: ${S3_REGION:me-central-1}
+      bucket: ${S3_BUCKET:fieldops}
+      access-key: ${S3_ACCESS_KEY:}
+      secret-key: ${S3_SECRET_KEY:}
+
+portal:
+  # Public origin of the admin backend (company logos are served at /api/v1/public/tenants/{slug}/logo).
+  admin-public-url: ${ADMIN_PUBLIC_URL:http://localhost:8080}
   security:
     jwt:
       # Separate from the admin app's key: customer tokens must never open the admin API.

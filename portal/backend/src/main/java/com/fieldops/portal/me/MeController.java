@@ -10,12 +10,12 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
-import com.fieldops.portal.admin.AdminClient;
-import com.fieldops.portal.admin.AdminDtos;
+import com.fieldops.app.common.web.ApiException;
+import com.fieldops.app.customer.Customer;
+import com.fieldops.app.customerportal.CustomerPortalService;
 import com.fieldops.portal.db.TenantJdbc;
 import com.fieldops.portal.security.CurrentCustomer;
 import com.fieldops.portal.security.CustomerTokenService;
-import com.fieldops.portal.web.ApiException;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -28,12 +28,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class MeController {
 
     private final TenantJdbc db;
-    private final AdminClient admin;
+    private final CustomerPortalService portal;
     private final CustomerTokenService tokens;
 
-    public MeController(TenantJdbc db, AdminClient admin, CustomerTokenService tokens) {
+    public MeController(TenantJdbc db, CustomerPortalService portal, CustomerTokenService tokens) {
         this.db = db;
-        this.admin = admin;
+        this.portal = portal;
         this.tokens = tokens;
     }
 
@@ -64,9 +64,8 @@ public class MeController {
     @PutMapping
     public Profile update(@PathVariable String slug, @Valid @RequestBody ProfileRequest req) {
         CurrentCustomer me = CurrentCustomer.require(slug);
-        AdminDtos.Customer c = admin.put(slug, "/customers/" + me.customerId(), new AdminDtos.ProfileBody(req.name(), req.email()),
-                AdminDtos.Customer.class);
-        CustomerTokenService.Issued t = tokens.issue(me.tenantId(), me.slug(), c.phone(), c.id(), c.name());
+        Customer c = portal.rename(slug, me.customerId(), req.name(), req.email());
+        CustomerTokenService.Issued t = tokens.issue(me.tenantId(), me.slug(), c.getPhone(), c.getId(), c.getName());
         Profile p = me(slug);
         return new Profile(p.id(), p.name(), p.phone(), p.email(), p.addresses(), t.token(), t.expiresAt());
     }
