@@ -37,15 +37,17 @@ export class LandingPage {
   private readonly router = inject(Router);
   protected slug = '';
 
-  /** Accepts the code or a pasted link (…/p/{code}). */
+  /** Accepts the code or a pasted link (https://…/{code}, or an old …/p/{code} link). */
   protected clean(): string {
     const v = this.slug.trim().toLowerCase();
-    const fromLink = v.match(/\/p\/([^/?#]+)/);
-    return (fromLink ? fromLink[1] : v).replace(/[^a-z0-9-]/g, '');
+    const path = v.includes('/') ? v.replace(/^[a-z]+:\/\//, '').replace(/^[^/]*/, '') : v;
+    const segments = path.split(/[?#]/)[0].split('/').filter(Boolean);
+    const code = segments[0] === 'p' ? segments[1] : segments[0];
+    return (code ?? '').replace(/[^a-z0-9-]/g, '');
   }
 
   protected go(): void {
     const s = this.clean();
-    if (s) void this.router.navigate(['/p', s]);
+    if (s) void this.router.navigate(['/', s]);
   }
 }

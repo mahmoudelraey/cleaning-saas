@@ -53,12 +53,18 @@ public enum BookingStatus {
 
     /**
      * Which targets a role may request directly through the status endpoint. ASSIGNED is excluded for
-     * everyone: it is reached only through the assign endpoint, which checks technician availability.
+     * everyone: it is reached only through the assign endpoint, which checks technician availability. Going back
+     * from ASSIGNED to CONFIRMED is likewise only the unassign endpoint.
      */
     public Set<BookingStatus> nextFor(Role role) {
         Set<BookingStatus> result = EnumSet.noneOf(BookingStatus.class);
         for (BookingStatus target : ALLOWED.get(this)) {
             if (target == ASSIGNED) {
+                continue;
+            }
+            // ASSIGNED → CONFIRMED removes the technicians: only through the unassign endpoint ("Remove technician"),
+            // never as a status button, where it read as "Confirm" and silently dropped the assignment.
+            if (this == ASSIGNED && target == CONFIRMED) {
                 continue;
             }
             if (role == Role.TECHNICIAN && !FIELD_STEPS.contains(target)) {

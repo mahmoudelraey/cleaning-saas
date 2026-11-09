@@ -10,10 +10,16 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 
+import com.fieldops.app.catalog.ServiceAddon;
+import com.fieldops.app.catalog.ServiceOffering;
 import com.fieldops.app.common.persistence.TenantScopedEntity;
 
-/** One priced line: a service (quantity = 1, hours or m²) or one of its add-ons. Prices are snapshots. */
+/**
+ * One priced line: a service (quantity = 1, hours or m²) or one of its add-ons. Prices are kept as agreed at
+ * booking time; the name is read from the service / add-on (services are archived, never deleted).
+ */
 @Entity
 @Table(name = "booking_items")
 public class BookingItem extends TenantScopedEntity {
@@ -28,8 +34,19 @@ public class BookingItem extends TenantScopedEntity {
     @Column(name = "addon_id")
     private UUID addonId;
 
-    @Column(nullable = false)
-    private String description;
+    /** Read-only; {@link #serviceId} is the column that is written. */
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "service_id", insertable = false, updatable = false)
+    private ServiceOffering service;
+
+    /** Read-only; {@link #addonId} is the column that is written. */
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "addon_id", insertable = false, updatable = false)
+    private ServiceAddon addon;
+
+    /** The name given when the item was priced in this session (before the service row is loaded with it). */
+    @Transient
+    private String pendingDescription;
 
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal quantity;
@@ -49,7 +66,7 @@ public class BookingItem extends TenantScopedEntity {
     public BookingItem(UUID serviceId, UUID addonId, String description, BigDecimal quantity, long unitPriceHalalas) {
         this.serviceId = serviceId;
         this.addonId = addonId;
-        this.description = description;
+        this.pendingDescription = description;
         this.quantity = quantity.setScale(2, RoundingMode.HALF_UP);
         this.unitPriceHalalas = unitPriceHalalas;
         // Round half-up to the nearest halala, the way a cashier would.
@@ -70,8 +87,24 @@ public class BookingItem extends TenantScopedEntity {
         return addonId;
     }
 
+    /** "Apartment cleaning" or "Apartment cleaning — Fridge", in Arabic (the main name). */
     public String getDescription() {
-        return description;
+        if (service == null) {
+            return pendingDescription;
+        }
+        return addon == null ? service.getName() : service.getName() + " — " + addon.getName();
+    }
+
+    /** The same in English, or null when the service (or add-on) has no English name. */
+    public String getDescriptionEn() {
+        if (service == null || service.getNameEn() == null || service.getNameEn().isBlank()) {
+            return null;
+        }
+        if (addon == null) {
+            return service.getNameEn();
+        }
+        return addon.getNameEn() == null || addon.getNameEn().isBlank() ? null
+                : service.getNameEn() + " — " + addon.getNameEn();
     }
 
     public BigDecimal getQuantity() {

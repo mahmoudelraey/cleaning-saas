@@ -30,6 +30,9 @@ import com.fieldops.app.customer.CustomerRepository;
 import com.fieldops.app.customer.CustomerService;
 import com.fieldops.app.publicpage.OtpService;
 import com.fieldops.app.scheduling.SchedulingService;
+import com.fieldops.app.contact.ContactMessage;
+import com.fieldops.app.contact.ContactService;
+import com.fieldops.app.review.ReviewService;
 import com.fieldops.app.tenant.PlanFeature;
 import com.fieldops.app.tenant.Tenant;
 import com.fieldops.app.tenant.TenantService;
@@ -61,11 +64,14 @@ public class CustomerPortalService {
     private final InvoiceRepository invoices;
     private final TransactionTemplate tx;
     private final Clock clock;
+    private final ReviewService reviews;
+    private final ContactService contacts;
 
     public CustomerPortalService(TenantService tenants, OtpService otp, CustomerService customers,
                             CustomerRepository customerRepo, CatalogService catalog, BookingPricing pricing,
                             CalendarService calendar, BookingService bookings, BillingService billing,
-                            InvoiceRepository invoices, TransactionTemplate tx, Clock clock) {
+                            InvoiceRepository invoices, TransactionTemplate tx, Clock clock,
+                            ReviewService reviews, ContactService contacts) {
         this.tenants = tenants;
         this.otp = otp;
         this.customers = customers;
@@ -78,6 +84,8 @@ public class CustomerPortalService {
         this.invoices = invoices;
         this.tx = tx;
         this.clock = clock;
+        this.reviews = reviews;
+        this.contacts = contacts;
     }
 
     public record Identity(String phone, UUID customerId, String customerName) {
@@ -205,6 +213,18 @@ public class CustomerPortalService {
     public Booking cancel(String slug, UUID customerId, UUID bookingId, String reason) {
         Tenant t = company(slug);
         return as(t, () -> bookings.cancelByCustomer(bookingId, customerId, cut(reason, 500), CANCEL_NOTICE));
+    }
+
+    /** A "Contact us" message to the company; {@code customerId} is set when a signed-in customer sends it. */
+    public ContactMessage contact(String slug, ContactService.NewMessage m) {
+        Tenant t = company(slug);
+        return as(t, () -> contacts.submit(m));
+    }
+
+    /** The customer rates their own completed visit (1-5 stars, optional comment). */
+    public void rate(String slug, UUID customerId, UUID bookingId, int rating, String comment) {
+        Tenant t = company(slug);
+        as(t, () -> reviews.rate(customerId, bookingId, rating, cut(comment, 1000)));
     }
 
     /** Share link of the customer's own invoice (opens the existing public invoice page). */

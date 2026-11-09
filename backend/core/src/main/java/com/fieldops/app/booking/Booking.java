@@ -11,9 +11,13 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 
 import com.fieldops.app.common.persistence.TenantScopedEntity;
 import com.fieldops.app.common.web.ApiException;
@@ -21,8 +25,9 @@ import org.hibernate.annotations.BatchSize;
 import org.springframework.http.HttpStatus;
 
 /**
- * A requested visit. Customer and address are stored as snapshots so history (and later invoices)
- * stays correct when the customer record is edited or deleted.
+ * A requested visit. The customer and address are read through {@code customer_id} / {@code address_id}
+ * (customers and addresses are archived, never deleted, so old bookings always resolve). Prices are kept on
+ * the items. The invoice takes its own copy of the customer when it is issued.
  */
 @Entity
 @Table(name = "bookings")
@@ -34,26 +39,31 @@ public class Booking extends TenantScopedEntity {
     @Column(name = "customer_id", nullable = false)
     private UUID customerId;
 
-    @Column(name = "customer_name", nullable = false)
-    private String customerName;
-
-    @Column(name = "customer_phone", nullable = false)
-    private String customerPhone;
+    /** Read-only; {@link #customerId} is the column that is written. */
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "customer_id", insertable = false, updatable = false)
+    private CustomerRef customer;
 
     @Column(name = "address_id")
     private UUID addressId;
 
-    @Column(name = "address_text")
-    private String addressText;
+    /** Read-only; {@link #addressId} is the column that is written. */
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "address_id", insertable = false, updatable = false)
+    private AddressRef address;
 
-    @Column(name = "address_lat", precision = 9, scale = 6)
-    private BigDecimal addressLat;
+    /*
+     * Set when the customer / address is chosen in this session: the linked rows above are only (re)loaded with
+     * the booking, so until then the getters answer from these.
+     */
+    @Transient
+    private Pending pendingCustomer;
 
-    @Column(name = "address_lng", precision = 9, scale = 6)
-    private BigDecimal addressLng;
+    @Transient
+    private Pending pendingAddress;
 
-    @Column(name = "address_map_url")
-    private String addressMapUrl;
+    private record Pending(String a, String b, BigDecimal lat, BigDecimal lng, String mapUrl) {
+    }
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -119,18 +129,16 @@ public class Booking extends TenantScopedEntity {
         this.status = initialStatus;
     }
 
+    /** Links the customer; name and phone are given only so this booking can show them before it is reloaded. */
     public void setCustomer(UUID customerId, String name, String phone) {
         this.customerId = customerId;
-        this.customerName = name;
-        this.customerPhone = phone;
+        this.pendingCustomer = new Pending(name, phone, null, null, null);
     }
 
+    /** Links the address (null = none); the other values are only shown until the booking is reloaded. */
     public void setAddress(UUID addressId, String text, BigDecimal lat, BigDecimal lng, String mapUrl) {
         this.addressId = addressId;
-        this.addressText = text;
-        this.addressLat = lat;
-        this.addressLng = lng;
-        this.addressMapUrl = mapUrl;
+        this.pendingAddress = new Pending(text, null, lat, lng, mapUrl);
     }
 
     public void schedule(Instant start, Instant end) {
@@ -237,11 +245,12 @@ public class Booking extends TenantScopedEntity {
     }
 
     public String navigationUrl() {
-        if (addressLat != null && addressLng != null) {
-            return "https://www.google.com/maps/search/?api=1&query=" + addressLat.toPlainString() + ","
-                    + addressLng.toPlainString();
+        BigDecimal lat = getAddressLat();
+        BigDecimal lng = getAddressLng();
+        if (lat != null && lng != null) {
+            return "https://www.google.com/maps/search/?api=1&query=" + lat.toPlainString() + "," + lng.toPlainString();
         }
-        return addressMapUrl;
+        return getAddressMapUrl();
     }
 
     public long getNumber() {
@@ -253,11 +262,17 @@ public class Booking extends TenantScopedEntity {
     }
 
     public String getCustomerName() {
-        return customerName;
+        if (pendingCustomer != null) {
+            return pendingCustomer.a();
+        }
+        return customer == null ? null : customer.getName();
     }
 
     public String getCustomerPhone() {
-        return customerPhone;
+        if (pendingCustomer != null) {
+            return pendingCustomer.b();
+        }
+        return customer == null ? null : customer.getPhone();
     }
 
     public UUID getAddressId() {
@@ -265,19 +280,31 @@ public class Booking extends TenantScopedEntity {
     }
 
     public String getAddressText() {
-        return addressText;
+        if (pendingAddress != null) {
+            return pendingAddress.a();
+        }
+        return address == null ? null : address.text();
     }
 
     public BigDecimal getAddressLat() {
-        return addressLat;
+        if (pendingAddress != null) {
+            return pendingAddress.lat();
+        }
+        return address == null ? null : address.getLat();
     }
 
     public BigDecimal getAddressLng() {
-        return addressLng;
+        if (pendingAddress != null) {
+            return pendingAddress.lng();
+        }
+        return address == null ? null : address.getLng();
     }
 
     public String getAddressMapUrl() {
-        return addressMapUrl;
+        if (pendingAddress != null) {
+            return pendingAddress.mapUrl();
+        }
+        return address == null ? null : address.getMapUrl();
     }
 
     public BookingStatus getStatus() {

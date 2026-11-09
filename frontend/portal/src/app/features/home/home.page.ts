@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { forkJoin } from 'rxjs';
@@ -6,13 +6,15 @@ import { forkJoin } from 'rxjs';
 import { BookingSummary } from '../../core/api.types';
 import { CompanyStore } from '../../core/company.store';
 import { LocalDatePipe, SarPipe } from '../../core/format';
+import { liveRefresh } from '../../core/live-refresh';
 import { PortalApi } from '../../core/portal.api';
 import { SessionService } from '../../core/session.service';
+import { VisitServicesPipe } from '../../core/service-names';
 import { StatusRail } from '../../shared/status-rail';
 
 @Component({
   selector: 'pt-home',
-  imports: [RouterLink, TranslatePipe, LocalDatePipe, SarPipe, StatusRail],
+  imports: [RouterLink, TranslatePipe, LocalDatePipe, SarPipe, StatusRail, VisitServicesPipe],
   styles: `
     .hello { font-size: 1.05rem; color: var(--ink-2); margin: 4px 0 14px; }
     .hello strong { color: var(--ink); }
@@ -55,12 +57,12 @@ import { StatusRail } from '../../shared/status-rail';
         <div class="spinner"><i class="pi pi-spin pi-spinner"></i></div>
       } @else {
         @if (next(); as b) {
-          <a class="ticket" [routerLink]="['/p', slug(), 'bookings', b.id]">
+          <a class="ticket" [routerLink]="['/', slug(), 'bookings', b.id]">
             <div class="top">
               <div class="eyebrow">{{ (isToday(b) ? 'home.today' : 'home.nextVisit') | translate }}</div>
               <div class="day">{{ b.scheduledStart | ldate: 'day' }}</div>
               <div class="time tnum">{{ b.scheduledStart | ldate: 'time' }}</div>
-              <div class="svc">{{ b.services.join('، ') }}</div>
+              <div class="svc">{{ b | visitServices }}</div>
             </div>
             <div class="cut" aria-hidden="true"></div>
             <div class="bottom">
@@ -72,7 +74,7 @@ import { StatusRail } from '../../shared/status-rail';
           </a>
           @if (upcoming().length > 1) {
             <div class="more">
-              <a [routerLink]="['/p', slug(), 'bookings']">{{ (upcoming().length === 2 ? 'home.moreUpcomingOne' : 'home.moreUpcoming') | translate: { n: upcoming().length - 1 } }}</a>
+              <a [routerLink]="['/', slug(), 'bookings']">{{ (upcoming().length === 2 ? 'home.moreUpcomingOne' : 'home.moreUpcoming') | translate: { n: upcoming().length - 1 } }}</a>
             </div>
           }
         } @else {
@@ -81,14 +83,14 @@ import { StatusRail } from '../../shared/status-rail';
             <h2 style="font-size:1.15rem; margin-top:10px">{{ 'home.noVisits' | translate }}</h2>
             <p>{{ 'home.noVisitsHint' | translate }}</p>
             @if (store.company()?.bookingOpen) {
-              <a class="btn btn-primary" [routerLink]="['/p', slug(), 'book']"><i class="pi pi-plus"></i>{{ 'home.book' | translate }}</a>
+              <a class="btn btn-primary" [routerLink]="['/', slug(), 'book']"><i class="pi pi-plus"></i>{{ 'home.book' | translate }}</a>
             }
           </div>
         }
 
         <div class="actions">
           @if (store.company()?.bookingOpen && next()) {
-            <a class="btn btn-primary" [routerLink]="['/p', slug(), 'book']"><i class="pi pi-plus"></i>{{ 'home.bookAnother' | translate }}</a>
+            <a class="btn btn-primary" [routerLink]="['/', slug(), 'book']"><i class="pi pi-plus"></i>{{ 'home.bookAnother' | translate }}</a>
           }
           @if (store.company()?.phone; as phone) {
             <a class="btn btn-quiet" [href]="'tel:' + phone"><i class="pi pi-phone"></i>{{ 'home.call' | translate }}</a>
@@ -99,10 +101,10 @@ import { StatusRail } from '../../shared/status-rail';
           <h2 class="section-title">{{ 'home.recent' | translate }}</h2>
           <div class="rows">
             @for (b of past(); track b.id) {
-              <a class="row" [routerLink]="['/p', slug(), 'bookings', b.id]">
+              <a class="row" [routerLink]="['/', slug(), 'bookings', b.id]">
                 <span class="when"><b class="tnum">{{ b.scheduledStart | ldate: 'dayNum' }}</b><small>{{ b.scheduledStart | ldate: 'month' }}</small></span>
                 <span class="txt">
-                  <div>{{ b.services.join('، ') || ('#' + b.number) }}</div>
+                  <div>{{ (b | visitServices) || ('#' + b.number) }}</div>
                   <small class="ltr">{{ b.subtotalHalalas | sar }}</small>
                 </span>
                 <span class="status" [class]="'status s-' + b.status">{{ 'status.' + b.status | translate }}</span>
@@ -118,6 +120,7 @@ export class HomePage implements OnInit {
   protected readonly store = inject(CompanyStore);
   private readonly api = inject(PortalApi);
   private readonly sessions = inject(SessionService);
+  private readonly destroyRef = inject(DestroyRef);
 
   protected readonly slug = this.store.slug;
   protected readonly loading = signal(true);
@@ -127,6 +130,11 @@ export class HomePage implements OnInit {
   protected readonly firstName = computed(() => (this.sessions.get(this.slug())?.name ?? '').trim().split(/\s+/)[0]);
 
   ngOnInit(): void {
+    this.load();
+    liveRefresh(this.destroyRef, () => this.load());
+  }
+
+  private load(): void {
     forkJoin({ up: this.api.bookings(this.slug(), 'upcoming'), past: this.api.bookings(this.slug(), 'past') }).subscribe({
       next: ({ up, past }) => {
         this.upcoming.set(up);

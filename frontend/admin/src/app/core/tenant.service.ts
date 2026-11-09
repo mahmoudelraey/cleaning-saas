@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, finalize, of, shareReplay, tap } from 'rxjs';
 
-import { TenantInfo } from './api.types';
+import { GoogleCandidate, PublicPage, TenantInfo } from './api.types';
 import { PlanFeatureKey } from './plan-features';
 import { portalUrl } from './portal';
 
@@ -77,6 +77,37 @@ export class TenantService {
 
   update(body: TenantUpdate): Observable<TenantInfo> {
     return this.http.put<TenantInfo>('/api/v1/tenant', body).pipe(tap((t) => this.tenant.set(t)));
+  }
+
+  searchGoogle(q: string, lang: string): Observable<GoogleCandidate[]> {
+    return this.http.get<GoogleCandidate[]>('/api/v1/tenant/google/search', { params: { q, lang } });
+  }
+
+  /** Connect a Google Maps listing, or disconnect with null. */
+  connectGoogle(placeId: string | null, name: string | null): Observable<TenantInfo> {
+    return this.http.put<TenantInfo>('/api/v1/tenant/google', { placeId, name }).pipe(tap((t) => this.tenant.set(t)));
+  }
+
+  /** Mobile, WhatsApp and social accounts shown to customers. */
+  updateContact(c: {
+    phone: string | null;
+    whatsapp: string | null;
+    facebook: string | null;
+    instagram: string | null;
+    tiktok: string | null;
+    snapchat: string | null;
+    x: string | null;
+  }): Observable<TenantInfo> {
+    return this.http.put<TenantInfo>('/api/v1/tenant/contact', c).pipe(tap((t) => this.tenant.set(t)));
+  }
+
+  updatePublicPage(page: PublicPage): Observable<TenantInfo> {
+    return this.http.put<TenantInfo>('/api/v1/tenant/public-page', page).pipe(tap((t) => this.tenant.set(t)));
+  }
+
+  /** Changes the company link (portal and booking page). Links shared before stop working. */
+  changeSlug(slug: string): Observable<TenantInfo> {
+    return this.http.put<TenantInfo>('/api/v1/tenant/slug', { slug }).pipe(tap((t) => this.tenant.set(t)));
   }
 
   updateBookingPage(enabled: boolean, note: string | null): Observable<TenantInfo> {

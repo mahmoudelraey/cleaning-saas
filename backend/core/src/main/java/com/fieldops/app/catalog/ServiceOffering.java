@@ -24,6 +24,13 @@ public class ServiceOffering extends TenantScopedEntity {
 
     private String description;
 
+    /** English name; {@code name} is the Arabic (main) one. */
+    @Column(name = "name_en")
+    private String nameEn;
+
+    @Column(name = "description_en")
+    private String descriptionEn;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "pricing_type", nullable = false)
     private PricingType pricingType;
@@ -79,6 +86,20 @@ public class ServiceOffering extends TenantScopedEntity {
 
     public String getDescription() {
         return description;
+    }
+
+    public String getNameEn() {
+        return nameEn;
+    }
+
+    public String getDescriptionEn() {
+        return descriptionEn;
+    }
+
+    /** English name and description (null = same as the Arabic). */
+    public void setEnglish(String nameEn, String descriptionEn) {
+        this.nameEn = nameEn;
+        this.descriptionEn = descriptionEn;
     }
 
     public PricingType getPricingType() {

@@ -1,6 +1,6 @@
 import { Component, OnDestroy, OnInit, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 
 import { CompanyStore } from '../../core/company.store';
@@ -14,9 +14,11 @@ type Step = 'phone' | 'code' | 'name';
 /** Mobile + one-time code (WhatsApp, SMS fallback). First-time customers then give their name. */
 @Component({
   selector: 'pt-login',
-  imports: [FormsModule, TranslatePipe],
+  imports: [FormsModule, RouterLink, TranslatePipe],
   styles: `
-    .wrap { max-width: 420px; margin: 0 auto; padding: 8vh 16px 40px; }
+    .wrap { max-width: 460px; margin: clamp(24px, 6vh, 64px) auto 0; padding: 32px 28px 28px; background: var(--surface);
+            border-radius: 28px; box-shadow: 0 24px 50px -32px rgba(15, 42, 61, .45); }
+    @media (max-width: 520px) { .wrap { margin: 16px 12px 0; padding: 24px 18px; } }
     h1 { font-size: 1.7rem; font-weight: 700; margin-bottom: 8px; }
     .lead { color: var(--ink-2); margin: 0 0 28px; }
     .phone { display: flex; align-items: stretch; direction: ltr; }
@@ -28,6 +30,7 @@ type Step = 'phone' | 'code' | 'name';
     .sent strong { color: var(--ink); }
     .meta { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; font-size: .9rem; }
     .err { color: var(--rose); font-size: .9rem; margin: -6px 0 14px; }
+    .switch { text-align: center; margin-top: 22px; color: var(--ink-2); font-size: .95rem; }
     .dev { background: var(--sun-soft); color: #8a5a07; padding: 8px 12px; border-radius: var(--r-sm); font-size: .85rem; margin-bottom: 14px; }
   `,
   template: `
@@ -48,6 +51,9 @@ type Step = 'phone' | 'code' | 'name';
             @if (error()) { <p class="err">{{ error() }}</p> }
             <button class="btn btn-primary btn-block" [disabled]="busy()">{{ 'login.sendCode' | translate }}</button>
           </form>
+          <p class="switch">{{ 'login.newHere' | translate }}
+            <a [routerLink]="['/', store.slug(), 'register']" [queryParams]="next() ? { next: next() } : {}">{{ 'register.title' | translate }}</a>
+          </p>
         }
         @case ('code') {
           <h1>{{ 'login.codeTitle' | translate }}</h1>
@@ -187,7 +193,10 @@ export class LoginPage implements OnInit, OnDestroy {
   private done(): void {
     const next = this.next();
     // Only same-portal paths, never an outside URL.
-    const safe = next && next.startsWith(`/p/${this.slug}`) && !next.includes('/login') ? next : `/p/${this.slug}`;
+    const home = `/${this.slug}/home`;
+    const portal = `/${this.slug}`;
+    const samePortal = !!next && (next === portal || next.startsWith(`${portal}/`) || next.startsWith(`${portal}?`));
+    const safe = samePortal && !next.includes('/login') ? next : home;
     void this.router.navigateByUrl(safe, { replaceUrl: true });
   }
 

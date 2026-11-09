@@ -38,4 +38,17 @@ public record CurrentCustomer(UUID tenantId, String slug, UUID customerId, Strin
     public static CurrentCustomer require(String pathSlug) {
         return require(pathSlug, true);
     }
+
+    /** The signed-in customer of this company, or null for a visitor (public endpoints that accept both). */
+    public static CurrentCustomer optional(String pathSlug) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (!(auth instanceof JwtAuthenticationToken)) {
+            return null;
+        }
+        try {
+            return require(pathSlug, false);
+        } catch (ApiException e) {
+            return null; // signed in with another company: treat as a visitor here
+        }
+    }
 }

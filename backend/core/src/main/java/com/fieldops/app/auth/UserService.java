@@ -2,11 +2,14 @@ package com.fieldops.app.auth;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import com.fieldops.app.common.security.CurrentUser;
 import com.fieldops.app.common.security.Role;
+import com.fieldops.app.common.security.Screen;
 import com.fieldops.app.common.tenant.TenantContext;
 import com.fieldops.app.common.web.ApiException;
 import org.springframework.beans.factory.ObjectProvider;
@@ -74,6 +77,16 @@ public class UserService {
         user.update(name.trim(), normalizedEmail, role, active);
         if (!active) {
             sessions.ifAvailable(x -> x.revokeAll(user.getId()));
+        }
+        return user;
+    }
+
+    /** The admin screens a coordinator may open. Takes effect at their next token refresh (within 15 minutes). */
+    @Transactional
+    public User setScreens(UUID id, Set<Screen> screens) {
+        User user = get(id);
+        if (user.getRole() == Role.COORDINATOR) {
+            user.setScreens(screens == null || screens.isEmpty() ? EnumSet.noneOf(Screen.class) : EnumSet.copyOf(screens));
         }
         return user;
     }

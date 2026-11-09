@@ -6,12 +6,15 @@ import java.util.List;
 import java.util.UUID;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import com.fieldops.app.common.util.PhoneNumbers;
 import com.fieldops.app.common.util.SaudiMobile;
+import com.fieldops.app.google.GooglePlacesClient;
 import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -25,6 +28,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -33,10 +37,16 @@ public class TenantController {
 
     private final TenantService service;
     private final TenantLogoService logos;
+    private final GooglePlacesClient google;
 
-    public TenantController(TenantService service, TenantLogoService logos) {
+    public TenantController(TenantService service, TenantLogoService logos, GooglePlacesClient google) {
         this.service = service;
         this.logos = logos;
+        this.google = google;
+    }
+
+    private TenantDto dto(Tenant t) {
+        return TenantDto.of(t, service.planOf(t), google.configured());
     }
 
     /** Public: used by the pricing page. */
@@ -48,25 +58,97 @@ public class TenantController {
     @GetMapping("/tenant")
     public TenantDto current() {
         Tenant t = service.current();
-        return TenantDto.of(t, service.planOf(t));
+        return dto(t);
     }
 
     @PutMapping("/tenant")
     @PreAuthorize("hasRole('OWNER')")
     public TenantDto update(@Valid @RequestBody UpdateTenantRequest req) {
-        String phone = req.phone() == null || req.phone().isBlank()
-                ? null : PhoneNumbers.normalizeSaudiMobile(req.phone()).orElseThrow();
+        // The mobile number is edited with the contact details; this form leaves it as is unless it sends one.
+        String phone = req.phone() == null ? service.current().getPhone()
+                : req.phone().isBlank() ? null : PhoneNumbers.normalizeSaudiMobile(req.phone()).orElseThrow();
         Tenant t = service.updateCurrent(new TenantService.ProfileUpdate(req.name(), phone,
                 blankToNull(req.vatNumber()), blankToNull(req.address()), blankToNull(req.commercialRegistration()),
                 Boolean.TRUE.equals(req.pricesIncludeVat()), req.autoInvoice()));
-        return TenantDto.of(t, service.planOf(t));
+        return dto(t);
+    }
+
+    /** Changes the company link used by the customer portal and the booking page. */
+    @PutMapping("/tenant/slug")
+    @PreAuthorize("hasRole('OWNER')")
+    public TenantDto changeSlug(@Valid @RequestBody ChangeSlugRequest req) {
+        Tenant t = service.changeSlug(req.slug());
+        return dto(t);
+    }
+
+    public record ChangeSlugRequest(@NotBlank @Size(max = 40) String slug) {
+    }
+
+    /** Content of the company's public page in the customer portal. Empty fields hide their section. */
+    @PutMapping("/tenant/public-page")
+    @PreAuthorize("hasRole('OWNER')")
+    public TenantDto updatePublicPage(@Valid @RequestBody PublicPageRequest req) {
+        Tenant t = service.updatePublicPage(new PublicPage(req.headline(), req.about(), req.areas(), req.hours(),
+                null, null, null, null, null, req.foundedYear(), req.teamSize(), req.promises(), null));
+        return dto(t);
+    }
+
+    /** Mobile number, WhatsApp and social accounts shown to customers (portal header, footer, Contact us). */
+    @PutMapping("/tenant/contact")
+    @PreAuthorize("hasRole('OWNER')")
+    public TenantDto updateContact(@Valid @RequestBody ContactRequest req) {
+        Tenant t = service.updateContact(new TenantService.ContactDetails(mobile(req.phone()), mobile(req.whatsapp()),
+                req.facebook(), req.instagram(), req.tiktok(), req.snapchat(), req.x()));
+        return dto(t);
+    }
+
+    public record ContactRequest(@SaudiMobile String phone, @SaudiMobile String whatsapp, @Size(max = 300) String facebook,
+                                 @Size(max = 200) String instagram, @Size(max = 200) String tiktok,
+                                 @Size(max = 200) String snapchat, @Size(max = 200) String x) {
+    }
+
+    private static String mobile(String raw) {
+        return raw == null || raw.isBlank() ? null : PhoneNumbers.normalizeSaudiMobile(raw).orElseThrow();
+    }
+
+    /** Find the company's Google Maps listing by name (and city) to connect it. */
+    @GetMapping("/tenant/google/search")
+    @PreAuthorize("hasRole('OWNER')")
+    public List<GooglePlacesClient.Candidate> searchGoogle(@RequestParam @NotBlank @Size(max = 200) String q,
+                                                          @RequestParam(defaultValue = "ar") String lang) {
+        return google.search(q.trim(), "en".equals(lang) ? "en" : "ar");
+    }
+
+    /** Connect (placeId set) or disconnect (placeId empty) the Google Maps listing shown on the public page. */
+    @PutMapping("/tenant/google")
+    @PreAuthorize("hasRole('OWNER')")
+    public TenantDto connectGoogle(@Valid @RequestBody GooglePlaceRequest req) {
+        String id = req.placeId() == null || req.placeId().isBlank() ? null : req.placeId().trim();
+        String name = req.name();
+        if (id != null) {
+            // Confirms the ID is real and takes Google's own name for it.
+            GooglePlacesClient.Details d = google.details(id, "ar");
+            name = d.name() != null ? d.name() : name;
+        }
+        Tenant t = service.connectGoogle(id, name);
+        return dto(t);
+    }
+
+    public record GooglePlaceRequest(@Size(max = 300) @Pattern(regexp = "^$|^[A-Za-z0-9_-]+$", message = "invalid_place_id")
+                                     String placeId, @Size(max = 300) String name) {
+    }
+
+    public record PublicPageRequest(@Size(max = 120) String headline, @Size(max = 2000) String about,
+                                    @Size(max = 300) String areas, @Size(max = 150) String hours,
+                                    @Min(1950) @Max(2100) Integer foundedYear, @Min(1) @Max(10000) Integer teamSize,
+                                    @Size(max = 1000) String promises) {
     }
 
     @PutMapping("/tenant/booking-page")
     @PreAuthorize("hasRole('OWNER')")
     public TenantDto updateBookingPage(@Valid @RequestBody BookingPageRequest req) {
         Tenant t = service.updateBookingPage(req.enabled(), req.note());
-        return TenantDto.of(t, service.planOf(t));
+        return dto(t);
     }
 
     public record BookingPageRequest(boolean enabled, @Size(max = 500) String note) {
@@ -77,14 +159,14 @@ public class TenantController {
     @PreAuthorize("hasRole('OWNER')")
     public TenantDto uploadLogo(@RequestPart("file") MultipartFile file) {
         Tenant t = logos.upload(file);
-        return TenantDto.of(t, service.planOf(t));
+        return dto(t);
     }
 
     @DeleteMapping("/tenant/logo")
     @PreAuthorize("hasRole('OWNER')")
     public TenantDto removeLogo() {
         Tenant t = logos.remove();
-        return TenantDto.of(t, service.planOf(t));
+        return dto(t);
     }
 
     /** Public: the logo for invoices, quotes and the booking page. */
@@ -114,23 +196,29 @@ public class TenantController {
             Boolean autoInvoice) {
     }
 
+    /** The connected Google Maps listing, if any; {@code available} = a Places API key is set on the server. */
+    public record GoogleDto(boolean available, String placeId, String name) {
+    }
+
     public record PlanDto(String id, String nameAr, String nameEn, long priceMonthlyHalalas,
-                          int maxTechnicians, List<String> features) {
+                          Long priceYearlyHalalas, int maxTechnicians, List<String> features) {
         static PlanDto of(Plan p) {
             return new PlanDto(p.getId(), p.getNameAr(), p.getNameEn(), p.getPriceMonthlyHalalas(),
-                    p.getMaxTechnicians(), p.getFeatures());
+                    p.getPriceYearlyHalalas(), p.getMaxTechnicians(), p.getFeatures());
         }
     }
 
     public record TenantDto(UUID id, String name, String slug, String logoUrl, String phone, String vatNumber,
                             String address, String commercialRegistration, boolean pricesIncludeVat,
                             boolean autoInvoice, boolean bookingPageEnabled, String bookingPageNote,
-                            String timezone, String status, Instant trialEndsAt, PlanDto plan) {
-        static TenantDto of(Tenant t, Plan plan) {
+                            String timezone, String status, Instant trialEndsAt, PlanDto plan,
+                            PublicPage publicPage, GoogleDto google) {
+        static TenantDto of(Tenant t, Plan plan, boolean googleAvailable) {
             return new TenantDto(t.getId(), t.getName(), t.getSlug(), t.getLogoUrl(), t.getPhone(),
                     t.getVatNumber(), t.getAddress(), t.getCommercialRegistration(), t.isPricesIncludeVat(),
                     t.isAutoInvoice(), t.isBookingPageEnabled(), t.getBookingPageNote(),
-                    t.getTimezone(), t.getStatus().name(), t.getTrialEndsAt(), PlanDto.of(plan));
+                    t.getTimezone(), t.getStatus().name(), t.getTrialEndsAt(), PlanDto.of(plan), t.getPublicPage(),
+                    new GoogleDto(googleAvailable, t.getGooglePlaceId(), t.getGooglePlaceName()));
         }
     }
 }

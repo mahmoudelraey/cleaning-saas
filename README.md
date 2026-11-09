@@ -9,7 +9,7 @@ backend/          one Maven build (backend/pom.xml) with three modules
 └── portal        customer portal API                                                          :8090
 frontend/
 ├── admin         Angular admin app (PrimeNG)                                                  :4200
-└── portal        Angular customer portal at /p/{company-slug} (mobile-first)                  :4300
+└── portal        Angular customer portal at /{company-slug} (mobile-first)                  :4300
 ```
 
 | Module | What |
@@ -52,21 +52,21 @@ docker compose up -d db
 # 2. Backend  → http://localhost:8080  (Swagger: /swagger-ui.html)
 cd backend
 mvn -q -DskipTests install                     # builds core (repeat after changing core/)
-mvn -pl admin spring-boot:run -Dspring-boot.run.profiles=local
+mvn -pl admin spring-boot:run
 
 # 3. Frontend → http://localhost:4200  (/api proxied to :8080)
 cd frontend/admin
 npm install
 npm start
 
-# 4. Customer portal (optional) → http://localhost:4300/p/{company-slug}
-cd backend && mvn -pl portal spring-boot:run -Dspring-boot.run.profiles=local
+# 4. Customer portal (optional) → http://localhost:4300/{company-slug}
+cd backend && mvn -pl portal spring-boot:run
 cd frontend/portal
 npx -y -p node@24.22.0 -p npm@10 -- npm install
 npm start
 ```
 
-The company slug is the booking link in the admin app's Settings. With the `local` profile the sign-in code is shown on screen (no WhatsApp/SMS needed).
+The company slug is the booking link in the admin app's Settings. Locally the sign-in code is shown on screen (no WhatsApp/SMS needed). There are no Spring profiles: `application.yml` defaults are for localhost, and every real environment overrides them with the env vars below.
 
 Open http://localhost:4200/signup, create a company, and you are signed in as its owner.
 
@@ -144,7 +144,12 @@ All errors are RFC 9457 `problem+json` with a stable `code`, e.g. `slug_taken` o
 | Env var | Default | Notes |
 |---|---|---|
 | `DB_URL` / `DB_USER` / `DB_PASSWORD` | local fieldops | Login user needs `CREATEROLE` the first time Flyway runs V1 (it creates `fieldops_app`), or create that role beforehand |
-| `JWT_SECRET` | — (required) | base64, ≥ 32 bytes: `openssl rand -base64 48`. The `local` profile has a dev key |
+| `JWT_SECRET` | dev key (localhost only) | **Required in production.** base64, ≥ 32 bytes: `openssl rand -base64 48` |
+| `PORTAL_JWT_SECRET` | dev key (localhost only) | **Required in production**, and different from `JWT_SECRET` |
+| `OTP_EXPOSE_CODE` | `true` | **Must be `false` in production**: otherwise verification codes are returned by the API |
+| `PUBLIC_BASE_URL` | `http://localhost:4200` | When it is not localhost, both apps refuse to start with the dev keys or `OTP_EXPOSE_CODE=true` (`DevDefaultsGuard`) |
+| `GOOGLE_PLACES_API_KEY` | — (off) | Optional, set on **both** backends. Google Places API (New) key, restricted to that API. Lets owners connect their Google Maps listing (Settings) and shows the Google rating and up to 5 reviews on the portal page, loaded live (Google's terms forbid storing them). Each page view that reaches the reviews section is a billed Place Details call. Put Google's official logo at `frontend/portal/public/google/google_logo.png` (attribution requirement) |
+| `LOG_LEVEL` | `DEBUG` | log level for `com.fieldops`; use `INFO` in production |
 | `CORS_ORIGINS` | `http://localhost:4200` | comma-separated |
 | `SERVER_FORWARD_HEADERS_STRATEGY` | — | set to `native` behind a reverse proxy so rate limiting sees real client IPs |
 

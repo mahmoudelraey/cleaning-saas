@@ -495,7 +495,7 @@ interface JourneyStep {
                 @if (canInvoice()) {
                   <p-button icon="pi pi-file-check" [label]="'invoices.issueForBooking' | translate" size="small" [loading]="billingBusy()" (onClick)="issueInvoice()" />
                 }
-                @if (b.status !== 'CANCELLED' && b.status !== 'NO_SHOW') {
+                @if (canQuote && b.status !== 'CANCELLED' && b.status !== 'NO_SHOW') {
                   <p-button icon="pi pi-file-edit" [label]="'quotes.fromBooking' | translate" size="small" [outlined]="true" [loading]="billingBusy()" (onClick)="createQuote()" />
                 }
               </div>
@@ -642,12 +642,21 @@ export class BookingDetailPage implements OnInit {
 
   protected readonly invoices = signal<InvoiceSummary[]>([]);
   protected readonly billingBusy = signal(false);
+  private readonly authz = inject(AuthService);
+  /** Coordinators need the Quotes screen to create a quote from a booking. */
+  protected readonly canQuote = this.authz.canSee('QUOTES');
   protected readonly canInvoice = computed(
     () =>
+      this.authz.canSee('INVOICES') &&
       !['CANCELLED', 'NO_SHOW'].includes(this.booking()?.status ?? '') &&
       !this.invoices().some((i) => i.status !== 'VOID'),
   );
-  protected readonly transitions = computed(() => this.booking()?.allowedTransitions ?? []);
+  /** Never offer ASSIGNED → CONFIRMED as a status step: that removes the technician ("Remove technician" does it). */
+  protected readonly transitions = computed(() => {
+    const b = this.booking();
+    const list = b?.allowedTransitions ?? [];
+    return b?.status === 'ASSIGNED' ? list.filter((t) => t !== 'CONFIRMED') : list;
+  });
   /** The one forward step shown as the main button; everything else goes in "More". */
   protected readonly primaryAction = computed(() => this.transitions().find((t) => !DESTRUCTIVE.includes(t)) ?? null);
   protected readonly editable = computed(() => ['NEW', 'CONFIRMED', 'ASSIGNED'].includes(this.booking()?.status ?? ''));

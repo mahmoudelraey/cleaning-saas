@@ -1,6 +1,7 @@
 package com.fieldops.app.customer;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -44,6 +45,10 @@ public class Address extends TenantScopedEntity {
 
     @Column(name = "map_url")
     private String mapUrl;
+
+    /** Set when the customer removes the address; bookings that used it keep pointing to it. */
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
 
     protected Address() {
     }
@@ -115,6 +120,11 @@ public class Address extends TenantScopedEntity {
 
     public BigDecimal getLng() {
         return lng;
+    }
+
+    /** Removes it from the customer's list without losing the location of past visits. */
+    public void archive(Instant at) {
+        this.deletedAt = at;
     }
 
     public String getMapUrl() {

@@ -107,8 +107,9 @@ interface Step {
           <h2>{{ 'dashboard.bookingLink' | translate }}</h2>
           <p class="muted">{{ 'dashboard.bookingLinkHint' | translate }}</p>
           <div class="link-box">
-            <code>{{ tenants.bookingUrl() }}</code>
+            <code>{{ tenants.portalUrl() }}</code>
             <p-button icon="pi pi-copy" [text]="true" (onClick)="copyLink()" [ariaLabel]="'common.copy' | translate" />
+            <a [href]="tenants.portalUrl()" target="_blank" rel="noopener"><p-button icon="pi pi-external-link" [text]="true" [ariaLabel]="'common.open' | translate" /></a>
           </div>
         </div>
       </div>
@@ -140,8 +141,8 @@ export class DashboardPage implements OnInit {
       void this.router.navigate(['/today']);
       return;
     }
-    if (this.auth.hasRole('OWNER')) {
-      // Monthly figures come from reports, which not every plan includes.
+    if (this.auth.canSee('REPORTS')) {
+      // Monthly figures come from reports, which not every plan includes (and coordinators need the Reports screen).
       this.tenants.ensureLoaded().subscribe({
         next: () => {
           if (!this.tenants.has('reports')) {
@@ -171,7 +172,7 @@ export class DashboardPage implements OnInit {
   }
 
   copyLink(): void {
-    void navigator.clipboard?.writeText(this.tenants.bookingUrl()).then(() =>
+    void navigator.clipboard?.writeText(this.tenants.portalUrl()).then(() =>
       this.messages.add({ severity: 'success', summary: this.translate.instant('common.copied') }),
     );
   }

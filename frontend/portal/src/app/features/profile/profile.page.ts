@@ -111,6 +111,6 @@ export class ProfilePage implements OnInit {
 
   signOut(): void {
     this.sessions.clear(this.store.slug());
-    void this.router.navigate(['/p', this.store.slug(), 'login']);
+    void this.router.navigate(['/', this.store.slug(), 'login']);
   }
 }

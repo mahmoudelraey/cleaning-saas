@@ -13,6 +13,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fieldops.app.common.tenant.TenantContext;
 import com.fieldops.app.notification.channel.NotificationProperties;
+import com.fieldops.app.platform.PlatformSettingsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -41,15 +42,15 @@ public class WhatsAppWebhookController {
             "read", Notification.Status.READ,
             "failed", Notification.Status.FAILED);
 
-    private final NotificationProperties.WhatsApp config;
+    private final PlatformSettingsService settings;
     private final NotificationRefRepository refs;
     private final NotificationRepository notifications;
     private final TransactionTemplate tx;
     private final ObjectMapper json;
 
-    public WhatsAppWebhookController(NotificationProperties props, NotificationRefRepository refs,
+    public WhatsAppWebhookController(PlatformSettingsService settings, NotificationRefRepository refs,
                                      NotificationRepository notifications, TransactionTemplate tx, ObjectMapper json) {
-        this.config = props.whatsapp();
+        this.settings = settings;
         this.refs = refs;
         this.notifications = notifications;
         this.tx = tx;
@@ -61,6 +62,7 @@ public class WhatsAppWebhookController {
     public ResponseEntity<String> verify(@RequestParam(name = "hub.mode", required = false) String mode,
                                          @RequestParam(name = "hub.verify_token", required = false) String token,
                                          @RequestParam(name = "hub.challenge", required = false) String challenge) {
+        NotificationProperties.WhatsApp config = settings.whatsapp();
         if ("subscribe".equals(mode) && config.verifyToken() != null && !config.verifyToken().isBlank()
                 && MessageDigest.isEqual(config.verifyToken().getBytes(StandardCharsets.UTF_8),
                 String.valueOf(token).getBytes(StandardCharsets.UTF_8))) {
@@ -102,7 +104,7 @@ public class WhatsAppWebhookController {
     }
 
     private boolean validSignature(byte[] body, String header) {
-        String secret = config.appSecret();
+        String secret = settings.whatsapp().appSecret();
         if (secret == null || secret.isBlank() || header == null || !header.startsWith("sha256=")) {
             return false;
         }

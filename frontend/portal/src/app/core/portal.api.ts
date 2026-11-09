@@ -7,12 +7,17 @@ import {
   BookingDetail,
   BookingSummary,
   Company,
+  ContactRequest,
+  GooglePlace,
+  InboxItem,
   InvoiceRow,
   Item,
+  MyReview,
   NewAddress,
   OtpSent,
   PaymentMethod,
   Profile,
+  PublicReviews,
   Quote,
   Service,
   Session,
@@ -29,6 +34,34 @@ export class PortalApi {
 
   company(slug: string): Observable<Company> {
     return this.http.get<Company>(this.base(slug));
+  }
+
+  reviews(slug: string): Observable<PublicReviews> {
+    return this.http.get<PublicReviews>(`${this.base(slug)}/reviews`);
+  }
+
+  inbox(slug: string): Observable<{ unread: number; items: InboxItem[] }> {
+    return this.http.get<{ unread: number; items: InboxItem[] }>(`${this.base(slug)}/inbox`);
+  }
+
+  readInbox(slug: string, id: string): Observable<void> {
+    return this.http.post<void>(`${this.base(slug)}/inbox/${id}/read`, {});
+  }
+
+  readAllInbox(slug: string): Observable<void> {
+    return this.http.post<void>(`${this.base(slug)}/inbox/read-all`, {});
+  }
+
+  contact(slug: string, body: ContactRequest): Observable<{ id: string | null }> {
+    return this.http.post<{ id: string | null }>(`${this.base(slug)}/contact`, body);
+  }
+
+  googleReviews(slug: string, lang: string): Observable<GooglePlace> {
+    return this.http.get<GooglePlace>(`${this.base(slug)}/google-reviews`, { params: { lang } });
+  }
+
+  rate(slug: string, bookingId: string, rating: number, comment: string | null): Observable<MyReview> {
+    return this.http.put<MyReview>(`${this.base(slug)}/bookings/${bookingId}/review`, { rating, comment });
   }
 
   sendCode(slug: string, phone: string): Observable<OtpSent> {

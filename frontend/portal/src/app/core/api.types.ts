@@ -15,6 +15,98 @@ export interface Company {
   maxDaysAhead: number;
   leadTimeHours: number;
   cancelNoticeHours: number;
+  /** Owner-written public page content; any field may be missing. */
+  page?: PublicPage;
+  address?: string;
+  /** The company connected its Google Maps listing (and the server has a Google key). */
+  googleReviews?: boolean;
+}
+
+/** Live from Google Places; shown only with Google's attribution, never stored. */
+export interface GooglePlace {
+  placeId: string;
+  name?: string;
+  rating?: number;
+  count?: number;
+  googleMapsUri?: string;
+  reviews: GoogleReview[];
+}
+
+export interface GoogleReview {
+  rating: number;
+  text?: string;
+  textLanguage?: string;
+  translated: boolean;
+  relativeTime?: string;
+  publishTime?: string;
+  author?: { name?: string; uri?: string; photoUri?: string };
+  googleMapsUri?: string;
+  flagUri?: string;
+}
+
+export interface PublicPage {
+  headline?: string;
+  about?: string;
+  areas?: string;
+  hours?: string;
+  /** E.164 */
+  whatsapp?: string;
+  instagram?: string;
+  x?: string;
+  snapchat?: string;
+  tiktok?: string;
+  foundedYear?: number;
+  teamSize?: number;
+  /** One per line. */
+  promises?: string;
+  /** Page name, or digits for a profile.php?id= page. */
+  facebook?: string;
+}
+
+/** A notification for the signed-in customer (bell in the portal header). */
+export interface InboxItem {
+  id: string;
+  kind: string;
+  bookingId?: string;
+  refId?: string;
+  number?: number;
+  /** For TECHNICIAN_ASSIGNED: the technicians' first names. */
+  actor?: string;
+  createdAt: string;
+  read: boolean;
+}
+
+export type ContactTopic = 'BOOKING' | 'QUESTION' | 'QUOTE' | 'COMPLAINT' | 'OTHER';
+
+export interface ContactRequest {
+  name: string;
+  phone: string;
+  email?: string | null;
+  topic: ContactTopic;
+  message: string;
+  /** Honeypot: always empty from a person. */
+  website?: string;
+}
+
+export interface PublicReview {
+  id: string;
+  rating: number;
+  comment?: string;
+  name?: string;
+  at: string;
+}
+
+export interface PublicReviews {
+  /** Over every rating, not only the ones shown. */
+  average: number;
+  count: number;
+  items: PublicReview[];
+}
+
+export interface MyReview {
+  rating: number;
+  comment?: string;
+  published: boolean;
 }
 
 export interface OtpSent {
@@ -47,12 +139,16 @@ export interface BookingSummary {
   subtotalHalalas: number;
   addressText?: string;
   paymentMethod?: PaymentMethod;
+  /** As saved on the booking (Arabic). */
   services: string[];
+  /** Same order as `services`; null where the service has no English name. */
+  servicesEn?: (string | null)[];
   technicians: Technician[];
 }
 
 export interface BookingItem {
   description: string;
+  descriptionEn?: string | null;
   quantity: number;
   totalHalalas: number;
   addon: boolean;
@@ -84,18 +180,25 @@ export interface BookingDetail {
   invoice?: InvoiceRef;
   canCancel: boolean;
   cancelDeadline: string;
+  canReview: boolean;
+  review?: MyReview;
 }
 
 export interface Addon {
   id: string;
+  /** Arabic (main) name. */
   name: string;
+  nameEn?: string;
   priceHalalas: number;
 }
 
 export interface Service {
   id: string;
+  /** Arabic (main) name and description; the ...En ones may be empty. */
   name: string;
   description?: string;
+  nameEn?: string;
+  descriptionEn?: string;
   pricingType: PricingType;
   basePriceHalalas: number;
   durationMin: number;
@@ -109,7 +212,7 @@ export interface Item {
 }
 
 export interface Quote {
-  items: { description: string; quantity: number; totalHalalas: number }[];
+  items: { serviceId?: string; addonId?: string; description: string; quantity: number; totalHalalas: number }[];
   subtotalHalalas: number;
   durationMin: number;
 }

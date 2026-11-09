@@ -104,7 +104,8 @@ public class CustomerService {
     @Transactional
     public void deleteAddress(UUID customerId, UUID addressId) {
         Customer c = get(customerId);
-        c.removeAddress(findAddress(c, addressId));
+        // Archived, not deleted: past and upcoming bookings read their location from this row.
+        findAddress(c, addressId).archive(Instant.now(clock));
     }
 
     /**

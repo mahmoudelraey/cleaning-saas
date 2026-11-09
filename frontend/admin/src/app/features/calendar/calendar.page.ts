@@ -94,7 +94,6 @@ const HOUR_PX = 56;
       @for (col of columns(); track col.key) {
         <div class="col">
           <div class="head">
-            @if (col.color) { <span class="color-dot" [style.background]="col.color"></span> }
             {{ col.title }} @if (col.subtitle) { <small>{{ col.subtitle }}</small> }
           </div>
           <div style="position: relative">
@@ -174,7 +173,6 @@ export class CalendarPage implements OnInit {
     }
     const firstHour = this.hours()[0];
     if (this.view() === 'day') {
-      const techColor = new Map(data.technicians.map((t) => [t.id, t.color]));
       const unassigned = data.bookings.filter((b) => b.technicianIds.length === 0);
       const cols: Column[] = [
         {
@@ -189,13 +187,11 @@ export class CalendarPage implements OnInit {
         cols.push({
           key: t.id,
           title: t.name,
-          color: t.color,
-          blocks: layout(mine, firstHour, (b) => blockColor(b, techColor.get(t.id))),
+          blocks: layout(mine, firstHour, blockColor),
         });
       }
       return cols;
     }
-    const techColor = new Map(data.technicians.map((t) => [t.id, t.color]));
     return Array.from({ length: 7 }, (_, i) => {
       const day = addDays(this.weekStart(), i);
       const next = addDays(day, 1);
@@ -204,7 +200,7 @@ export class CalendarPage implements OnInit {
         key: dayKey(day),
         title: day.toLocaleDateString(this.translate.currentLang() === 'ar' ? 'ar-SA-u-nu-latn' : 'en-GB', { weekday: 'short' }),
         subtitle: String(day.getDate()),
-        blocks: layout(items, firstHour, (b) => blockColor(b, b.technicianIds.length ? techColor.get(b.technicianIds[0]) : undefined)),
+        blocks: layout(items, firstHour, blockColor),
       };
     });
   });
@@ -306,11 +302,9 @@ function layout(items: CalBooking[], firstHour: number, color: (b: CalBooking) =
   });
 }
 
-function blockColor(b: CalBooking, techColor?: string): string {
-  if (b.status === 'COMPLETED' || b.status === 'CANCELLED' || b.status === 'NO_SHOW') {
-    return STATUS_COLOR[b.status];
-  }
-  return techColor ?? STATUS_COLOR[b.status];
+/** Bookings are colored by status (technicians no longer have their own color). */
+function blockColor(b: CalBooking): string {
+  return STATUS_COLOR[b.status];
 }
 
 function startOfDay(d: Date): Date {

@@ -22,11 +22,14 @@ import com.fieldops.app.booking.BookingPricing;
 import com.fieldops.app.booking.BookingService;
 import com.fieldops.app.booking.BookingStatus;
 import com.fieldops.app.booking.VisitEvent;
+import com.fieldops.app.catalog.ServiceOfferingRepository;
 import com.fieldops.app.common.persistence.TenantCounterService;
 import com.fieldops.app.common.tenant.TenantContext;
 import com.fieldops.app.common.web.ApiException;
 import com.fieldops.app.customer.Customer;
 import com.fieldops.app.customer.CustomerService;
+import com.fieldops.app.inbox.InboxKind;
+import com.fieldops.app.inbox.InboxService;
 import com.fieldops.app.notification.NotificationService;
 import com.fieldops.app.notification.NotificationTemplate;
 import com.fieldops.app.tenant.Tenant;
@@ -63,12 +66,15 @@ public class BillingService {
     private final BookingPricing pricing;
     private final NotificationService notifications;
     private final Clock clock;
+    private final ServiceOfferingRepository catalog;
+    private final InboxService inbox;
     private final String publicBaseUrl;
 
     public BillingService(InvoiceRepository invoices, QuoteRepository quotes, PaymentRepository payments,
                           PublicLinkRepository links, TenantCounterService counters, TenantService tenants,
                           CustomerService customers, BookingService bookings, BookingPricing pricing,
-                          NotificationService notifications, Clock clock,
+                          NotificationService notifications, Clock clock, ServiceOfferingRepository catalog,
+                          InboxService inbox,
                           @Value("${app.public-base-url:http://localhost:4200}") String publicBaseUrl) {
         this.invoices = invoices;
         this.quotes = quotes;
@@ -81,6 +87,8 @@ public class BillingService {
         this.pricing = pricing;
         this.notifications = notifications;
         this.clock = clock;
+        this.catalog = catalog;
+        this.inbox = inbox;
         this.publicBaseUrl = publicBaseUrl.replaceAll("/+$", "");
     }
 
@@ -158,7 +166,7 @@ public class BillingService {
         }
         List<DocumentLine> lines = new ArrayList<>();
         for (BookingItem item : b.getItems()) {
-            lines.add(new DocumentLine(item.getDescription(), item.getQuantity(), item.getUnitPriceHalalas()));
+            lines.add(lineFrom(item));
         }
         // Snapshot from the booking (works even if the customer was deleted since).
         Invoice inv = issue(b.getCustomerId(), b.getCustomerName(), b.getCustomerPhone(), cmd.customerVatNumber(),
@@ -264,7 +272,7 @@ public class BillingService {
         Booking b = bookings.get(bookingId);
         List<DocumentLine> lines = new ArrayList<>();
         for (BookingItem item : b.getItems()) {
-            lines.add(new DocumentLine(item.getDescription(), item.getQuantity(), item.getUnitPriceHalalas()));
+            lines.add(lineFrom(item));
         }
         Tenant t = tenants.current();
         Quote q = new Quote(counters.next(TenantCounterService.QUOTE));
@@ -375,12 +383,15 @@ public class BillingService {
         inv.setCustomer(customerId, customerName, customerPhone, trimToNull(customerVat));
         inv.setSeller(t.getName(), t.getVatNumber(), t.getAddress(), t.getCommercialRegistration());
         inv.setLines(lines, discount, t.isPricesIncludeVat());
+        Invoice saved;
         try {
-            return invoices.saveAndFlush(inv);
+            saved = invoices.saveAndFlush(inv);
         } catch (DataIntegrityViolationException e) {
             // ux_invoices_one_per_booking: a concurrent request invoiced the same booking first.
             throw ApiException.conflict("already_invoiced", "This booking already has an invoice");
         }
+        inbox.toCustomer(customerId, InboxKind.INVOICE_ISSUED, bookingId, saved.getId(), saved.getNumber(), null);
+        return saved;
     }
 
     private String send(Invoice inv) {
@@ -432,7 +443,7 @@ public class BillingService {
                 BookingPricing.Priced priced = pricing.price(List.of(
                         new BookingPricing.Line(l.serviceId(), l.quantity(), l.addonIds())));
                 for (BookingItem item : priced.items()) {
-                    out.add(new DocumentLine(item.getDescription(), item.getQuantity(), item.getUnitPriceHalalas()));
+                    out.add(lineFrom(item));
                 }
                 continue;
             }
@@ -450,6 +461,34 @@ public class BillingService {
             out.add(new DocumentLine(description, qty, l.unitPriceHalalas()));
         }
         return out;
+    }
+
+    /** A document line from a priced booking item, with the English text taken from the catalog. */
+    private DocumentLine lineFrom(BookingItem item) {
+        return new DocumentLine(item.getDescription(), item.getQuantity(), item.getUnitPriceHalalas())
+                .withEnglish(englishName(item.getServiceId(), item.getAddonId()));
+    }
+
+    /**
+     * "Apartment cleaning" or "Apartment cleaning — Fridge" from the services' English names; null when the
+     * service (or its add-on) has no English name, so the PDF prints the Arabic only.
+     */
+    private String englishName(UUID serviceId, UUID addonId) {
+        if (serviceId == null) {
+            return null;
+        }
+        return catalog.findWithAddons(serviceId).map(s -> {
+            String name = s.getNameEn();
+            if (name == null || name.isBlank()) {
+                return null;
+            }
+            if (addonId == null) {
+                return name;
+            }
+            return s.getAddons().stream().filter(a -> addonId.equals(a.getId())).findFirst()
+                    .map(a -> a.getNameEn() == null || a.getNameEn().isBlank() ? null : name + " — " + a.getNameEn())
+                    .orElse(null);
+        }).orElse(null);
     }
 
     /** Returns the existing token for a document or creates one (unguessable, 256 bits). */

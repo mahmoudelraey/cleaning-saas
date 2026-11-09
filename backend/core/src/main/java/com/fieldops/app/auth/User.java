@@ -1,6 +1,8 @@
 package com.fieldops.app.auth;
 
 import java.time.Instant;
+import java.util.EnumSet;
+import java.util.Set;
 import java.util.UUID;
 
 import jakarta.persistence.Column;
@@ -11,6 +13,7 @@ import jakarta.persistence.Table;
 
 import com.fieldops.app.common.persistence.BaseEntity;
 import com.fieldops.app.common.security.Role;
+import com.fieldops.app.common.security.Screen;
 
 /**
  * Staff account. Intentionally NOT a {@code TenantScopedEntity}: login has to find the user before
@@ -45,6 +48,10 @@ public class User extends BaseEntity {
     @Column(name = "last_login_at")
     private Instant lastLoginAt;
 
+    /** Coordinators only: allowed admin screens (comma-separated {@link Screen} names); null = the default set. */
+    @Column(name = "screens")
+    private String screens;
+
     /** True while the user still has a temporary password set by an owner. */
     @Column(name = "must_change_password", nullable = false)
     private boolean mustChangePassword;
@@ -62,6 +69,20 @@ public class User extends BaseEntity {
         this.email = email;
         this.passwordHash = passwordHash;
         this.role = role;
+    }
+
+    /** Screens this user may open: all for owners, the chosen (or default) set for coordinators, none for technicians. */
+    public Set<Screen> getScreens() {
+        return switch (role) {
+            case OWNER -> EnumSet.allOf(Screen.class);
+            case COORDINATOR -> Screen.parse(screens);
+            case TECHNICIAN, PLATFORM_ADMIN -> Set.of();
+        };
+    }
+
+    /** Kept only for coordinators; ignored for other roles. */
+    public void setScreens(Set<Screen> chosen) {
+        this.screens = role == Role.COORDINATOR && chosen != null ? Screen.format(chosen) : null;
     }
 
     public void update(String name, String email, Role role, boolean active) {

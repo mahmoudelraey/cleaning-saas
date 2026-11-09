@@ -16,7 +16,12 @@ import org.springframework.data.repository.query.Param;
 
 public interface BookingRepository extends JpaRepository<Booking, UUID>, JpaSpecificationExecutor<Booking> {
 
-    @EntityGraph(attributePaths = "items")
+    /*
+     * LOAD, not the default FETCH: with FETCH every attribute missing from the graph becomes lazy, so the customer,
+     * the address and each item's service would come back as proxies and fail once the transaction is over
+     * (open-in-view is off). LOAD keeps their EAGER mapping and only adds the items.
+     */
+    @EntityGraph(attributePaths = {"items", "customer", "address"}, type = EntityGraph.EntityGraphType.LOAD)
     @Query("select b from Booking b where b.id = :id")
     Optional<Booking> findWithItems(@Param("id") UUID id);
 

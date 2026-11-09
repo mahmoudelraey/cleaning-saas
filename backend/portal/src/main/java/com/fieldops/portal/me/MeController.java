@@ -52,7 +52,7 @@ public class MeController {
             }
             List<Address> addresses = q.query("""
                     select id, label, city, district, details, map_url from addresses
-                    where tenant_id = :t and customer_id = :c order by created_at
+                    where tenant_id = :t and customer_id = :c and deleted_at is null order by created_at
                     """, p, (rs, i) -> new Address(rs.getObject("id", UUID.class), rs.getString("label"),
                     rs.getString("city"), rs.getString("district"), rs.getString("details"), rs.getString("map_url")));
             Profile base = rows.get(0);

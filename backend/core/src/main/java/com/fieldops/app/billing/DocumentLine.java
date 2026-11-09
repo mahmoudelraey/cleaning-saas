@@ -31,6 +31,10 @@ public class DocumentLine extends TenantScopedEntity {
     @Column(nullable = false)
     private String description;
 
+    /** English text printed under {@code description} (null when the service has no English name). */
+    @Column(name = "description_en")
+    private String descriptionEn;
+
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal quantity;
 
@@ -55,6 +59,7 @@ public class DocumentLine extends TenantScopedEntity {
     public DocumentLine copy() {
         DocumentLine c = new DocumentLine();
         c.description = description;
+        c.descriptionEn = descriptionEn;
         c.quantity = quantity;
         c.unitPriceHalalas = unitPriceHalalas;
         c.totalHalalas = totalHalalas;
@@ -77,6 +82,17 @@ public class DocumentLine extends TenantScopedEntity {
 
     public String getDescription() {
         return description;
+    }
+
+    public String getDescriptionEn() {
+        return descriptionEn;
+    }
+
+    /** Sets the English text (cut to the column size); null or blank clears it. */
+    public DocumentLine withEnglish(String en) {
+        String v = en == null || en.isBlank() ? null : en.trim();
+        this.descriptionEn = v != null && v.length() > 300 ? v.substring(0, 300) : v;
+        return this;
     }
 
     public BigDecimal getQuantity() {

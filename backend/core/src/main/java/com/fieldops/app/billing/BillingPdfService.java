@@ -139,8 +139,8 @@ public class BillingPdfService {
     }
 
     private static List<PdfModel.Line> lines(List<DocumentLine> lines) {
-        return lines.stream().map(l -> new PdfModel.Line(l.getDescription(), quantity(l.getQuantity()),
-                money(l.getUnitPriceHalalas()), money(l.getTotalHalalas()))).toList();
+        return lines.stream().map(l -> new PdfModel.Line(l.getDescription(), l.getDescriptionEn(),
+                quantity(l.getQuantity()), money(l.getUnitPriceHalalas()), money(l.getTotalHalalas()))).toList();
     }
 
     private static List<Field> totals(long lines, long discount, long taxable, long vat, int rateBp, boolean vatInvoice) {

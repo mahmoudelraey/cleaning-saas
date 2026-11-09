@@ -67,7 +67,7 @@ h3 {
 .page {
   max-width: 640px;
   margin: 0 auto;
-  padding: 20px 16px calc(var(--tabbar) + 32px + env(safe-area-inset-bottom));
+  padding: 20px 16px 8px;
 }
 
 .page-title {
@@ -371,4 +371,22 @@ button.row {
 // arrows that point "back" flip with the reading direction
 html[dir='ltr'] .rtl-flip {
   transform: scaleX(-1);
+}
+
+// ---------- Small screens (every page) ----------
+// Long words (links, emails, account names) wrap instead of widening the page, and decorative shapes can never
+// cause sideways scrolling. `clip`, not `hidden`, so the sticky header keeps working.
+html,
+body {
+  overflow-x: clip;
+}
+
+body {
+  overflow-wrap: break-word;
+}
+
+img,
+video {
+  max-width: 100%;
+  height: auto;
 }

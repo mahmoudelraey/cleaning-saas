@@ -6,5 +6,7 @@ public enum Role {
     /** Dispatcher: receives requests, schedules, assigns technicians. */
     COORDINATOR,
     /** Field technician: sees and updates own visits (PWA). */
-    TECHNICIAN
+    TECHNICIAN,
+    /** The FieldOps platform owner: plans, companies' subscriptions, platform messaging. Belongs to no company. */
+    PLATFORM_ADMIN
 }

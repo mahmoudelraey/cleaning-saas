@@ -69,6 +69,7 @@ type Step = 'services' | 'time' | 'details' | 'done';
     .panel { background: #fff; border: 1px solid var(--fo-border); border-radius: 14px; padding: 1rem; }
     .form { display: grid; gap: .9rem; }
     .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+    @media (max-width: 420px) { .row2 { grid-template-columns: 1fr; } }
     .field { display: grid; gap: .35rem; }
     .field label { font-weight: 600; font-size: .9rem; }
     .hint { color: var(--fo-muted); font-size: .8rem; }

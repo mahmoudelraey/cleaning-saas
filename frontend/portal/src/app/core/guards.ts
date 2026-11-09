@@ -9,10 +9,10 @@ export const signedIn: CanActivateFn = (route, state) => {
   const s = inject(SessionService).get(slug);
   const router = inject(Router);
   if (!s) {
-    return router.createUrlTree(['/p', slug, 'login'], { queryParams: { next: state.url } });
+    return router.createUrlTree(['/', slug, 'login'], { queryParams: { next: state.url } });
   }
   if (s.needsName) {
-    return router.createUrlTree(['/p', slug, 'login'], { queryParams: { step: 'name', next: state.url } });
+    return router.createUrlTree(['/', slug, 'login'], { queryParams: { step: 'name', next: state.url } });
   }
   return true;
 };

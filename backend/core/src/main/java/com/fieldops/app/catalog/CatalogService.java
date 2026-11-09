@@ -16,11 +16,11 @@ public class CatalogService {
         this.services = services;
     }
 
-    public record ServiceData(String name, String description, PricingType pricingType, long basePriceHalalas,
-                              int durationMin, boolean active) {
+    public record ServiceData(String name, String description, String nameEn, String descriptionEn,
+                              PricingType pricingType, long basePriceHalalas, int durationMin, boolean active) {
     }
 
-    public record AddonData(String name, long priceHalalas, boolean active) {
+    public record AddonData(String name, String nameEn, long priceHalalas, boolean active) {
     }
 
     @Transactional(readOnly = true)
@@ -37,6 +37,7 @@ public class CatalogService {
     public ServiceOffering create(ServiceData d) {
         ServiceOffering s = new ServiceOffering(d.name().trim(), blankToNull(d.description()), d.pricingType(),
                 d.basePriceHalalas(), d.durationMin());
+        s.setEnglish(blankToNull(d.nameEn()), blankToNull(d.descriptionEn()));
         if (!d.active()) {
             s.deactivate();
         }
@@ -48,6 +49,7 @@ public class CatalogService {
         ServiceOffering s = get(id);
         s.update(d.name().trim(), blankToNull(d.description()), d.pricingType(), d.basePriceHalalas(),
                 d.durationMin(), d.active());
+        s.setEnglish(blankToNull(d.nameEn()), blankToNull(d.descriptionEn()));
         return s;
     }
 
@@ -61,6 +63,7 @@ public class CatalogService {
     public ServiceAddon addAddon(UUID serviceId, AddonData d) {
         ServiceOffering s = get(serviceId);
         ServiceAddon addon = s.addAddon(new ServiceAddon(d.name().trim(), d.priceHalalas()));
+        addon.setNameEn(blankToNull(d.nameEn()));
         if (!d.active()) {
             addon.update(addon.getName(), addon.getPriceHalalas(), false);
         }
@@ -72,6 +75,7 @@ public class CatalogService {
     public ServiceAddon updateAddon(UUID serviceId, UUID addonId, AddonData d) {
         ServiceAddon addon = findAddon(get(serviceId), addonId);
         addon.update(d.name().trim(), d.priceHalalas(), d.active());
+        addon.setNameEn(blankToNull(d.nameEn()));
         return addon;
     }
 

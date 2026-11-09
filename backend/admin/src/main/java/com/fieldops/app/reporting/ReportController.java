@@ -16,7 +16,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/reports")
 @RequiresFeature(PlanFeature.REPORTS)
-@PreAuthorize("hasRole('OWNER')")
+/* Coordinators need the Reports screen (ScreenAccessInterceptor). */
+@PreAuthorize("hasAnyRole('OWNER','COORDINATOR')")
 public class ReportController {
 
     private final ReportService reports;

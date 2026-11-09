@@ -6,7 +6,7 @@ import { Dialog } from 'primeng/dialog';
 
 import { Plan } from '../core/api.types';
 import { LanguageService } from '../core/i18n/language.service';
-import { SUPPORT_CONTACT } from '../core/support';
+import { SupportContactService } from '../core/support';
 import { TenantService } from '../core/tenant.service';
 import { UpgradeService } from '../core/upgrade.service';
 import { SarPipe } from '../shared/format';
@@ -32,6 +32,7 @@ import { SarPipe } from '../shared/format';
     .price { display: flex; align-items: baseline; gap: .35rem; }
     .price strong { font-size: 1.45rem; font-weight: 800; }
     .price span { color: var(--fo-muted); font-size: .82rem; }
+    .yearly { color: var(--fo-muted); font-size: .8rem; margin-top: -.4rem; }
     .techs { font-size: .85rem; color: var(--fo-muted); display: flex; gap: .4rem; align-items: center; }
     ul { list-style: none; margin: 0; padding: 0; display: grid; gap: .4rem; flex: 1; }
     li { display: flex; gap: .45rem; align-items: flex-start; font-size: .85rem; }
@@ -66,6 +67,9 @@ import { SarPipe } from '../shared/format';
                 <strong class="ltr">{{ p.priceMonthlyHalalas | sar }}</strong>
                 <span>/ {{ 'settings.month' | translate }}</span>
               </div>
+              @if (p.priceYearlyHalalas) {
+                <div class="yearly">{{ 'upgrade.orYearly' | translate }} <span class="ltr">{{ p.priceYearlyHalalas | sar }}</span> / {{ 'upgrade.year' | translate }}</div>
+              }
               <div class="techs"><i class="pi pi-users"></i>{{ 'upgrade.upTo' | translate: { n: p.maxTechnicians } }}</div>
               <ul>
                 @for (f of p.features; track f) {
@@ -102,8 +106,13 @@ export class UpgradeDialog {
 
   readonly visible = model(false);
 
-  protected readonly support = SUPPORT_CONTACT;
-  protected readonly hasContact = !!(SUPPORT_CONTACT.whatsapp || SUPPORT_CONTACT.email);
+  private readonly supportContact = inject(SupportContactService);
+  protected get support() {
+    return this.supportContact.contact();
+  }
+  protected get hasContact(): boolean {
+    return !!(this.support.whatsapp || this.support.email);
+  }
   protected readonly plans = signal<Plan[]>([]);
   protected readonly currentPlanId = computed(() => this.tenants.tenant()?.plan?.id ?? null);
   protected readonly isTrial = computed(() => this.tenants.tenant()?.status === 'TRIAL');
@@ -121,6 +130,7 @@ export class UpgradeDialog {
 
   constructor() {
     effect(() => {
+      if (this.visible()) this.supportContact.load();
       if (this.visible() && !this.plans().length) {
         this.http.get<Plan[]>('/api/v1/plans').subscribe({ next: (p) => this.plans.set(p), error: () => {} });
       }
@@ -135,11 +145,11 @@ export class UpgradeDialog {
     const company = this.tenants.tenant()?.name ?? '';
     const plan = this.planName(p);
     const text = this.translate.instant('upgrade.message', { plan, company });
-    if (SUPPORT_CONTACT.whatsapp) {
-      return `https://wa.me/${SUPPORT_CONTACT.whatsapp}?text=${encodeURIComponent(text)}`;
+    if (this.support.whatsapp) {
+      return `https://wa.me/${this.support.whatsapp}?text=${encodeURIComponent(text)}`;
     }
-    if (SUPPORT_CONTACT.email) {
-      return `mailto:${SUPPORT_CONTACT.email}?subject=${encodeURIComponent(text)}&body=${encodeURIComponent(text)}`;
+    if (this.support.email) {
+      return `mailto:${this.support.email}?subject=${encodeURIComponent(text)}&body=${encodeURIComponent(text)}`;
     }
     return null;
   }

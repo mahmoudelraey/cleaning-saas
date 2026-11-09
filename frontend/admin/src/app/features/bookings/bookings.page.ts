@@ -42,6 +42,7 @@ import { LocalDatePipe, LocalTimeRangePipe } from '../../shared/local-date.pipe'
     .techs { display: flex; gap: .35rem; flex-wrap: wrap; }
     .tech { display: inline-flex; align-items: center; gap: .3rem; font-size: .85rem; }
     .num { font-variant-numeric: tabular-nums; color: var(--fo-muted); }
+    .ref { font-size: .78rem; color: var(--fo-muted); font-variant-numeric: tabular-nums; margin-inline-start: .35rem; }
   `,
   template: `
     <div class="page-header">
@@ -110,9 +111,9 @@ import { LocalDatePipe, LocalTimeRangePipe } from '../../shared/local-date.pipe'
         </ng-template>
         <ng-template #body let-b>
           <tr (click)="open(b)" style="cursor: pointer">
-            <td class="num">{{ b.number }}</td>
+            <td class="num">{{ rowNumber(b) }}</td>
             <td>
-              {{ b.scheduledStart | ldate: 'weekdayDay' }}
+              {{ b.scheduledStart | ldate: 'weekdayDay' }} <span class="ref">#{{ b.number }}</span>
               <div class="muted">{{ b.scheduledStart | ltimeRange: b.scheduledEnd }}</div>
             </td>
             <td>
@@ -122,7 +123,7 @@ import { LocalDatePipe, LocalTimeRangePipe } from '../../shared/local-date.pipe'
             <td>
               <div class="techs">
                 @for (t of b.technicians; track t.id) {
-                  <span class="tech"><span class="color-dot" [style.background]="t.color"></span>{{ t.name }}</span>
+                  <span class="tech">{{ t.name }}</span>
                 } @empty {
                   <span class="muted">—</span>
                 }
@@ -157,6 +158,11 @@ export class BookingsPage implements OnInit {
   protected range: Date[] | null = null;
   private query = '';
   private page = 0;
+
+  /** Position in the list, counting across pages (1, 2, 3, …); the booking's own number is shown as #n next to the date. */
+  protected rowNumber(b: unknown): number {
+    return this.page * this.pageSize + this.rows().indexOf(b as never) + 1;
+  }
 
   protected readonly statusOptions = computed(() =>
     ALL_STATUSES.map((s) => ({ value: s, label: this.translate.instant('bookingStatus.' + s) })),

@@ -13,7 +13,7 @@
 
       All versions, plugins and shared settings live here; module poms only list what they use.
         Build and test everything:  mvn verify
-        Run one app:                mvn -pl admin -am spring-boot:run -Dspring-boot.run.profiles=local
+        Run one app:                mvn -pl admin -am spring-boot:run
     -->
     <parent>
         <groupId>org.springframework.boot</groupId>

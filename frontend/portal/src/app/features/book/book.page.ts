@@ -1,6 +1,6 @@
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { Subject, debounceTime, of, switchMap, catchError } from 'rxjs';
 
@@ -10,6 +10,7 @@ import { errorMessage } from '../../core/errors';
 import { LocalDatePipe, SarPipe, formatDate } from '../../core/format';
 import { LanguageService } from '../../core/language.service';
 import { PortalApi } from '../../core/portal.api';
+import { ServiceTextPipe, quoteLine } from '../../core/service-names';
 import { ToastService } from '../../core/toast';
 
 type Step = 1 | 2 | 3 | 4;
@@ -25,7 +26,7 @@ const PAYMENTS: PaymentMethod[] = ['CASH', 'MADA', 'BANK_TRANSFER', 'APPLE_PAY',
 /** Four real steps: what, when, where, confirm. Prices and open times come from the company's own rules. */
 @Component({
   selector: 'pt-book',
-  imports: [FormsModule, RouterLink, TranslatePipe, LocalDatePipe, SarPipe],
+  imports: [FormsModule, RouterLink, TranslatePipe, LocalDatePipe, SarPipe, ServiceTextPipe],
   styles: `
     .top { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
     .close { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); color: var(--ink); text-decoration: none; }
@@ -92,13 +93,13 @@ const PAYMENTS: PaymentMethod[] = ['CASH', 'MADA', 'BANK_TRANSFER', 'APPLE_PAY',
           <div class="ok"><i class="pi pi-check"></i></div>
           <h1>{{ 'book.doneTitle' | translate }}</h1>
           <p>{{ 'book.doneLead' | translate: { n: b.number, when: whenText(b.scheduledStart) } }}</p>
-          <a class="btn btn-primary" [routerLink]="['/p', store.slug(), 'bookings', b.id]">{{ 'book.viewBooking' | translate }}</a>
+          <a class="btn btn-primary" [routerLink]="['/', store.slug(), 'bookings', b.id]">{{ 'book.viewBooking' | translate }}</a>
         </div>
       } @else if (!store.company()?.bookingOpen && store.company()) {
         <div class="sheet empty"><i class="pi pi-calendar-times"></i><p>{{ 'book.closed' | translate }}</p></div>
       } @else {
         <div class="top">
-          <a class="close" [routerLink]="['/p', store.slug()]" [attr.aria-label]="'book.close' | translate"><i class="pi pi-times"></i></a>
+          <a class="close" [routerLink]="['/', store.slug(), 'home']" [attr.aria-label]="'book.close' | translate"><i class="pi pi-times"></i></a>
           <div class="steps" aria-hidden="true">
             @for (s of [1, 2, 3, 4]; track s) { <span [class.on]="s <= step()"></span> }
           </div>
@@ -112,7 +113,7 @@ const PAYMENTS: PaymentMethod[] = ['CASH', 'MADA', 'BANK_TRANSFER', 'APPLE_PAY',
               <div class="svc" [class.on]="picked(s)" (click)="toggle(s)">
                 <div class="line">
                   <span class="tick">@if (picked(s)) { <i class="pi pi-check" style="font-size:.7rem"></i> }</span>
-                  <span class="name">{{ s.name }}@if (s.description) { <small>{{ s.description }}</small> }</span>
+                  <span class="name">{{ s | svc }}@if (s | svc: 'description'; as d) { <small>{{ d }}</small> }</span>
                   <span class="price"><span class="ltr">{{ s.basePriceHalalas | sar }}</span>@if (s.pricingType !== 'FIXED') { <small> / {{ 'book.unit.' + s.pricingType | translate }}</small> }</span>
                 </div>
                 @if (pickOf(s); as p) {
@@ -128,7 +129,7 @@ const PAYMENTS: PaymentMethod[] = ['CASH', 'MADA', 'BANK_TRANSFER', 'APPLE_PAY',
                     @for (a of s.addons; track a.id) {
                       <label class="addon">
                         <input type="checkbox" [checked]="p.addonIds.includes(a.id)" (change)="toggleAddon(p, a.id)" />
-                        <span>{{ a.name }}</span><span class="ltr muted">+{{ a.priceHalalas | sar }}</span>
+                        <span>{{ a | svc }}</span><span class="ltr muted">+{{ a.priceHalalas | sar }}</span>
                       </label>
                     }
                   </div>
@@ -204,7 +205,7 @@ const PAYMENTS: PaymentMethod[] = ['CASH', 'MADA', 'BANK_TRANSFER', 'APPLE_PAY',
               <h2 class="section-title">{{ 'detail.services' | translate }}</h2>
               <section class="sheet sum">
                 <dl>
-                  @for (it of q.items; track $index) { <dt>{{ it.description }}</dt><dd class="ltr">{{ it.totalHalalas | sar }}</dd> }
+                  @for (it of q.items; track $index) { <dt>{{ line(it) }}</dt><dd class="ltr">{{ it.totalHalalas | sar }}</dd> }
                 </dl>
               </section>
             }
@@ -285,9 +286,27 @@ export class BookPage implements OnInit, OnDestroy {
     }
   });
 
+  private readonly route = inject(ActivatedRoute);
+
+  /** A price-summary line in the visitor's language. */
+  protected line(item: Quote['items'][number]): string {
+    return quoteLine(item, this.services(), this.lang.current());
+  }
+
   ngOnInit(): void {
     const slug = this.store.slug();
-    this.api.services(slug).subscribe({ next: (s) => this.services.set(s), error: (e) => this.fail(e) });
+    // ?service=<id> comes from the public company page: start with that service picked.
+    const preselect = this.route.snapshot.queryParamMap.get('service');
+    this.api.services(slug).subscribe({
+      next: (s) => {
+        this.services.set(s);
+        const chosen = preselect ? s.find((x) => x.id === preselect) : undefined;
+        if (chosen && !this.picked(chosen)) {
+          this.toggle(chosen);
+        }
+      },
+      error: (e) => this.fail(e),
+    });
     this.api.me(slug).subscribe({
       next: (p) => {
         this.addresses.set(p.addresses);

@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Per-IP limit on sign-in calls. The admin backend also limits codes per phone and per company, but it
+ * Per-IP limit on sign-in calls, "Contact us" messages and Google review lookups (billed per call). The admin backend also limits codes per phone and per company, but it
  * sees only the portal server's address, so the per-visitor limit has to live here.
  */
 @Component
@@ -35,7 +35,10 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return !request.getRequestURI().matches("/api/portal/[^/]+/auth/.*");
+        String uri = request.getRequestURI();
+        return !(uri.matches("/api/portal/[^/]+/auth/.*")
+                || ("POST".equals(request.getMethod()) && uri.matches("/api/portal/[^/]+/contact"))
+                || uri.matches("/api/portal/[^/]+/google-reviews"));
     }
 
     @Override

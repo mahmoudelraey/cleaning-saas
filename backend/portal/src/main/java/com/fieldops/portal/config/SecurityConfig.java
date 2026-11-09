@@ -38,9 +38,11 @@ public class SecurityConfig {
                 .authorizeHttpRequests(a -> a
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         // The company card, its services and prices are public; so is signing in.
-                        .requestMatchers(HttpMethod.GET, "/api/portal/*", "/api/portal/*/services").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/portal/*", "/api/portal/*/services", "/api/portal/*/reviews",
+                                "/api/portal/*/google-reviews").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/portal/*/quote", "/api/portal/*/availability").permitAll()
                         .requestMatchers("/api/portal/*/auth/otp", "/api/portal/*/auth/verify").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/portal/*/contact").permitAll()
                         .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(o -> o.jwt(j -> { }))

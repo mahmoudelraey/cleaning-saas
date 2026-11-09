@@ -1,19 +1,22 @@
-import { Component, OnInit, inject, input, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 
-import { BookingDetail, BookingEvent } from '../../core/api.types';
+import { BookingDetail, BookingEvent, MyReview } from '../../core/api.types';
 import { CompanyStore } from '../../core/company.store';
 import { errorMessage } from '../../core/errors';
 import { LocalDatePipe, SarPipe } from '../../core/format';
+import { liveRefresh } from '../../core/live-refresh';
 import { PortalApi } from '../../core/portal.api';
 import { ToastService } from '../../core/toast';
+import { ItemTextPipe } from '../../core/service-names';
+import { RateVisit } from './rate-visit';
 import { StatusRail } from '../../shared/status-rail';
 
 @Component({
   selector: 'pt-booking-detail',
-  imports: [FormsModule, RouterLink, TranslatePipe, LocalDatePipe, SarPipe, StatusRail],
+  imports: [FormsModule, RouterLink, TranslatePipe, LocalDatePipe, SarPipe, StatusRail, RateVisit, ItemTextPipe],
   styles: `
     .back { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); text-decoration: none; font-weight: 600; margin-bottom: 14px; }
     .when h1 { font-size: 1.5rem; font-weight: 700; }
@@ -38,7 +41,7 @@ import { StatusRail } from '../../shared/status-rail';
   `,
   template: `
     <div class="page">
-      <a class="back" [routerLink]="['/p', store.slug(), 'bookings']"><i class="pi pi-arrow-right rtl-flip"></i>{{ 'bookings.title' | translate }}</a>
+      <a class="back" [routerLink]="['/', store.slug(), 'bookings']"><i class="pi pi-arrow-right rtl-flip"></i>{{ 'bookings.title' | translate }}</a>
 
       @if (detail(); as d) {
         <section class="sheet when">
@@ -53,7 +56,7 @@ import { StatusRail } from '../../shared/status-rail';
         <section class="sheet">
           <ul class="lines">
             @for (it of d.items; track $index) {
-              <li [class.addon]="it.addon"><span>{{ it.description }}@if (it.quantity !== 1) { <span class="muted"> × {{ it.quantity }}</span> }</span><span class="ltr">{{ it.totalHalalas | sar }}</span></li>
+              <li [class.addon]="it.addon"><span>{{ it | itemText }}@if (it.quantity !== 1) { <span class="muted"> × {{ it.quantity }}</span> }</span><span class="ltr">{{ it.totalHalalas | sar }}</span></li>
             }
             <li class="total"><span>{{ 'detail.total' | translate }}</span><span class="ltr">{{ d.booking.subtotalHalalas | sar }}</span></li>
           </ul>
@@ -76,6 +79,11 @@ import { StatusRail } from '../../shared/status-rail';
             @if (d.notes) { <dt>{{ 'detail.notes' | translate }}</dt><dd>{{ d.notes }}</dd> }
           </dl>
         </section>
+
+        @if (d.canReview) {
+          <h2 class="section-title">{{ 'rate.title' | translate }}</h2>
+          <pt-rate-visit [slug]="store.slug()" [bookingId]="d.booking.id" [review]="d.review" (saved)="reviewed($event)" />
+        }
 
         @if (d.invoice; as inv) {
           <h2 class="section-title">{{ 'detail.invoice' | translate }}</h2>
@@ -130,6 +138,7 @@ import { StatusRail } from '../../shared/status-rail';
   `,
 })
 export class BookingDetailPage implements OnInit {
+  private readonly destroyRef = inject(DestroyRef);
   protected readonly store = inject(CompanyStore);
   private readonly api = inject(PortalApi);
   private readonly translate = inject(TranslateService);
@@ -144,13 +153,21 @@ export class BookingDetailPage implements OnInit {
 
   ngOnInit(): void {
     this.load();
+    // Status, technician and invoice change while the customer watches; quiet refresh, no error toasts.
+    liveRefresh(this.destroyRef, () => this.load(true));
   }
 
-  private load(): void {
+  private load(quiet = false): void {
     this.api.booking(this.store.slug(), this.id()).subscribe({
       next: (d) => this.detail.set(d),
-      error: (e) => this.toasts.show(errorMessage(e, this.translate), 'error'),
+      error: (e) => {
+        if (!quiet) this.toasts.show(errorMessage(e, this.translate), 'error');
+      },
     });
+  }
+
+  protected reviewed(r: MyReview): void {
+    this.detail.update((d) => (d ? { ...d, review: r } : d));
   }
 
   protected techNames(): string {

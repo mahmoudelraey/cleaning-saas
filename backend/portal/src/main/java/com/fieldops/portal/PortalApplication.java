@@ -8,7 +8,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 /**
  * Customer portal API. Customers of each company sign in with their mobile (one-time code) at
- * {@code /p/{company-slug}}, see their visits and invoices, book and cancel.
+ * {@code /{company-slug}}, see their visits and invoices, book and cancel.
  *
  * <p>Runs on the shared {@code core} module ({@code com.fieldops.app}): the same entities, services and
  * database rules (Row Level Security per company) as the admin app, against the same database. The admin

@@ -18,7 +18,7 @@ public class Tenant extends BaseEntity {
     @Column(nullable = false)
     private String name;
 
-    @Column(nullable = false, unique = true, updatable = false)
+    @Column(nullable = false, unique = true)
     private String slug;
 
     @Column(name = "logo_url")
@@ -84,7 +84,119 @@ public class Tenant extends BaseEntity {
     @Column(name = "booking_page_note")
     private String bookingPageNote;
 
+    // Public page in the customer portal (see PublicPage).
+    @Column(name = "page_headline")
+    private String pageHeadline;
+
+    @Column(name = "page_about")
+    private String pageAbout;
+
+    @Column(name = "page_areas")
+    private String pageAreas;
+
+    @Column(name = "page_hours")
+    private String pageHours;
+
+    /** Saudi mobile in E.164, used for the WhatsApp button. */
+    private String whatsapp;
+
+    private String instagram;
+
+    @Column(name = "x_handle")
+    private String xHandle;
+
+    private String snapchat;
+
+    private String tiktok;
+
+    /** Facebook page name, or digits for a profile.php?id= page. */
+    private String facebook;
+
+    @Column(name = "page_founded_year")
+    private Short pageFoundedYear;
+
+    @Column(name = "page_team_size")
+    private Integer pageTeamSize;
+
+    /** "What you can expect" on the About us page, one per line. */
+    @Column(name = "page_promises")
+    private String pagePromises;
+
+    /** Google Maps listing (Places API ID). Only the ID is stored; ratings are fetched live. */
+    @Column(name = "google_place_id")
+    private String googlePlaceId;
+
+    @Column(name = "google_place_name")
+    private String googlePlaceName;
+
+    /** The tenant holding the platform owner's account; never a real company. */
+    @Column(nullable = false, insertable = false, updatable = false)
+    private boolean platform;
+
+    @Column(name = "billing_cycle")
+    private String billingCycle;
+
+    /** End of the paid period (manual activation by the platform owner until online payment exists). */
+    @Column(name = "paid_until")
+    private Instant paidUntil;
+
+    /** Why the platform owner suspended / changed the subscription (shown in the console). */
+    @Column(name = "status_note")
+    private String statusNote;
+
     protected Tenant() {
+    }
+
+    // ---- subscription changes made by the platform owner -----------------------------------------
+
+    public void changePlan(String planId) {
+        this.planId = planId;
+    }
+
+    /** Starts or extends a trial until {@code end} (ending it now = an end in the past: the company is blocked). */
+    public void setTrialEnd(Instant end) {
+        this.status = TenantStatus.TRIAL;
+        this.trialEndsAt = end;
+    }
+
+    /** Paid subscription until {@code paidUntil}; {@code cycle} MONTHLY or YEARLY. */
+    public void activate(String planId, String cycle, Instant paidUntil) {
+        this.planId = planId;
+        this.billingCycle = cycle;
+        this.paidUntil = paidUntil;
+        this.status = TenantStatus.ACTIVE;
+        this.statusNote = null;
+    }
+
+    /** Paid period over: still usable during the grace period. */
+    public void markPastDue() {
+        this.status = TenantStatus.PAST_DUE;
+    }
+
+    public void suspend(String note) {
+        this.status = TenantStatus.SUSPENDED;
+        this.statusNote = note;
+    }
+
+    public void cancel(String note) {
+        this.status = TenantStatus.CANCELLED;
+        this.statusNote = note;
+    }
+
+    public boolean isPlatform() {
+        return platform;
+    }
+
+    public String getBillingCycle() {
+        return billingCycle;
+    }
+
+    public Instant getPaidUntil() {
+        return paidUntil;
+    }
+
+    public String getStatusNote() {
+        return statusNote;
     }
 
     public static Tenant startTrial(String name, String slug, String planId, String timezone, Instant trialEndsAt) {
@@ -117,9 +229,55 @@ public class Tenant extends BaseEntity {
         return old;
     }
 
+    /** The company link. Validated and checked for uniqueness by TenantService. */
+    public void changeSlug(String slug) {
+        this.slug = slug;
+    }
+
     public void updateBookingPage(boolean enabled, String note) {
         this.bookingPageEnabled = enabled;
         this.bookingPageNote = note;
+    }
+
+    /** The page's text and facts. Contact details are saved separately ({@link #updateContact}). */
+    public void updatePublicPage(PublicPage p) {
+        this.pageHeadline = p.headline();
+        this.pageAbout = p.about();
+        this.pageAreas = p.areas();
+        this.pageHours = p.hours();
+        this.pageFoundedYear = p.foundedYear() == null ? null : p.foundedYear().shortValue();
+        this.pageTeamSize = p.teamSize();
+        this.pagePromises = p.promises();
+    }
+
+    /** How customers reach the company: mobile, WhatsApp and social accounts (shown on the portal). */
+    public void updateContact(String phone, String whatsapp, String facebook, String instagram, String tiktok,
+                              String snapchat, String x) {
+        this.phone = phone;
+        this.whatsapp = whatsapp;
+        this.facebook = facebook;
+        this.instagram = instagram;
+        this.tiktok = tiktok;
+        this.snapchat = snapchat;
+        this.xHandle = x;
+    }
+
+    public void connectGoogle(String placeId, String placeName) {
+        this.googlePlaceId = placeId;
+        this.googlePlaceName = placeId == null ? null : placeName;
+    }
+
+    public String getGooglePlaceId() {
+        return googlePlaceId;
+    }
+
+    public String getGooglePlaceName() {
+        return googlePlaceName;
+    }
+
+    public PublicPage getPublicPage() {
+        return new PublicPage(pageHeadline, pageAbout, pageAreas, pageHours, whatsapp, instagram, xHandle, snapchat,
+                tiktok, pageFoundedYear == null ? null : pageFoundedYear.intValue(), pageTeamSize, pagePromises, facebook);
     }
 
     public boolean isAutoInvoice() {

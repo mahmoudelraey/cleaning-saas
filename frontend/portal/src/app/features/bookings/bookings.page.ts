@@ -6,10 +6,11 @@ import { BookingSummary } from '../../core/api.types';
 import { CompanyStore } from '../../core/company.store';
 import { LocalDatePipe } from '../../core/format';
 import { PortalApi } from '../../core/portal.api';
+import { VisitServicesPipe } from '../../core/service-names';
 
 @Component({
   selector: 'pt-bookings',
-  imports: [RouterLink, TranslatePipe, LocalDatePipe],
+  imports: [RouterLink, TranslatePipe, LocalDatePipe, VisitServicesPipe],
   styles: `
     .head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
     .row .when { width: 56px; flex: none; text-align: center; line-height: 1.1; padding: 6px 0; border-radius: 12px; background: var(--mist); }
@@ -24,7 +25,7 @@ import { PortalApi } from '../../core/portal.api';
       <div class="head">
         <h1 class="page-title">{{ 'bookings.title' | translate }}</h1>
         @if (store.company()?.bookingOpen) {
-          <a class="btn btn-primary" [routerLink]="['/p', store.slug(), 'book']"><i class="pi pi-plus"></i>{{ 'home.book' | translate }}</a>
+          <a class="btn btn-primary" [routerLink]="['/', store.slug(), 'book']"><i class="pi pi-plus"></i>{{ 'home.book' | translate }}</a>
         }
       </div>
       <div class="segmented" role="tablist">
@@ -41,10 +42,10 @@ import { PortalApi } from '../../core/portal.api';
       } @else if (rows().length) {
         <div class="rows">
           @for (b of rows(); track b.id) {
-            <a class="row" [routerLink]="['/p', store.slug(), 'bookings', b.id]">
+            <a class="row" [routerLink]="['/', store.slug(), 'bookings', b.id]">
               <span class="when"><b class="tnum">{{ b.scheduledStart | ldate: 'dayNum' }}</b><small>{{ b.scheduledStart | ldate: 'month' }}</small></span>
               <span class="txt">
-                <div>{{ b.services.join('، ') || ('#' + b.number) }}</div>
+                <div>{{ (b | visitServices) || ('#' + b.number) }}</div>
                 <small>{{ b.scheduledStart | ldate: 'weekday' }} {{ b.scheduledStart | ldate: 'time' }}</small>
               </span>
               <span class="status" [class]="'status s-' + b.status">{{ 'status.' + b.status | translate }}</span>
@@ -56,7 +57,7 @@ import { PortalApi } from '../../core/portal.api';
           <i class="pi pi-calendar"></i>
           <p>{{ (scope() === 'upcoming' ? 'bookings.noneUpcoming' : 'bookings.nonePast') | translate }}</p>
           @if (scope() === 'upcoming' && store.company()?.bookingOpen) {
-            <a class="btn btn-primary" [routerLink]="['/p', store.slug(), 'book']">{{ 'home.book' | translate }}</a>
+            <a class="btn btn-primary" [routerLink]="['/', store.slug(), 'book']">{{ 'home.book' | translate }}</a>
           }
         </div>
       }

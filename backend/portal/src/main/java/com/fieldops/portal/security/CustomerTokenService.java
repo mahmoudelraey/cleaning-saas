@@ -79,8 +79,8 @@ public class CustomerTokenService {
 
     private static SecretKey key(String base64) {
         if (base64 == null || base64.isBlank()) {
-            throw new IllegalStateException("app.security.jwt.secret is not set (PORTAL_JWT_SECRET, base64, >= 32 bytes) "
-                    + "or run with the 'local' profile for development.");
+            throw new IllegalStateException("portal.security.jwt.secret is not set (PORTAL_JWT_SECRET, base64, >= 32 bytes) "
+                    + "or remove the empty override so the localhost dev key applies.");
         }
         byte[] bytes = Base64.getDecoder().decode(base64);
         if (bytes.length < 32) {

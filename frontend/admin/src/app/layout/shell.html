@@ -41,6 +41,7 @@
             <a
               [routerLink]="item.path"
               routerLinkActive="active"
+              [routerLinkActiveOptions]="{ exact: item.path === '/platform' }"
               class="nav-link"
               [pTooltip]="item.label | translate"
               [tooltipPosition]="tooltipSide()"
@@ -48,6 +49,9 @@
             >
               <span class="nav-icon"><i [class]="item.icon"></i></span>
               <span class="nav-label">{{ item.label | translate }}</span>
+              @if (badgeCount(item) > 0) {
+                <span class="nav-badge tnum" [attr.aria-label]="'nav.newCount' | translate: { n: badgeCount(item) }">{{ badgeCount(item) > 99 ? '99+' : badgeCount(item) }}</span>
+              }
             </a>
             }
           }

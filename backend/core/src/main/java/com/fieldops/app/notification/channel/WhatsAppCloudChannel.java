@@ -1,5 +1,7 @@
 package com.fieldops.app.notification.channel;
 
+import com.fieldops.app.platform.PlatformSettingsService;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -19,12 +21,13 @@ import org.springframework.web.client.RestClientResponseException;
 @Component
 public class WhatsAppCloudChannel implements MessageChannel {
 
-    private final NotificationProperties.WhatsApp config;
+    private final PlatformSettingsService settings;
     private final RestClient http;
 
-    public WhatsAppCloudChannel(NotificationProperties props, RestClient.Builder builder) {
-        this.config = props.whatsapp();
-        this.http = builder.baseUrl("https://graph.facebook.com").build();
+    /** Credentials and URL are read per message (Platform → Messaging), so changes apply without a restart. */
+    public WhatsAppCloudChannel(PlatformSettingsService settings, RestClient.Builder builder) {
+        this.settings = settings;
+        this.http = builder.build();
     }
 
     @Override
@@ -34,12 +37,14 @@ public class WhatsAppCloudChannel implements MessageChannel {
 
     @Override
     public boolean isEnabled() {
+        NotificationProperties.WhatsApp config = settings.whatsapp();
         return config.enabled() && notBlank(config.accessToken()) && notBlank(config.phoneNumberId());
     }
 
     @Override
     @SuppressWarnings("unchecked")
     public String send(String toE164, NotificationTemplate template, String body, List<String> params) {
+        NotificationProperties.WhatsApp config = settings.whatsapp();
         List<Map<String, Object>> parameters = new ArrayList<>();
         for (String p : params) {
             parameters.add(Map.of("type", "text", "text", p == null || p.isBlank() ? "-" : p));
@@ -54,7 +59,7 @@ public class WhatsAppCloudChannel implements MessageChannel {
                         "components", List.of(Map.of("type", "body", "parameters", parameters))));
         try {
             Map<String, Object> response = http.post()
-                    .uri("/{version}/{phoneId}/messages", config.version(), config.phoneNumberId())
+                    .uri(config.url() + "/{version}/{phoneId}/messages", config.version(), config.phoneNumberId())
                     .header("Authorization", "Bearer " + config.accessToken())
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(payload)

@@ -1,0 +1,156 @@
+# Production stack for one server (Oracle Cloud Ampere A1, Ubuntu, arm64).
+#
+#   cd /opt/fieldops/app/deploy
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Values come from deploy/.env (copy .env.example; never commit it).
+# Only Caddy is reachable from outside (80/443). Postgres and the apps have no published ports.
+#
+#   https://app.${DOMAIN}  → admin SPA (+ /platform)      /api/* → backend:8080
+#   https://${DOMAIN}      → customer portal (/{slug})     /api/* → portal-backend:8090
+name: fieldops
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: fieldops
+      POSTGRES_USER: fieldops
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}
+      TZ: UTC
+    command: >
+      postgres
+      -c shared_buffers=512MB
+      -c effective_cache_size=2GB
+      -c max_connections=60
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fieldops -d fieldops"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    shm_size: 256mb
+    logging: *logging
+
+  # Admin API: owns the schema (Flyway) and runs the background jobs. Start it before the portal.
+  backend:
+    build:
+      context: ../backend
+      dockerfile: admin/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    mem_limit: 2g
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/fieldops
+      DB_USER: fieldops
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      PUBLIC_BASE_URL: https://app.${DOMAIN:?set DOMAIN in deploy/.env}
+      CORS_ORIGINS: https://app.${DOMAIN}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in deploy/.env}
+      SETTINGS_ENCRYPTION_KEY: ${SETTINGS_ENCRYPTION_KEY:?set SETTINGS_ENCRYPTION_KEY in deploy/.env}
+      PLATFORM_ADMIN_PHONE: ${PLATFORM_ADMIN_PHONE:?set PLATFORM_ADMIN_PHONE in deploy/.env}
+      PLATFORM_ADMIN_PASSWORD: ${PLATFORM_ADMIN_PASSWORD:?set PLATFORM_ADMIN_PASSWORD in deploy/.env}
+      PLATFORM_ADMIN_NAME: ${PLATFORM_ADMIN_NAME:-FieldOps Admin}
+      PLATFORM_ADMIN_EMAIL: ${PLATFORM_ADMIN_EMAIL:-}
+      GOOGLE_PLACES_API_KEY: ${GOOGLE_PLACES_API_KEY:-}
+      LIMITED_WHATSAPP_MONTHLY: ${LIMITED_WHATSAPP_MONTHLY:-100}
+      OTP_EXPOSE_CODE: "false"
+      LOG_LEVEL: INFO
+      STORAGE_TYPE: local
+      STORAGE_LOCAL_DIR: /app/data/uploads
+      SERVER_FORWARD_HEADERS_STRATEGY: native
+      JAVA_OPTS: -XX:MaxRAMPercentage=75 -Duser.timezone=UTC
+    volumes:
+      - uploads:/app/data
+    healthcheck:
+      # bash /dev/tcp: works without curl/wget in the image
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /actuator/health HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && grep -q '\"UP\"' <&3"]
+      interval: 15s
+      timeout: 5s
+      start_period: 120s
+      retries: 10
+    logging: *logging
+
+  # Customer portal API: same database and core module; no Flyway (validates the admin's schema).
+  portal-backend:
+    build:
+      context: ../backend
+      dockerfile: portal/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    mem_limit: 1g
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/fieldops
+      DB_USER: fieldops
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      PUBLIC_BASE_URL: https://app.${DOMAIN}
+      ADMIN_PUBLIC_URL: https://app.${DOMAIN}
+      CORS_ORIGINS: https://${DOMAIN},https://www.${DOMAIN}
+      PORTAL_JWT_SECRET: ${PORTAL_JWT_SECRET:?set PORTAL_JWT_SECRET in deploy/.env}
+      SETTINGS_ENCRYPTION_KEY: ${SETTINGS_ENCRYPTION_KEY}
+      GOOGLE_PLACES_API_KEY: ${GOOGLE_PLACES_API_KEY:-}
+      LIMITED_WHATSAPP_MONTHLY: ${LIMITED_WHATSAPP_MONTHLY:-100}
+      OTP_EXPOSE_CODE: "false"
+      LOG_LEVEL: INFO
+      STORAGE_TYPE: local
+      STORAGE_LOCAL_DIR: /app/data/uploads
+      SERVER_FORWARD_HEADERS_STRATEGY: native
+      JAVA_OPTS: -XX:MaxRAMPercentage=75 -Duser.timezone=UTC
+    # Same storage as the admin app (photos, logos).
+    volumes:
+      - uploads:/app/data
+    logging: *logging
+
+  frontend:
+    build: ../frontend/admin
+    restart: unless-stopped
+    depends_on:
+      - backend
+    logging: *logging
+
+  portal-frontend:
+    build: ../frontend/portal
+    restart: unless-stopped
+    depends_on:
+      - portal-backend
+    logging: *logging
+
+  # TLS (Let's Encrypt, automatic) and routing. The only service with published ports.
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - frontend
+      - portal-frontend
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in deploy/.env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    logging: *logging
+
+volumes:
+  pgdata:
+  uploads:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,257 @@
+@if (company(); as c) {
+  <!-- Hero: teal water on the reading side, the company's photo on the other, joined by a soft curve -->
+  <section class="hero">
+    <div class="hero-media" aria-hidden="true">
+      @if (cover(); as src) {
+        <img [src]="src" alt="" (error)="nextCover()" />
+      }
+    </div>
+    <span class="swoosh" aria-hidden="true"></span>
+    <span class="dots" aria-hidden="true"></span>
+
+    <div class="hero-in">
+      <h1>{{ c.name }}</h1>
+      <p class="lead">{{ page().headline || ('company.defaultHeadline' | translate) }}</p>
+
+      @if (reviews(); as r) {
+        @if (r.count > 0) {
+          <a class="rating" href="#reviews">
+            <pt-stars [value]="r.average" />
+            <span><strong class="ltr tnum">{{ r.average }}</strong> {{ (r.count === 1 ? 'company.ratingsOne' : 'company.ratings') | translate: { n: r.count } }}</span>
+          </a>
+        }
+      }
+
+      <div class="cta">
+        @if (c.bookingOpen) {
+          <a class="btn-book" [routerLink]="['/', slug(), 'book']">
+            <i class="pi pi-calendar" aria-hidden="true"></i>
+            <span>{{ 'company.book' | translate }}</span>
+            <span class="go-circle" aria-hidden="true"><i class="pi pi-chevron-left rtl-flip"></i></span>
+          </a>
+        }
+        @if (whatsappUrl(); as wa) {
+          <a class="btn-glass" [href]="wa" target="_blank" rel="noopener"><i class="pi pi-whatsapp"></i>{{ 'company.whatsapp' | translate }}</a>
+        } @else if (c.phone && !c.bookingOpen) {
+          <a class="btn-glass" [href]="'tel:' + c.phone"><i class="pi pi-phone"></i>{{ 'company.call' | translate }}</a>
+        }
+      </div>
+
+      @if (areas().length || page().hours) {
+        <ul class="facts">
+          @if (areas().length) {
+            <li><i class="pi pi-map-marker"></i>{{ areas().slice(0, 3).join(lang.current() === 'ar' ? '، ' : ', ') }}@if (areas().length > 3) { {{ 'company.andMore' | translate: { n: areas().length - 3 } }} }</li>
+          }
+          @if (page().hours) {
+            <li><i class="pi pi-clock"></i>{{ page().hours }}</li>
+          }
+        </ul>
+      }
+    </div>
+
+    <svg class="waterline" viewBox="0 0 1440 120" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M0,70 C220,20 420,10 640,48 C860,86 1020,104 1220,78 C1320,64 1390,50 1440,44 L1440,120 L0,120 Z" />
+    </svg>
+  </section>
+
+  <main class="content">
+    <!-- Services: a price list in one card, lifted over the hero's edge -->
+    <section class="card services" id="services" aria-labelledby="h-services">
+      <header class="card-head">
+        <span class="head-ico"><i class="pi pi-list" aria-hidden="true"></i></span>
+        <h2 id="h-services">{{ 'company.services' | translate }}</h2>
+      </header>
+      @if (services() === null) {
+        <div class="spinner" aria-hidden="true"></div>
+      } @else if (!services()!.length) {
+        <p class="muted pad">{{ 'company.noServices' | translate }}</p>
+      } @else {
+        <ul class="menu">
+          @for (s of shownServices(); track s.id) {
+            <li>
+              @if (c.bookingOpen) {
+                <a class="item" [routerLink]="['/', slug(), 'book']" [queryParams]="{ service: s.id }">
+                  <ng-container *ngTemplateOutlet="svc; context: { $implicit: s }" />
+                  <span class="go-circle soft" aria-hidden="true"><i class="pi pi-chevron-left rtl-flip"></i></span>
+                </a>
+              } @else {
+                <div class="item"><ng-container *ngTemplateOutlet="svc; context: { $implicit: s }" /></div>
+              }
+            </li>
+          }
+        </ul>
+        @if (!allServices() && services()!.length > 6) {
+          <button type="button" class="link-btn more" (click)="allServices.set(true)">
+            {{ 'company.allServices' | translate: { n: services()!.length } }}
+          </button>
+        }
+        @if (c.vatRegistered) {
+          <p class="fine">{{ (c.pricesIncludeVat ? 'company.vatIncluded' : 'company.vatExcluded') | translate }}</p>
+        }
+      }
+    </section>
+
+    <!-- How booking works: a real sequence, so it is numbered -->
+    @if (c.bookingOpen) {
+      <section class="how" aria-labelledby="h-how">
+        <h2 class="ruled" id="h-how"><span>{{ 'company.how' | translate }}</span></h2>
+        <ol class="steps">
+          <li>
+            <span class="step-ico"><i class="pi pi-calendar" aria-hidden="true"></i><b class="tnum">1</b></span>
+            <span class="step-text"><strong>{{ 'company.step1' | translate }}</strong><span>{{ 'company.step1Hint' | translate }}</span></span>
+          </li>
+          <li>
+            <span class="step-ico"><i class="pi pi-mobile" aria-hidden="true"></i><b class="tnum">2</b></span>
+            <span class="step-text"><strong>{{ 'company.step2' | translate }}</strong><span>{{ 'company.step2Hint' | translate }}</span></span>
+          </li>
+          <li>
+            <span class="step-ico done"><i class="pi pi-check" aria-hidden="true"></i><b class="tnum">3</b></span>
+            <span class="step-text"><strong>{{ 'company.step3' | translate }}</strong><span>{{ 'company.step3Hint' | translate }}</span></span>
+          </li>
+        </ol>
+      </section>
+    }
+
+    <!-- About -->
+    @if (page().about || areas().length) {
+      <section class="card pad" aria-labelledby="h-about">
+        <header class="card-head flat">
+          <span class="head-ico"><i class="pi pi-info-circle" aria-hidden="true"></i></span>
+          <h2 id="h-about">{{ 'company.about' | translate: { name: c.name } }}</h2>
+        </header>
+        @if (page().about) {
+          <p class="about clamp">{{ page().about }}</p>
+          <a class="read-more" [routerLink]="['/', slug(), 'about']">{{ 'company.readMore' | translate }}</a>
+        }
+        @if (areas().length) {
+          <h3 class="sub">{{ 'company.areas' | translate }}</h3>
+          <ul class="tags">
+            @for (a of areas(); track a) { <li>{{ a }}</li> }
+          </ul>
+        }
+      </section>
+    }
+
+    <!-- Reviews: from Google Maps (live) and from customers' visits in this portal -->
+    <div id="reviews" class="anchor"></div>
+    @if (c.googleReviews) {
+      <section class="card pad" aria-labelledby="h-google">
+        <header class="card-head flat">
+          <span class="head-ico"><i class="pi pi-map-marker" aria-hidden="true"></i></span>
+          <h2 id="h-google">{{ 'google.title' | translate }}</h2>
+        </header>
+        <pt-google-reviews [slug]="slug()" />
+      </section>
+    }
+    @if (reviews(); as r) {
+      @if (r.count > 0) {
+        <section class="card pad" aria-labelledby="h-reviews">
+          <header class="card-head flat">
+            <span class="head-ico"><i class="pi pi-star" aria-hidden="true"></i></span>
+            <h2 id="h-reviews">{{ (c.googleReviews ? 'company.portalReviews' : 'company.reviewsTitle') | translate }}</h2>
+          </header>
+          <div class="score">
+            <span class="big ltr tnum">{{ r.average }}</span>
+            <span class="score-side">
+              <pt-stars [value]="r.average" style="--star-size: 1.15rem" />
+              <span class="muted">{{ (r.count === 1 ? 'company.fromOne' : 'company.from') | translate: { n: r.count } }}</span>
+            </span>
+          </div>
+          @if (r.items.length) {
+            <ul class="quotes">
+              @for (q of r.items; track q.id) {
+                <li>
+                  <pt-stars [value]="q.rating" />
+                  @if (q.comment) { <p>{{ q.comment }}</p> }
+                  <footer>
+                    <span class="who">{{ q.name || ('company.customer' | translate) }}</span>
+                    <span class="verified"><i class="pi pi-verified"></i>{{ 'company.verified' | translate }}</span>
+                    <span class="when">{{ q.at | ldate: 'dayShort' }}</span>
+                  </footer>
+                </li>
+              }
+            </ul>
+          }
+        </section>
+      }
+    }
+
+    <!-- Contact -->
+    @if (hasContact()) {
+      <section class="card pad" id="contact" aria-labelledby="h-contact">
+        <header class="card-head flat">
+          <span class="head-ico"><i class="pi pi-phone" aria-hidden="true"></i></span>
+          <h2 id="h-contact">{{ 'company.contact' | translate }}</h2>
+        </header>
+        <div class="contact">
+          @if (whatsappUrl(); as wa) {
+            <a class="crow" [href]="wa" target="_blank" rel="noopener">
+              <i class="pi pi-whatsapp ico wa"></i>
+              <span><strong>{{ 'company.whatsapp' | translate }}</strong><small>{{ page().whatsapp | phone }}</small></span>
+            </a>
+          }
+          @if (c.phone) {
+            <a class="crow" [href]="'tel:' + c.phone">
+              <i class="pi pi-phone ico"></i>
+              <span><strong>{{ 'company.call' | translate }}</strong><small>{{ c.phone | phone }}</small></span>
+            </a>
+          }
+          @if (c.address) {
+            <div class="crow">
+              <i class="pi pi-map-marker ico"></i>
+              <span><strong>{{ 'company.address' | translate }}</strong><small>{{ c.address }}</small></span>
+            </div>
+          }
+          @if (page().hours) {
+            <div class="crow">
+              <i class="pi pi-clock ico"></i>
+              <span><strong>{{ 'company.hoursLabel' | translate }}</strong><small>{{ page().hours }}</small></span>
+            </div>
+          }
+        </div>
+        @if (socials().length) {
+          <ul class="socials">
+            @for (s of socials(); track s.key) {
+              <li>
+                <a [href]="s.url" target="_blank" rel="noopener">
+                  @if (s.icon) { <i class="pi" [class]="s.icon"></i> }
+                  <span>{{ s.label }}</span>
+                  <span class="handle ltr">{{ s.handle }}</span>
+                </a>
+              </li>
+            }
+          </ul>
+        }
+      </section>
+    }
+
+  </main>
+
+  @if (c.bookingOpen) {
+    <div class="dock">
+      <a class="btn btn-primary dock-book" [routerLink]="['/', slug(), 'book']"><i class="pi pi-calendar-plus"></i>{{ 'company.book' | translate }}</a>
+      @if (whatsappUrl(); as wa) {
+        <a class="btn btn-quiet dock-icon" [href]="wa" target="_blank" rel="noopener" [attr.aria-label]="'company.whatsapp' | translate">
+          <i class="pi pi-whatsapp"></i>
+        </a>
+      } @else if (c.phone) {
+        <a class="btn btn-quiet dock-icon" [href]="'tel:' + c.phone" [attr.aria-label]="'company.call' | translate"><i class="pi pi-phone"></i></a>
+      }
+    </div>
+  }
+
+  <ng-template #svc let-s>
+    <span class="svc-ico"><i class="pi" [class]="serviceIcon(s.name + ' ' + (s.nameEn ?? ''))" aria-hidden="true"></i></span>
+    <span class="item-main">
+      <span class="item-name">{{ s | svc }}</span>
+      @if (s | svc: 'description'; as d) { <span class="item-desc">{{ d }}</span> }
+      <span class="item-meta">{{ duration(s.durationMin) }}</span>
+    </span>
+    <span class="item-price">
+      <span class="ltr tnum">{{ s.basePriceHalalas | sar }}</span>
+      @if (s.pricingType !== 'FIXED') { <small>/ {{ 'book.unit.' + s.pricingType | translate }}</small> }
+    </span>
+  </ng-template>
+} @else {
+  <div class="loading"><div class="spinner" aria-hidden="true"></div></div>
+}

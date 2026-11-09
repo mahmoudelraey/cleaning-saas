@@ -1,0 +1,170 @@
+// Contact us. Shares the hero, cards and contact rows with the company page (company.page.scss).
+
+.about-hero {
+  padding-bottom: 104px;
+}
+
+.content.wide {
+  max-width: 1080px;
+}
+
+.grid {
+  display: grid;
+  gap: 24px;
+  align-items: start;
+
+  @media (min-width: 900px) {
+    grid-template-columns: 1.5fr 1fr;
+  }
+
+  > .card {
+    margin-top: 0;
+  }
+}
+
+form {
+  display: grid;
+  gap: 4px;
+}
+
+.two {
+  display: grid;
+  gap: 0 14px;
+
+  @media (min-width: 620px) {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.topics {
+  border: 0;
+  padding: 0;
+  margin: 0 0 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+
+  legend {
+    font-weight: 600;
+    font-size: 0.92rem;
+    margin-bottom: 8px;
+    padding: 0;
+  }
+}
+
+.chip {
+  position: relative;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 0.9rem;
+  background: var(--mist);
+  color: var(--ink-2);
+  cursor: pointer;
+  border: 1px solid transparent;
+
+  input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  &.on {
+    background: var(--foam);
+    color: var(--tide-deep);
+    border-color: color-mix(in srgb, var(--tide) 45%, transparent);
+    font-weight: 600;
+  }
+
+  &:focus-within {
+    outline: 3px solid color-mix(in srgb, var(--tide) 45%, transparent);
+    outline-offset: 2px;
+  }
+}
+
+textarea.input {
+  width: 100%;
+  resize: vertical;
+  min-height: 120px;
+}
+
+.count {
+  display: block;
+  text-align: end;
+  color: var(--ink-3);
+  font-size: 0.78rem;
+  margin-top: 4px;
+}
+
+.opt {
+  color: var(--ink-3);
+  font-weight: 400;
+  font-size: 0.85rem;
+}
+
+// Off-screen, not display:none (some bots skip hidden inputs).
+.hp {
+  position: absolute;
+  inset-inline-start: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.err {
+  color: var(--rose);
+  font-size: 0.9rem;
+  margin: 4px 0 10px;
+}
+
+.btn-block i {
+  font-size: 0.9rem;
+}
+
+.fine {
+  padding: 10px 0 0;
+  text-align: center;
+}
+
+.sent {
+  text-align: center;
+  padding: 18px 4px 6px;
+
+  h2 {
+    font-size: 1.35rem;
+    margin: 14px 0 6px;
+  }
+
+  p {
+    margin: 0 auto 20px;
+    max-width: 40ch;
+  }
+}
+
+.ok {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  margin: 0 auto;
+  display: grid;
+  place-items: center;
+  background: var(--foam);
+  color: var(--tide-deep);
+  font-size: 1.5rem;
+}
+
+.row-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+.side .socials {
+  margin-top: 16px;
+}
+
+.side-book {
+  margin-top: 20px;
+  width: 100%;
+  justify-content: space-between;
+}

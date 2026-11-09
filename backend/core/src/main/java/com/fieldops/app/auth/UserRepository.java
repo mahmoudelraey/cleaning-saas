@@ -19,6 +19,11 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     Optional<User> findByPhone(String phone);
 
+    boolean existsByRole(com.fieldops.app.common.security.Role role);
+
+    /** The owner account(s) of a company (platform console). */
+    List<User> findByTenantIdAndRole(UUID tenantId, com.fieldops.app.common.security.Role role);
+
     @Query("select u from User u where lower(u.email) = lower(:email)")
     Optional<User> findByEmailIgnoreCase(@Param("email") String email);
 

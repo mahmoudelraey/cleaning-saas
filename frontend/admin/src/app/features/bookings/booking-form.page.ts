@@ -64,6 +64,7 @@ const PAYMENT_METHODS: PaymentMethod[] = ['CASH', 'BANK_TRANSFER', 'MADA', 'CARD
     .line { border: 1px solid var(--fo-border); border-radius: 10px; padding: .875rem; display: grid; gap: .75rem; }
     .line + .line { margin-top: .75rem; }
     .line-head { display: grid; grid-template-columns: minmax(0, 1fr) 140px auto; gap: .5rem; align-items: end; }
+    @media (max-width: 480px) { .line-head { grid-template-columns: minmax(0, 1fr) auto; } .line-head > :first-child { grid-column: 1 / -1; } }
     .addons { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; }
     .addons label { display: inline-flex; gap: .4rem; align-items: center; cursor: pointer; }
     .summary-row { display: flex; justify-content: space-between; gap: 1rem; padding: .35rem 0; }

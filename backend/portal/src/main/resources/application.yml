@@ -25,23 +25,35 @@ server:
   error:
     include-stacktrace: never
 
+logging:
+  level:
+    com.fieldops: ${LOG_LEVEL:DEBUG}
+
 management:
   endpoints:
     web:
       exposure:
         include: health,info
 
-# Settings read by the shared core module (keep in line with admin/backend's application.yml).
+# Settings read by the shared core module (keep in line with backend/admin's application.yml).
 app:
+  # Encrypts secrets saved in Platform → Messaging. Base64 of 32 random bytes; same value on admin and portal.
+  settings:
+    encryption-key: ${SETTINGS_ENCRYPTION_KEY:ZGV2LW9ubHktc2V0dGluZ3Mta2V5LWNoYW5nZS1tZSE=}
   db:
     # Same restricted role as the admin app, so Row Level Security applies to every portal transaction.
     rls-role: fieldops_app
   # Admin app origin: invoice links open its public invoice page.
   public-base-url: ${PUBLIC_BASE_URL:http://localhost:4200}
   default-timezone: Asia/Riyadh
+  google:
+    # Google Places API (New) key: company search in admin, live Google rating/reviews on the portal page.
+    # Empty = the Google section is hidden. Restrict the key to the Places API (New) in Google Cloud.
+    places-api-key: ${GOOGLE_PLACES_API_KEY:}
   otp:
-    # Never true in production: returns the sign-in code in the API response.
-    expose-code: false
+    # Returns the sign-in code in the API response, so local dev works without SMS/WhatsApp.
+    # Must be false in production: set OTP_EXPOSE_CODE=false (DevDefaultsGuard enforces it off localhost).
+    expose-code: ${OTP_EXPOSE_CODE:true}
   plans:
     limited-whatsapp-monthly: ${LIMITED_WHATSAPP_MONTHLY:100}
   storage:
@@ -60,7 +72,8 @@ portal:
   security:
     jwt:
       # Separate from the admin app's key: customer tokens must never open the admin API.
-      secret: ${PORTAL_JWT_SECRET:}
+      # The default is a DEV-ONLY key for localhost; set PORTAL_JWT_SECRET in every real environment.
+      secret: ${PORTAL_JWT_SECRET:cG9ydGFsLWRldi1vbmx5LXNlY3JldC1jaGFuZ2UtbWUtYmVmb3JlLXByb2R1Y3Rpb24=}
       issuer: fieldops-portal
       access-ttl: 30d
     cors-origins: ${CORS_ORIGINS:http://localhost:4300}

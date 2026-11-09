@@ -107,8 +107,13 @@ public class BookingService {
             if (f.q() != null && !f.q().isBlank()) {
                 String like = "%" + f.q().trim().toLowerCase() + "%";
                 List<Predicate> any = new ArrayList<>();
-                any.add(cb.like(cb.lower(root.<String>get("customerName")), like));
-                any.add(cb.like(root.<String>get("customerPhone"), like));
+                // Name or phone of the booking's customer (archived customers included).
+                Subquery<UUID> byCustomer = query.subquery(UUID.class);
+                var c = byCustomer.from(CustomerRef.class);
+                byCustomer.select(c.<UUID>get("id")).where(cb.or(
+                        cb.like(cb.lower(c.<String>get("name")), like),
+                        cb.like(c.<String>get("phone"), like)));
+                any.add(root.<UUID>get("customerId").in(byCustomer));
                 String digits = f.q().replaceAll("\\D", "");
                 if (!digits.isEmpty() && digits.length() <= 12) {
                     any.add(cb.equal(root.get("number"), Long.parseLong(digits)));
@@ -358,10 +363,8 @@ public class BookingService {
                 .filter(x -> x.getId().equals(addressId))
                 .findFirst()
                 .orElseThrow(() -> ApiException.notFound("address"));
-        String text = java.util.stream.Stream.of(a.getLabel(), a.getCity(), a.getDistrict(), a.getDetails())
-                .filter(s -> s != null && !s.isBlank())
-                .collect(Collectors.joining("، "));
-        b.setAddress(a.getId(), text, a.getLat(), a.getLng(), a.getMapUrl());
+        b.setAddress(a.getId(), AddressRef.text(a.getLabel(), a.getCity(), a.getDistrict(), a.getDetails()), a.getLat(),
+                a.getLng(), a.getMapUrl());
     }
 
     private static String trim(String s) {

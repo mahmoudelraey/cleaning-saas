@@ -3,7 +3,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { Observable, finalize, map, shareReplay, tap } from 'rxjs';
 
-import { Role, Tokens, UserView } from '../api.types';
+import { DEFAULT_COORDINATOR_SCREENS, Role, Screen, Tokens, UserView } from '../api.types';
 
 const STORAGE_KEY = 'fieldops.session';
 
@@ -49,6 +49,28 @@ export class AuthService {
   hasRole(...roles: Role[]): boolean {
     const r = this.role();
     return r !== null && roles.includes(r);
+  }
+
+  /** Owners see every screen, technicians none of the office screens; coordinators what their owner allowed. */
+  canSee(...anyOf: Screen[]): boolean {
+    const r = this.role();
+    if (r === 'OWNER') return true;
+    if (r !== 'COORDINATOR') return false;
+    const mine = this.user()?.screens ?? DEFAULT_COORDINATOR_SCREENS;
+    return anyOf.some((s) => mine.includes(s));
+  }
+
+  /** Where this user starts: technicians their day, others the first screen they may open. */
+  homePath(): string {
+    if (this.hasRole('TECHNICIAN')) return '/today';
+    if (this.hasRole('PLATFORM_ADMIN')) return '/platform';
+    const order: [Screen, string][] = [
+      ['DASHBOARD', '/dashboard'], ['CALENDAR', '/calendar'], ['BOOKINGS', '/bookings'], ['CUSTOMERS', '/customers'],
+      ['INVOICES', '/invoices'], ['QUOTES', '/quotes'], ['MESSAGES', '/messages'], ['CONTACT_REQUESTS', '/contact-requests'],
+      ['REVIEWS', '/reviews'], ['SERVICES', '/services'], ['TECHNICIANS', '/technicians'], ['REPORTS', '/reports'],
+      ['SALES', '/sales'], ['EXPENSES', '/finance'],
+    ];
+    return order.find(([s]) => this.canSee(s))?.[1] ?? '/change-password';
   }
 
   login(identifier: string, password: string): Observable<UserView> {

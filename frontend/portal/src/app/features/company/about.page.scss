@@ -1,0 +1,112 @@
+// About us. Shares the company page's hero, content frame and tags (company.page.scss); only the extras live here.
+
+.about-hero {
+  padding-bottom: 64px;
+}
+
+.kicker {
+  margin: 0 0 6px;
+  color: rgba(255, 255, 255, 0.78);
+  font-weight: 600;
+}
+
+// The facts read like a small spec sheet: label above, value large.
+.facts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1px;
+  margin: 20px 0 0;
+  background: var(--line);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+
+  div {
+    background: var(--surface);
+    padding: 16px 18px;
+  }
+
+  dt {
+    color: var(--ink-2);
+    font-size: 0.85rem;
+  }
+
+  dd {
+    margin: 4px 0 0;
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--tide-deep);
+  }
+}
+
+.story {
+  font-size: 1.08rem;
+}
+
+.promises {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 10px;
+
+  li {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    font-size: 1rem;
+  }
+
+  i {
+    flex: none;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--foam);
+    color: var(--tide-deep);
+    display: grid;
+    place-items: center;
+    font-size: 0.75rem;
+    margin-top: 1px;
+  }
+}
+
+.hours {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 0;
+  color: var(--ink-2);
+}
+
+.cta-band {
+  background: var(--surface);
+  border-radius: var(--r-lg);
+  padding: 22px 20px;
+  border: 1px solid var(--line);
+
+  p {
+    margin: 0 0 16px;
+  }
+}
+
+.cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+// Plain sections on the About page (the company page uses cards instead).
+.block {
+  margin-top: 36px;
+
+  h2 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin-bottom: 14px;
+  }
+}
+
+.facts-grid {
+  margin-top: 0;
+}

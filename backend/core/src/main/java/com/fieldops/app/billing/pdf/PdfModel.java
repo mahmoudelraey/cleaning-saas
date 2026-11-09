@@ -29,6 +29,7 @@ public record PdfModel(
     public record Party(String heading, String name, List<Field> details) {
     }
 
-    public record Line(String description, String quantity, String unitPrice, String total) {
+    /** {@code descriptionEn} is printed under the Arabic {@code description}; null = Arabic only. */
+    public record Line(String description, String descriptionEn, String quantity, String unitPrice, String total) {
     }
 }

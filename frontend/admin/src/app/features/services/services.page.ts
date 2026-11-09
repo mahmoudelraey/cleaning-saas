@@ -17,14 +17,16 @@ import { Observable, concat, of, toArray } from 'rxjs';
 import { PricingType, ServiceOffering } from '../../core/api.types';
 import { AuthService } from '../../core/auth/auth.service';
 import { errorMessage } from '../../core/http/api-error';
+import { LanguageService } from '../../core/i18n/language.service';
 import { SarPipe, toHalalas, toSar } from '../../shared/format';
 
 const BASE = '/api/v1/services';
 
-function makeAddonGroup(fb: FormBuilder, id: string | null, name: string, price: number, active: boolean) {
+function makeAddonGroup(fb: FormBuilder, id: string | null, name: string, nameEn: string, price: number, active: boolean) {
   return fb.nonNullable.group({
     id: [id as string | null],
     name: [name, [Validators.maxLength(150)]],
+    nameEn: [nameEn, [Validators.maxLength(150)]],
     price: [price, [Validators.min(0)]],
     active: [active],
   });
@@ -49,7 +51,10 @@ type AddonGroup = ReturnType<typeof makeAddonGroup>;
   ],
   styles: `
     .addons { display: flex; flex-wrap: wrap; gap: .35rem; }
-    .addon-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 160px) auto auto; gap: .5rem; align-items: center; }
+    .addon-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 140px) auto auto; gap: .5rem; align-items: center; }
+    @media (max-width: 640px) { .addon-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+    .missing-en { font-size: .75rem; color: var(--p-orange-600, #c2410c); margin-top: .2rem; }
+    .hint { color: var(--fo-muted); font-size: .8rem; }
     .addon-row > * { min-width: 0; }
     .addon-row + .addon-row { margin-top: .5rem; }
     h3 { margin: .5rem 0; font-size: 1rem; }
@@ -83,9 +88,12 @@ type AddonGroup = ReturnType<typeof makeAddonGroup>;
         <ng-template #body let-s>
           <tr>
             <td>
-              <strong>{{ s.name }}</strong>
-              @if (s.description) {
-                <div class="muted">{{ s.description }}</div>
+              <strong>{{ label(s.name, s.nameEn) }}</strong>
+              @if (label(s.description, s.descriptionEn); as d) {
+                <div class="muted">{{ d }}</div>
+              }
+              @if (!s.nameEn) {
+                <div class="missing-en"><i class="pi pi-language"></i> {{ 'services.noEnglish' | translate }}</div>
               }
             </td>
             <td>{{ 'services.pricingTypes.' + s.pricingType | translate }}</td>
@@ -94,7 +102,7 @@ type AddonGroup = ReturnType<typeof makeAddonGroup>;
             <td>
               <div class="addons">
                 @for (a of s.addons; track a.id) {
-                  <p-tag [value]="a.name" severity="secondary" />
+                  <p-tag [value]="label(a.name, a.nameEn)" severity="secondary" />
                 }
               </div>
             </td>
@@ -127,14 +135,23 @@ type AddonGroup = ReturnType<typeof makeAddonGroup>;
       [draggable]="false"
     >
       <form [formGroup]="form" (ngSubmit)="save()" class="form-grid">
-        <div class="field full">
-          <label for="s-name">{{ 'services.name' | translate }}</label>
-          <input pInputText id="s-name" formControlName="name" [placeholder]="'services.nameHint' | translate" />
+        <div class="field">
+          <label for="s-name">{{ 'services.nameAr' | translate }}</label>
+          <input pInputText id="s-name" dir="rtl" formControlName="name" placeholder="مثال: تنظيف شقة" />
         </div>
-        <div class="field full">
-          <label for="s-desc">{{ 'services.description' | translate }}</label>
-          <textarea pTextarea id="s-desc" formControlName="description" rows="2"></textarea>
+        <div class="field">
+          <label for="s-name-en">{{ 'services.nameEn' | translate }}</label>
+          <input pInputText id="s-name-en" dir="ltr" formControlName="nameEn" placeholder="e.g. Apartment cleaning" />
         </div>
+        <div class="field">
+          <label for="s-desc">{{ 'services.descriptionAr' | translate }}</label>
+          <textarea pTextarea id="s-desc" dir="rtl" formControlName="description" rows="2"></textarea>
+        </div>
+        <div class="field">
+          <label for="s-desc-en">{{ 'services.descriptionEn' | translate }}</label>
+          <textarea pTextarea id="s-desc-en" dir="ltr" formControlName="descriptionEn" rows="2"></textarea>
+        </div>
+        <small class="hint full">{{ 'services.englishHint' | translate }}</small>
         <div class="field">
           <label for="s-type">{{ 'services.pricing' | translate }}</label>
           <p-select inputId="s-type" formControlName="pricingType" [options]="pricingOptions()" optionLabel="label" optionValue="value" />
@@ -157,7 +174,8 @@ type AddonGroup = ReturnType<typeof makeAddonGroup>;
           <div formArrayName="addons">
             @for (g of addons.controls; track g; let i = $index) {
               <div class="addon-row" [formGroupName]="i">
-                <input pInputText formControlName="name" [placeholder]="'services.addonName' | translate" />
+                <input pInputText dir="rtl" formControlName="name" [placeholder]="'services.addonNameAr' | translate" />
+                <input pInputText dir="ltr" formControlName="nameEn" [placeholder]="'services.addonNameEn' | translate" />
                 <p-inputnumber formControlName="price" mode="decimal" [maxFractionDigits]="2" [min]="0" [placeholder]="'services.priceSar' | translate" />
                 <p-toggleswitch formControlName="active" />
                 <p-button icon="pi pi-times" [text]="true" severity="danger" (onClick)="removeAddon(i)" />
@@ -186,6 +204,7 @@ export class ServicesPage implements OnInit {
   private readonly messages = inject(MessageService);
   private readonly confirm = inject(ConfirmationService);
   private readonly translate = inject(TranslateService);
+  private readonly lang = inject(LanguageService);
   protected readonly isOwner = inject(AuthService).hasRole('OWNER');
 
   protected readonly services = signal<ServiceOffering[]>([]);
@@ -203,6 +222,8 @@ export class ServicesPage implements OnInit {
   protected readonly form = this.fb.nonNullable.group({
     name: ['', [Validators.required, Validators.maxLength(150)]],
     description: [''],
+    nameEn: ['', [Validators.maxLength(150)]],
+    descriptionEn: [''],
     pricingType: ['FIXED' as PricingType, Validators.required],
     price: [0, [Validators.required, Validators.min(0)]],
     durationMin: [120, [Validators.required, Validators.min(5), Validators.max(1440)]],
@@ -235,17 +256,19 @@ export class ServicesPage implements OnInit {
     this.form.reset({
       name: s?.name ?? '',
       description: s?.description ?? '',
+      nameEn: s?.nameEn ?? '',
+      descriptionEn: s?.descriptionEn ?? '',
       pricingType: s?.pricingType ?? 'FIXED',
       price: s ? toSar(s.basePriceHalalas) : 0,
       durationMin: s?.durationMin ?? 120,
       active: s?.active ?? true,
     });
-    s?.addons.forEach((a) => this.addons.push(this.addonGroup(a.id, a.name, toSar(a.priceHalalas), a.active)));
+    s?.addons.forEach((a) => this.addons.push(this.addonGroup(a.id, a.name, a.nameEn ?? '', toSar(a.priceHalalas), a.active)));
     this.dialogOpen.set(true);
   }
 
   addAddon(): void {
-    this.addons.push(this.addonGroup(null, '', 0, true));
+    this.addons.push(this.addonGroup(null, '', '', 0, true));
   }
 
   removeAddon(i: number): void {
@@ -260,6 +283,8 @@ export class ServicesPage implements OnInit {
     const body = {
       name: v.name,
       description: v.description || null,
+      nameEn: v.nameEn.trim() || null,
+      descriptionEn: v.descriptionEn.trim() || null,
       pricingType: v.pricingType,
       basePriceHalalas: toHalalas(v.price),
       durationMin: v.durationMin,
@@ -305,7 +330,7 @@ export class ServicesPage implements OnInit {
       if (!r.name.trim()) {
         continue;
       }
-      const body = { name: r.name, priceHalalas: toHalalas(r.price), active: r.active };
+      const body = { name: r.name, nameEn: r.nameEn.trim() || null, priceHalalas: toHalalas(r.price), active: r.active };
       calls.push(
         r.id
           ? this.http.put(`${BASE}/${saved.id}/addons/${r.id}`, body)
@@ -320,8 +345,13 @@ export class ServicesPage implements OnInit {
     return calls.length ? concat(...calls).pipe(toArray()) : of([]);
   }
 
-  private addonGroup(id: string | null, name: string, price: number, active: boolean): AddonGroup {
-    return makeAddonGroup(this.fb, id, name, price, active);
+  private addonGroup(id: string | null, name: string, nameEn: string, price: number, active: boolean): AddonGroup {
+    return makeAddonGroup(this.fb, id, name, nameEn, price, active);
+  }
+
+  /** The text in the admin's language: English when it is chosen and filled in, otherwise the Arabic. */
+  protected label(ar: string | undefined, en: string | undefined): string {
+    return (this.lang.current() === 'en' && en?.trim()) || ar || '';
   }
 
   private done(): void {

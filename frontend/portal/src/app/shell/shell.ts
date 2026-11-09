@@ -4,39 +4,29 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { filter } from 'rxjs';
 
 import { CompanyStore } from '../core/company.store';
-import { LanguageService } from '../core/language.service';
 import { PortalApi } from '../core/portal.api';
 import { SessionService } from '../core/session.service';
+import { PublicFooter } from '../features/company/public-footer';
+import { PublicHeader } from '../features/company/public-header';
 
 @Component({
   selector: 'pt-shell',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, TranslatePipe],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, TranslatePipe, PublicHeader, PublicFooter],
   styles: `
-    header { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--mist) 88%, transparent);
-             backdrop-filter: blur(10px); }
-    .bar { max-width: 640px; margin: 0 auto; display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
-    .logo { width: 40px; height: 40px; border-radius: 12px; background: var(--surface); display: grid; place-items: center;
-            overflow: hidden; flex: none; color: var(--tide); font-weight: 700; }
-    .logo img { width: 100%; height: 100%; object-fit: contain; }
-    .name { flex: 1; min-width: 0; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .lang { border: 0; background: var(--surface); border-radius: 999px; font: inherit; font-size: .85rem; font-weight: 600;
-            color: var(--ink-2); padding: 7px 14px; cursor: pointer; }
+    :host { display: flex; flex-direction: column; min-height: 100vh; }
+    .main { flex: 1; }
 
-    nav { position: fixed; inset-inline: 0; bottom: 0; z-index: 30; background: var(--surface);
-          border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
+    /* Customers' own pages on phones: app-style tabs at the bottom. */
+    nav.tabs-nav { position: fixed; inset-inline: 0; bottom: 0; z-index: 30; background: var(--surface);
+                   border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
     .tabs { max-width: 640px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); height: var(--tabbar); }
     .tabs a { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
               color: var(--ink-3); text-decoration: none; font-size: .74rem; font-weight: 600; }
     .tabs a i { font-size: 1.2rem; }
     .tabs a.active { color: var(--tide); }
 
-    @media (min-width: 860px) {
-      nav { position: static; border: 0; background: none; padding: 0; }
-      .tabs { display: flex; gap: 4px; height: auto; padding: 0 16px 4px; }
-      .tabs a { flex-direction: row; gap: 8px; font-size: .92rem; padding: 8px 14px; border-radius: 999px; }
-      .tabs a.active { background: var(--surface); color: var(--ink); }
-
-    }
+    /* Wide screens use the account menu in the header instead. */
+    @media (min-width: 860px) { nav.tabs-nav { display: none; } }
 
     .gone { max-width: 420px; margin: 18vh auto 0; text-align: center; padding: 0 16px; }
     .gone i { font-size: 2rem; color: var(--ink-3); }
@@ -49,40 +39,32 @@ import { SessionService } from '../core/session.service';
         <p class="muted">{{ 'shell.notFoundHint' | translate }}</p>
       </div>
     } @else {
-      <header>
-        <div class="bar">
-          <span class="logo">
-            @if (store.company()?.logoUrl; as logo) { <img [src]="logo" alt="" /> } @else { {{ initial() }} }
-          </span>
-          <span class="name">{{ store.company()?.name }}</span>
-          <button type="button" class="lang" (click)="lang.toggle()">{{ lang.current() === 'ar' ? 'English' : 'العربية' }}</button>
-        </div>
-      </header>
+      <pt-public-header [current]="section()" />
       @if (showNav()) {
-        <nav [attr.aria-label]="'shell.nav' | translate">
+        <nav class="tabs-nav" [attr.aria-label]="'shell.nav' | translate">
           <div class="tabs">
-            <a [routerLink]="['/p', slug()]" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
+            <a [routerLink]="['/', slug(), 'home']" routerLinkActive="active">
               <i class="pi pi-home"></i>{{ 'shell.home' | translate }}
             </a>
-            <a [routerLink]="['/p', slug(), 'bookings']" routerLinkActive="active">
+            <a [routerLink]="['/', slug(), 'bookings']" routerLinkActive="active">
               <i class="pi pi-calendar"></i>{{ 'shell.bookings' | translate }}
             </a>
-            <a [routerLink]="['/p', slug(), 'invoices']" routerLinkActive="active">
+            <a [routerLink]="['/', slug(), 'invoices']" routerLinkActive="active">
               <i class="pi pi-receipt"></i>{{ 'shell.invoices' | translate }}
             </a>
-            <a [routerLink]="['/p', slug(), 'profile']" routerLinkActive="active">
+            <a [routerLink]="['/', slug(), 'profile']" routerLinkActive="active">
               <i class="pi pi-user"></i>{{ 'shell.profile' | translate }}
             </a>
           </div>
         </nav>
       }
-      <router-outlet />
+      <div class="main"><router-outlet /></div>
+      <pt-public-footer />
     }
   `,
 })
 export class Shell implements OnInit {
   protected readonly store = inject(CompanyStore);
-  protected readonly lang = inject(LanguageService);
   private readonly api = inject(PortalApi);
   private readonly sessions = inject(SessionService);
   private readonly router = inject(Router);
@@ -91,9 +73,20 @@ export class Shell implements OnInit {
   protected readonly missing = signal(false);
   private readonly url = signal(this.router.url);
 
-  protected readonly initial = computed(() => (this.store.company()?.name ?? '').trim().charAt(0));
+  /** Which public page is open, so the header can mark it ('none' on sign-in and customers' own pages). */
+  protected readonly section = computed<'home' | 'about' | 'contact' | 'none'>(() => {
+    const path = this.url().split(/[?#]/)[0].replace(/\/+$/, '');
+    if (/^\/[^/]+$/.test(path)) return 'home';
+    if (/^\/[^/]+\/about$/.test(path)) return 'about';
+    if (/^\/[^/]+\/contact$/.test(path)) return 'contact';
+    return 'none';
+  });
+  /** Bottom tabs only on customers' own pages (never on the public pages, sign-in or the booking wizard). */
   protected readonly showNav = computed(
-    () => !/\/(login|book)(\?|$)/.test(this.url()) && !!this.sessions.get(this.slug()),
+    () =>
+      this.section() === 'none' &&
+      !/\/(login|register|book)(\?|#|$)/.test(this.url()) &&
+      !!this.sessions.get(this.slug()),
   );
 
   ngOnInit(): void {

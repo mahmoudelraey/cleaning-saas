@@ -5,6 +5,7 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { MessageService } from 'primeng/api';
 import { Button } from 'primeng/button';
 import { Dialog } from 'primeng/dialog';
+import { InputNumber } from 'primeng/inputnumber';
 import { InputText } from 'primeng/inputtext';
 import { Message } from 'primeng/message';
 import { Password } from 'primeng/password';
@@ -17,7 +18,8 @@ import { DayOfWeek, Technician, WorkShift } from '../../core/api.types';
 import { AuthService } from '../../core/auth/auth.service';
 import { errorMessage } from '../../core/http/api-error';
 import { TenantService } from '../../core/tenant.service';
-import { PhonePipe, SAUDI_MOBILE_PATTERN } from '../../shared/format';
+import { PhonePipe, SAUDI_MOBILE_PATTERN, toHalalas } from '../../shared/format';
+import { FinanceApi } from '../finance/finance.api';
 import { ResetPasswordDialog } from '../../shared/reset-password.dialog';
 import { STRONG_PASSWORD } from '../auth/change-password.page';
 
@@ -49,6 +51,7 @@ type ShiftGroup = ReturnType<typeof makeShift>;
     Button,
     Dialog,
     InputText,
+    InputNumber,
     Password,
     Select,
     ToggleSwitch,
@@ -62,9 +65,10 @@ type ShiftGroup = ReturnType<typeof makeShift>;
     .shift > * { min-width: 0; width: 100%; }
     .shift p-button { width: auto; }
     .shift + .shift { margin-top: .5rem; }
+    /* Phones: the day on its own row, start / end / remove under it. */
+    @media (max-width: 560px) { .shift { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; } .shift > :first-child { grid-column: 1 / -1; } }
     .shift input { direction: ltr; text-align: center; }
     h3 { margin: .5rem 0; font-size: 1rem; }
-    input[type='color'] { width: 56px; height: 38px; padding: 2px; border: 1px solid var(--fo-border); border-radius: 6px; background: none; }
     .skills { display: flex; gap: .35rem; flex-wrap: wrap; }
   `,
   template: `
@@ -99,7 +103,7 @@ type ShiftGroup = ReturnType<typeof makeShift>;
         </ng-template>
         <ng-template #body let-t>
           <tr>
-            <td><span class="color-dot" [style.background]="t.color"></span>{{ t.name }}</td>
+            <td>{{ t.name }}</td>
             <td><span class="ltr">{{ t.phone | phone }}</span></td>
             <td>
               <div class="skills">
@@ -169,13 +173,16 @@ type ShiftGroup = ReturnType<typeof makeShift>;
             <small class="hint">{{ 'technicians.passwordHint' | translate }}</small>
           </div>
         }
+        @if (!editing() && canSetSalary) {
+          <div class="field">
+            <label for="t-salary">{{ 'payroll.monthlySalary' | translate }}</label>
+            <p-inputnumber inputId="t-salary" formControlName="salary" mode="decimal" [minFractionDigits]="0" [maxFractionDigits]="2" [min]="0" suffix=" SAR" />
+            <small class="hint">{{ 'payroll.monthlySalaryHint' | translate }}</small>
+          </div>
+        }
         <div class="field">
           <label for="t-skills">{{ 'technicians.skills' | translate }}</label>
           <input pInputText id="t-skills" formControlName="skills" [placeholder]="'technicians.skillsHint' | translate" />
-        </div>
-        <div class="field">
-          <label for="t-color">{{ 'technicians.color' | translate }}</label>
-          <input id="t-color" type="color" formControlName="color" />
         </div>
         @if (editing()) {
           <div class="field">
@@ -214,6 +221,7 @@ export class TechniciansPage implements OnInit {
   private readonly translate = inject(TranslateService);
   protected readonly tenants = inject(TenantService);
   protected readonly isOwner = inject(AuthService).hasRole('OWNER');
+  private readonly finance = inject(FinanceApi);
 
   protected readonly technicians = signal<Technician[]>([]);
   protected readonly activeCount = signal(0);
@@ -235,8 +243,21 @@ export class TechniciansPage implements OnInit {
     skills: [''],
     color: ['#0EA5A4'],
     active: [true],
+    salary: [null as number | null, [Validators.min(0)]],
     workHours: this.fb.array<ShiftGroup>([]),
   });
+
+  /** Owners on a plan with payroll can enter the monthly salary while adding the person. */
+  protected readonly canSetSalary = this.isOwner && !inject(TenantService).locked('reports');
+
+  /** Creates the payroll entry for a new account; the account itself is already saved, so failures only warn. */
+  private setUpSalary(userId: string, salarySar: number | null): void {
+    if (!this.canSetSalary || !salarySar || salarySar <= 0) return;
+    this.finance.setUpSalary(userId, toHalalas(salarySar)).subscribe({
+      error: () => this.messages.add({ severity: 'warn', summary: this.translate.instant('payroll.salaryNotSaved') }),
+    });
+  }
+
 
   get shifts(): FormArray<ShiftGroup> {
     return this.form.controls.workHours;
@@ -275,6 +296,7 @@ export class TechniciansPage implements OnInit {
       skills: t?.skills.join('، ') ?? '',
       color: t?.color ?? '#0EA5A4',
       active: t?.active ?? true,
+      salary: null,
     });
     // Phone is the technician's login; changing it is a separate, verified flow later.
     if (t) {
@@ -322,7 +344,8 @@ export class TechniciansPage implements OnInit {
         });
     this.saving.set(true);
     req$.subscribe({
-      next: () => {
+      next: (saved) => {
+        if (!editing) this.setUpSalary(saved.userId, v.salary);
         this.saving.set(false);
         this.dialogOpen.set(false);
         this.messages.add({ severity: 'success', summary: this.translate.instant('common.saved') });

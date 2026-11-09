@@ -1,7 +1,7 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 
-import { Role } from '../api.types';
+import { Role, Screen } from '../api.types';
 import { AuthService } from './auth.service';
 
 export const authGuard: CanActivateFn = (_route, state) => {
@@ -20,6 +20,15 @@ export const roleGuard =
   () => {
     const auth = inject(AuthService);
     return auth.hasRole(...roles) ? true : inject(Router).createUrlTree(['/']);
+  };
+
+/** Coordinators need one of these screens (set per person on the Team page); other roles are not limited here. */
+export const screenGuard =
+  (...anyOf: Screen[]): CanActivateFn =>
+  () => {
+    const auth = inject(AuthService);
+    if (!auth.hasRole('COORDINATOR') || auth.canSee(...anyOf)) return true;
+    return inject(Router).createUrlTree([auth.homePath()]);
   };
 
 /** Users with a temporary password (set by the owner) must choose their own before anything else. */

@@ -1,5 +1,7 @@
 package com.fieldops.app.notification.channel;
 
+import com.fieldops.app.platform.PlatformSettingsService;
+
 import java.util.List;
 import java.util.Map;
 
@@ -20,12 +22,13 @@ import org.springframework.web.client.RestClientResponseException;
 @Component
 public class UnifonicSmsChannel implements MessageChannel {
 
-    private final NotificationProperties.Sms config;
+    private final PlatformSettingsService settings;
     private final RestClient http;
 
-    public UnifonicSmsChannel(NotificationProperties props, RestClient.Builder builder) {
-        this.config = props.sms();
-        this.http = builder.baseUrl(config.url()).build();
+    /** Credentials and URL are read per message (Platform → Messaging), so changes apply without a restart. */
+    public UnifonicSmsChannel(PlatformSettingsService settings, RestClient.Builder builder) {
+        this.settings = settings;
+        this.http = builder.build();
     }
 
     @Override
@@ -35,12 +38,14 @@ public class UnifonicSmsChannel implements MessageChannel {
 
     @Override
     public boolean isEnabled() {
+        NotificationProperties.Sms config = settings.sms();
         return config.enabled() && config.appSid() != null && !config.appSid().isBlank();
     }
 
     @Override
     @SuppressWarnings("unchecked")
     public String send(String toE164, NotificationTemplate template, String body, List<String> params) {
+        NotificationProperties.Sms config = settings.sms();
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
         form.add("AppSid", config.appSid());
         form.add("SenderID", config.senderId());
@@ -49,7 +54,7 @@ public class UnifonicSmsChannel implements MessageChannel {
         form.add("responseType", "JSON");
         try {
             Map<String, Object> response = http.post()
-                    .uri("/rest/SMS/messages")
+                    .uri(config.url() + "/rest/SMS/messages")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                     .body(form)
                     .retrieve()

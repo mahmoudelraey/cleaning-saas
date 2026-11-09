@@ -2,6 +2,7 @@ package com.fieldops.app.common.security;
 
 import java.time.Instant;
 import java.util.Base64;
+import java.util.Set;
 import java.util.UUID;
 
 import javax.crypto.SecretKey;
@@ -28,6 +29,8 @@ public class JwtService {
     public static final String NAME_CLAIM = CurrentUser.NAME_CLAIM;
     /** Present (true) only while the user must replace a temporary password; see PasswordChangeFilter. */
     public static final String PASSWORD_CHANGE_CLAIM = "pwd_change";
+    /** Coordinators only: the admin screens they may open (Screen names). */
+    public static final String SCREENS_CLAIM = CurrentUser.SCREENS_CLAIM;
 
     private final JwtProperties props;
     private final JwtEncoder encoder;
@@ -42,7 +45,8 @@ public class JwtService {
         this.decoder = nimbusDecoder;
     }
 
-    public String issueAccessToken(UUID userId, UUID tenantId, Role role, String name, boolean mustChangePassword) {
+    public String issueAccessToken(UUID userId, UUID tenantId, Role role, String name, boolean mustChangePassword,
+                                   Set<Screen> screens) {
         Instant now = Instant.now();
         JwtClaimsSet.Builder builder = JwtClaimsSet.builder()
                 .issuer(props.issuer())
@@ -55,6 +59,9 @@ public class JwtService {
                 .claim(NAME_CLAIM, name);
         if (mustChangePassword) {
             builder.claim(PASSWORD_CHANGE_CLAIM, true);
+        }
+        if (role == Role.COORDINATOR) {
+            builder.claim(SCREENS_CLAIM, screens.stream().map(Enum::name).sorted().toList());
         }
         JwtClaimsSet claims = builder.build();
         JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).build();
@@ -73,7 +80,7 @@ public class JwtService {
         if (base64Secret == null || base64Secret.isBlank()) {
             throw new IllegalStateException(
                     "app.security.jwt.secret is not set. Provide JWT_SECRET (base64, >= 32 bytes) "
-                            + "or run with the 'local' profile for development.");
+                            + "or remove the empty override so the localhost dev key applies.");
         }
         byte[] bytes = Base64.getDecoder().decode(base64Secret);
         if (bytes.length < 32) {

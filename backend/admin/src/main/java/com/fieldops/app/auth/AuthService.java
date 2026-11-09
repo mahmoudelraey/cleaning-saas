@@ -2,11 +2,13 @@ package com.fieldops.app.auth;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import com.fieldops.app.common.security.JwtService;
 import com.fieldops.app.common.security.Role;
+import com.fieldops.app.common.security.Screen;
 import com.fieldops.app.common.tenant.TenantContext;
 import com.fieldops.app.common.util.PhoneNumbers;
 import com.fieldops.app.common.web.ApiException;
@@ -50,11 +52,12 @@ public class AuthService {
     public record Tokens(String accessToken, String refreshToken, long expiresIn, UserView user) {
     }
 
+    /** {@code screens}: the admin screens this user may open (all for owners, none for technicians). */
     public record UserView(UUID id, UUID tenantId, String name, String phone, String email, Role role,
-                           boolean mustChangePassword) {
+                           boolean mustChangePassword, List<Screen> screens) {
         static UserView of(User u) {
             return new UserView(u.getId(), u.getTenantId(), u.getName(), u.getPhone(), u.getEmail(), u.getRole(),
-                    u.isMustChangePassword());
+                    u.isMustChangePassword(), u.getScreens().stream().sorted().toList());
         }
     }
 
@@ -103,7 +106,7 @@ public class AuthService {
                         "Session expired, please sign in again"));
         assertTenantUsable(user.getTenantId());
         String access = jwtService.issueAccessToken(user.getId(), user.getTenantId(), user.getRole(), user.getName(),
-                user.isMustChangePassword());
+                user.isMustChangePassword(), user.getScreens());
         return new Tokens(access, rotated.newRawToken(), jwtService.accessTtlSeconds(), UserView.of(user));
     }
 
@@ -143,7 +146,7 @@ public class AuthService {
 
     private Tokens issueTokens(User user) {
         String access = jwtService.issueAccessToken(user.getId(), user.getTenantId(), user.getRole(), user.getName(),
-                user.isMustChangePassword());
+                user.isMustChangePassword(), user.getScreens());
         String refresh = refreshTokens.issue(user.getId()).rawToken();
         return new Tokens(access, refresh, jwtService.accessTtlSeconds(), UserView.of(user));
     }

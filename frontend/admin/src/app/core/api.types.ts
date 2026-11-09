@@ -1,6 +1,25 @@
 // DTOs mirroring the Spring Boot API (com.fieldops.app.*Controller records).
 
-export type Role = 'OWNER' | 'COORDINATOR' | 'TECHNICIAN';
+/** PLATFORM_ADMIN: the FieldOps owner (Platform console); belongs to no real company. */
+export type Role = 'OWNER' | 'COORDINATOR' | 'TECHNICIAN' | 'PLATFORM_ADMIN';
+
+/** Admin screens an owner can allow per coordinator (Team page). */
+export type Screen =
+  | 'DASHBOARD' | 'CALENDAR' | 'BOOKINGS' | 'MESSAGES' | 'CONTACT_REQUESTS' | 'REVIEWS'
+  | 'INVOICES' | 'QUOTES' | 'REPORTS' | 'SALES' | 'EXPENSES'
+  | 'CUSTOMERS' | 'SERVICES' | 'TECHNICIANS';
+
+/** Grouped as on the Team page and in the sidebar. */
+export const SCREEN_GROUPS: { key: 'work' | 'finance' | 'manage'; screens: Screen[] }[] = [
+  { key: 'work', screens: ['DASHBOARD', 'CALENDAR', 'BOOKINGS', 'MESSAGES', 'CONTACT_REQUESTS', 'REVIEWS'] },
+  { key: 'finance', screens: ['INVOICES', 'QUOTES', 'REPORTS', 'SALES', 'EXPENSES'] },
+  { key: 'manage', screens: ['CUSTOMERS', 'SERVICES', 'TECHNICIANS'] },
+];
+
+/** What a coordinator can open when the owner has not chosen: everything but the business figures (as the backend). */
+export const DEFAULT_COORDINATOR_SCREENS: Screen[] = SCREEN_GROUPS.flatMap((g) => g.screens).filter(
+  (s) => s !== 'REPORTS' && s !== 'SALES' && s !== 'EXPENSES',
+);
 export type PricingType = 'FIXED' | 'HOURLY' | 'PER_SQM';
 export type DayOfWeek = 'SATURDAY' | 'SUNDAY' | 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY';
 
@@ -13,6 +32,8 @@ export interface UserView {
   role: Role;
   /** Temporary password set by an owner: must be replaced before using the app. */
   mustChangePassword?: boolean;
+  /** Admin screens this user may open (all for owners). */
+  screens?: Screen[];
 }
 
 export interface Tokens {
@@ -27,6 +48,8 @@ export interface Plan {
   nameAr: string;
   nameEn: string;
   priceMonthlyHalalas: number;
+  /** Optional price for a year paid up front. */
+  priceYearlyHalalas?: number | null;
   maxTechnicians: number;
   features: string[];
 }
@@ -48,6 +71,34 @@ export interface TenantInfo {
   status: 'TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'SUSPENDED' | 'CANCELLED';
   trialEndsAt?: string;
   plan: Plan;
+  publicPage?: PublicPage;
+  google?: { available: boolean; placeId?: string; name?: string };
+}
+
+export interface GoogleCandidate {
+  placeId: string;
+  name?: string;
+  address?: string;
+}
+
+/** Owner-written content of the public page in the customer portal. Empty fields hide their section. */
+export interface PublicPage {
+  headline?: string;
+  about?: string;
+  areas?: string;
+  hours?: string;
+  /** E.164 */
+  whatsapp?: string;
+  instagram?: string;
+  x?: string;
+  snapchat?: string;
+  tiktok?: string;
+  foundedYear?: number;
+  teamSize?: number;
+  /** One per line. */
+  promises?: string;
+  /** Page name, or digits for a profile.php?id= page. */
+  facebook?: string;
 }
 
 export interface Page<T> {
@@ -86,15 +137,20 @@ export interface CustomerDetail extends CustomerSummary {
 
 export interface Addon {
   id: string;
+  /** Arabic (main) name. */
   name: string;
+  nameEn?: string;
   priceHalalas: number;
   active: boolean;
 }
 
 export interface ServiceOffering {
   id: string;
+  /** Arabic (main) name and description. */
   name: string;
   description?: string;
+  nameEn?: string;
+  descriptionEn?: string;
   pricingType: PricingType;
   basePriceHalalas: number;
   durationMin: number;
@@ -131,6 +187,8 @@ export interface StaffUser {
   active: boolean;
   lastLoginAt?: string;
   mustChangePassword?: boolean;
+  /** Admin screens this user may open (all for owners). */
+  screens?: Screen[];
 }
 
 /** RFC 9457 problem+json returned by GlobalExceptionHandler. */

@@ -13,6 +13,7 @@ import com.google.zxing.WriterException;
 import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
+import com.lowagie.text.Chunk;
 import com.lowagie.text.Document;
 import com.lowagie.text.DocumentException;
 import com.lowagie.text.Element;
@@ -190,7 +191,7 @@ public class DocumentPdfRenderer {
         int i = 1;
         for (PdfModel.Line l : m.lines()) {
             t.addCell(row(ltr(String.valueOf(i++)), f.r(9, MUTED), Element.ALIGN_CENTER));
-            t.addCell(row(l.description(), f.r(9.5f, INK), RIGHT));
+            t.addCell(description(l, f));
             t.addCell(row(ltr(l.quantity()), f.r(9.5f, INK), Element.ALIGN_CENTER));
             t.addCell(row(ltr(l.unitPrice()), f.r(9.5f, INK), Element.ALIGN_CENTER));
             t.addCell(row(ltr(l.total()), f.r(9.5f, INK), Element.ALIGN_CENTER));
@@ -299,6 +300,20 @@ public class DocumentPdfRenderer {
         c.setVerticalAlignment(Element.ALIGN_MIDDLE);
         c.setBorder(Rectangle.BOTTOM);
         c.setBorderColor(RULE);
+        return c;
+    }
+
+    /** Arabic description, and under it the English one in smaller grey type (when there is one). */
+    private static PdfPCell description(PdfModel.Line l, Fonts f) {
+        PdfPCell c = row(l.description(), f.r(9.5f, INK), RIGHT);
+        String en = l.descriptionEn();
+        if (en != null && !en.isBlank() && !en.equals(l.description())) {
+            Phrase p = new Phrase();
+            p.add(new Chunk(l.description(), f.r(9.5f, INK)));
+            p.add(Chunk.NEWLINE);
+            p.add(new Chunk(ltr(en), f.r(8, MUTED)));
+            c.setPhrase(p);
+        }
         return c;
     }
 

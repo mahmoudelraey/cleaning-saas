@@ -1,5 +1,8 @@
 package com.fieldops.app.common.security;
 
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.security.core.Authentication;
@@ -13,6 +16,7 @@ public final class CurrentUser {
     /** Claim names shared by the staff tokens (admin) and the customer tokens (portal: name only). */
     public static final String ROLE_CLAIM = "role";
     public static final String NAME_CLAIM = "name";
+    public static final String SCREENS_CLAIM = "scr";
 
     private CurrentUser() {
     }
@@ -49,6 +53,23 @@ public final class CurrentUser {
         Jwt jwt = jwtOrNull();
         String role = jwt == null ? null : jwt.getClaimAsString(ROLE_CLAIM);
         return role == null ? null : Role.valueOf(role);
+    }
+
+    /**
+     * Screens the caller may open: all for owners, the token's list for coordinators (the default set for tokens
+     * issued before screens existed), none for technicians or without a staff token.
+     */
+    public static Set<Screen> screens() {
+        Jwt jwt = jwtOrNull();
+        Role role = roleOrNull();
+        if (jwt == null || role == null || role == Role.TECHNICIAN) {
+            return Set.of();
+        }
+        if (role == Role.OWNER) {
+            return EnumSet.allOf(Screen.class);
+        }
+        List<String> names = jwt.getClaimAsStringList(SCREENS_CLAIM);
+        return names == null ? Screen.DEFAULT : Screen.parse(String.join(",", names));
     }
 
     private static Jwt jwtOrNull() {

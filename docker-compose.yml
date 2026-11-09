@@ -1,6 +1,6 @@
 # Local stack:  docker compose up --build
 #   admin app       → http://localhost:8081      (admin backend :8080)
-#   customer portal → http://localhost:8082/p/{company-slug}   (portal backend :8090)
+#   customer portal → http://localhost:8082/{company-slug}   (portal backend :8090)
 # Dev loop:     docker compose up -d db  → see start-dev.bat / README
 services:
   db:
@@ -36,6 +36,14 @@ services:
       CORS_ORIGINS: http://localhost:8081,http://localhost:4200
       SERVER_FORWARD_HEADERS_STRATEGY: native
       STORAGE_LOCAL_DIR: /app/data/uploads
+      # Optional: Google Places API (New) key for "Google Maps reviews" (company search in Settings).
+      GOOGLE_PLACES_API_KEY: ${GOOGLE_PLACES_API_KEY:-}
+      # Encrypts secrets saved in Platform → Messaging (same value on portal). Real one: openssl rand -base64 32
+      SETTINGS_ENCRYPTION_KEY: ${SETTINGS_ENCRYPTION_KEY:-ZGV2LW9ubHktc2V0dGluZ3Mta2V5LWNoYW5nZS1tZSE=}
+      # Creates the FieldOps owner's console account on first start (ignored once it exists).
+      PLATFORM_ADMIN_PHONE: ${PLATFORM_ADMIN_PHONE:-}
+      PLATFORM_ADMIN_PASSWORD: ${PLATFORM_ADMIN_PASSWORD:-}
+      PLATFORM_ADMIN_NAME: ${PLATFORM_ADMIN_NAME:-FieldOps Admin}
     volumes:
       - uploads:/app/data
     ports:
@@ -67,6 +75,9 @@ services:
       # Local only, and different from JWT_SECRET on purpose.
       PORTAL_JWT_SECRET: ${PORTAL_JWT_SECRET:-cG9ydGFsLWRldi1vbmx5LXNlY3JldC1jaGFuZ2UtbWUtYmVmb3JlLXByb2R1Y3Rpb24=}
       CORS_ORIGINS: http://localhost:8082,http://localhost:4300
+      # Optional: same key as the admin backend; the portal page loads the Google rating and reviews live.
+      GOOGLE_PLACES_API_KEY: ${GOOGLE_PLACES_API_KEY:-}
+      SETTINGS_ENCRYPTION_KEY: ${SETTINGS_ENCRYPTION_KEY:-ZGV2LW9ubHktc2V0dGluZ3Mta2V5LWNoYW5nZS1tZSE=}
       SERVER_FORWARD_HEADERS_STRATEGY: native
     ports:
       - "8090:8090"

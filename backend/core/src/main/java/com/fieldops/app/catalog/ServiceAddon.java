@@ -21,6 +21,10 @@ public class ServiceAddon extends TenantScopedEntity {
     @Column(nullable = false)
     private String name;
 
+    /** English name; {@code name} is the Arabic (main) one. */
+    @Column(name = "name_en")
+    private String nameEn;
+
     @Column(name = "price_halalas", nullable = false)
     private long priceHalalas;
 
@@ -46,6 +50,14 @@ public class ServiceAddon extends TenantScopedEntity {
 
     public String getName() {
         return name;
+    }
+
+    public String getNameEn() {
+        return nameEn;
+    }
+
+    public void setNameEn(String nameEn) {
+        this.nameEn = nameEn;
     }
 
     public long getPriceHalalas() {

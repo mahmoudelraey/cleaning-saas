@@ -179,3 +179,78 @@ html[dir='ltr'] .rtl-flip {
 .p-menu .menu-danger .p-menu-item-icon {
   color: var(--p-red-600);
 }
+
+// ---------- Small screens (every page) ----------
+// Dialogs never run off the side of a phone, whatever width a page asks for.
+.p-dialog {
+  max-width: calc(100vw - 1.5rem);
+}
+
+@media (max-width: 640px) {
+  .panel {
+    padding: 1rem;
+  }
+
+  // Filters stack: each search box, select and date range gets the full width.
+  .toolbar-row {
+    padding: 0.75rem;
+
+    > * {
+      flex: 1 1 100%;
+      min-width: 0 !important;
+    }
+
+    .p-iconfield,
+    input,
+    .p-select,
+    .p-multiselect,
+    .p-datepicker,
+    .p-selectbutton {
+      width: 100%;
+    }
+  }
+
+  .page-header {
+    h1 {
+      font-size: 1.3rem;
+    }
+
+    // Header buttons wrap under the title and share the row.
+    > :not(:first-child) {
+      flex: 1 1 auto;
+    }
+  }
+
+  .dialog-actions {
+    flex-wrap: wrap;
+
+    > * {
+      flex: 1 1 auto;
+    }
+
+    .p-button {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+
+  .p-dialog .p-dialog-content {
+    padding-inline: 1rem;
+  }
+
+  // Select buttons (filters such as New / Handled / All) scroll instead of overflowing.
+  .p-selectbutton {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+}
+
+// Long words (links, emails) wrap instead of widening the page; `clip` keeps the sticky top bar working.
+html,
+body {
+  overflow-x: clip;
+}
+
+body {
+  overflow-wrap: break-word;
+}

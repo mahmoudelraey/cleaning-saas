@@ -139,7 +139,6 @@ import { PlacePicker, PlaceValue } from '../../shared/place-picker';
                 </span>
                 <span class="tech" [title]="techNames(bk)">
                   @if (bk.technicians.length) {
-                    <span class="color-dot" [style.background]="bk.technicians[0].color"></span>
                     <span>{{ techNames(bk) }}</span>
                   } @else {
                     <span class="muted">{{ 'customers.unassigned' | translate }}</span>

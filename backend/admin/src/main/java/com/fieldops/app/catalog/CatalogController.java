@@ -90,35 +90,40 @@ public class CatalogController {
     public record ServiceRequest(
             @NotBlank @Size(max = 150) String name,
             @Size(max = 1000) String description,
+            @Size(max = 150) String nameEn,
+            @Size(max = 1000) String descriptionEn,
             @NotNull PricingType pricingType,
             @Min(0) @Max(100_000_000) long basePriceHalalas,
             @Min(5) @Max(24 * 60) int durationMin,
             Boolean active) {
         CatalogService.ServiceData toData() {
-            return new CatalogService.ServiceData(name, description, pricingType, basePriceHalalas, durationMin,
-                    active == null || active);
+            return new CatalogService.ServiceData(name, description, nameEn, descriptionEn, pricingType,
+                    basePriceHalalas, durationMin, active == null || active);
         }
     }
 
     public record AddonRequest(
             @NotBlank @Size(max = 150) String name,
+            @Size(max = 150) String nameEn,
             @Min(0) @Max(100_000_000) long priceHalalas,
             Boolean active) {
         CatalogService.AddonData toData() {
-            return new CatalogService.AddonData(name, priceHalalas, active == null || active);
+            return new CatalogService.AddonData(name, nameEn, priceHalalas, active == null || active);
         }
     }
 
-    public record AddonDto(UUID id, String name, long priceHalalas, boolean active) {
+    public record AddonDto(UUID id, String name, String nameEn, long priceHalalas, boolean active) {
         static AddonDto of(ServiceAddon a) {
-            return new AddonDto(a.getId(), a.getName(), a.getPriceHalalas(), a.isActive());
+            return new AddonDto(a.getId(), a.getName(), a.getNameEn(), a.getPriceHalalas(), a.isActive());
         }
     }
 
-    public record ServiceDto(UUID id, String name, String description, PricingType pricingType,
-                             long basePriceHalalas, int durationMin, boolean active, List<AddonDto> addons) {
+    public record ServiceDto(UUID id, String name, String description, String nameEn, String descriptionEn,
+                             PricingType pricingType, long basePriceHalalas, int durationMin, boolean active,
+                             List<AddonDto> addons) {
         static ServiceDto of(ServiceOffering s) {
-            return new ServiceDto(s.getId(), s.getName(), s.getDescription(), s.getPricingType(),
+            return new ServiceDto(s.getId(), s.getName(), s.getDescription(), s.getNameEn(), s.getDescriptionEn(),
+                    s.getPricingType(),
                     s.getBasePriceHalalas(), s.getDurationMin(), s.isActive(),
                     s.getAddons().stream().map(AddonDto::of).toList());
         }

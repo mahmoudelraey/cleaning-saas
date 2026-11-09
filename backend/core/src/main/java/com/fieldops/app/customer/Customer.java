@@ -34,8 +34,10 @@ public class Customer extends TenantScopedEntity {
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
+    /** Current addresses only; archived ones stay in the table for the bookings that used them. */
     @OneToMany(mappedBy = "customer", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("createdAt asc")
+    @SQLRestriction("deleted_at is null")
     private List<Address> addresses = new ArrayList<>();
 
     protected Customer() {

@@ -22,9 +22,9 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
         const code = (err.error as { code?: string } | null)?.code;
         if (err.status === 401 || code === 'wrong_company') {
           sessions.clear(slug);
-          void router.navigate(['/p', slug, 'login']);
+          void router.navigate(['/', slug, 'login']);
         } else if (code === 'profile_required') {
-          void router.navigate(['/p', slug, 'login'], { queryParams: { step: 'name' } });
+          void router.navigate(['/', slug, 'login'], { queryParams: { step: 'name' } });
         }
       }
       return throwError(() => err);
