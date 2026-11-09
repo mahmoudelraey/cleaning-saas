@@ -26,7 +26,7 @@ fi
 echo "==> System update"
 apt-get update -y
 DEBIAN_FRONTEND=noninteractive apt-get upgrade -y
-DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl git unattended-upgrades \
+DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl git nano unattended-upgrades \
   netfilter-persistent iptables-persistent rclone fail2ban
 
 echo "==> Time zone stays UTC (the apps convert to Asia/Riyadh themselves)"

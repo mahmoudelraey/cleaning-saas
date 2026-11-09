@@ -4,7 +4,7 @@
 #   docker compose -f docker-compose.prod.yml up -d --build
 #
 # Values come from deploy/.env (copy .env.example; never commit it).
-# Only Caddy is reachable from outside (80/443). Postgres and the apps have no published ports.
+# Only Caddy is reachable from outside (80/443). Postgres listens on the server's 127.0.0.1 only (for SSH tunnels).
 #
 #   https://app.${DOMAIN}  → admin SPA (+ /platform)      /api/* → backend:8080
 #   https://${DOMAIN}      → customer portal (/{slug})     /api/* → portal-backend:8090
@@ -30,6 +30,10 @@ services:
       -c shared_buffers=512MB
       -c effective_cache_size=2GB
       -c max_connections=60
+    # Reachable only from the server itself (127.0.0.1), never from the internet.
+    # From your PC: SSH tunnel local 5432 -> server 127.0.0.1:5432, then connect to localhost:5432.
+    ports:
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
