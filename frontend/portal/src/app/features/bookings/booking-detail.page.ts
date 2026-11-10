@@ -29,6 +29,7 @@ import { StatusRail } from '../../shared/status-rail';
     .lines { margin: 0; padding: 0; list-style: none; }
     .lines li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; }
     .lines li.addon { color: var(--ink-2); font-size: .92rem; padding-inline-start: 14px; }
+    .lines li.off { color: #0d5c46; font-weight: 600; }
     .lines li.total { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 12px; font-weight: 700; }
     .vat { color: var(--ink-3); font-size: .8rem; margin: 6px 0 0; }
     .log { list-style: none; margin: 0; padding: 0; }
@@ -58,7 +59,10 @@ import { StatusRail } from '../../shared/status-rail';
             @for (it of d.items; track $index) {
               <li [class.addon]="it.addon"><span>{{ it | itemText }}@if (it.quantity !== 1) { <span class="muted"> × {{ it.quantity }}</span> }</span><span class="ltr">{{ it.totalHalalas | sar }}</span></li>
             }
-            <li class="total"><span>{{ 'detail.total' | translate }}</span><span class="ltr">{{ d.booking.subtotalHalalas | sar }}</span></li>
+            @if (d.discountHalalas) {
+              <li class="off"><span>{{ 'promo.discount' | translate: { code: d.promoCode ?? '' } }}</span><span class="ltr">−{{ d.discountHalalas | sar }}</span></li>
+            }
+            <li class="total"><span>{{ 'detail.total' | translate }}</span><span class="ltr">{{ (d.booking.subtotalHalalas - (d.discountHalalas ?? 0)) | sar }}</span></li>
           </ul>
           @if (store.company()?.vatRegistered && !store.company()?.pricesIncludeVat) { <p class="vat">{{ 'detail.vatNote' | translate }}</p> }
         </section>

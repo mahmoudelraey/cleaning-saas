@@ -4,7 +4,9 @@ export type PricingType = 'FIXED' | 'HOURLY' | 'PER_SQM';
 
 export interface Company {
   tenantId: string;
+  /** Arabic name; nameEn is the English one (may be empty). */
   name: string;
+  nameEn?: string;
   slug: string;
   logoUrl?: string;
   phone?: string;
@@ -20,6 +22,29 @@ export interface Company {
   address?: string;
   /** The company connected its Google Maps listing (and the server has a Google key). */
   googleReviews?: boolean;
+  /** The promo the company announces on its page right now, if any. */
+  announcement?: Announcement;
+}
+
+/** Counted from the company's own data, for the stats band on its page. */
+export interface PublicStats {
+  completedVisits: number;
+  technicians: number;
+  /** Share of 4-5 star ratings, null without ratings. */
+  satisfactionPercent: number | null;
+  ratingCount: number;
+}
+
+/** A discount code shown as the bar at the top of the company page. */
+export interface Announcement {
+  code: string;
+  title: string;
+  titleEn?: string;
+  discountType: 'PERCENT' | 'AMOUNT';
+  /** Percent (1-100) or halalas. */
+  discountValue: number;
+  endsAt?: string;
+  firstBookingOnly: boolean;
 }
 
 /** Live from Google Places; shown only with Google's attribution, never stored. */
@@ -182,6 +207,9 @@ export interface BookingDetail {
   cancelDeadline: string;
   canReview: boolean;
   review?: MyReview;
+  /** The promo the visit was booked with, and its discount. */
+  promoCode?: string;
+  discountHalalas?: number;
 }
 
 export interface Addon {
@@ -215,6 +243,13 @@ export interface Quote {
   items: { serviceId?: string; addonId?: string; description: string; quantity: number; totalHalalas: number }[];
   subtotalHalalas: number;
   durationMin: number;
+  /** With a promo code: what it takes off, and what is left to pay (subtotal − discount). */
+  discountHalalas?: number;
+  totalHalalas?: number;
+  /** The promo that was applied. */
+  promo?: { code: string; title: string; titleEn?: string };
+  /** Why the code given does not apply (promo_not_found, promo_expired, promo_min_subtotal, ...). */
+  promoError?: string;
 }
 
 export interface Slot {

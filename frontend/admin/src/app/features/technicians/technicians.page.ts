@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { MessageService } from 'primeng/api';
@@ -8,15 +8,17 @@ import { Dialog } from 'primeng/dialog';
 import { InputNumber } from 'primeng/inputnumber';
 import { InputText } from 'primeng/inputtext';
 import { Message } from 'primeng/message';
+import { MultiSelect } from 'primeng/multiselect';
 import { Password } from 'primeng/password';
 import { Select } from 'primeng/select';
 import { TableModule } from 'primeng/table';
 import { Tag } from 'primeng/tag';
 import { ToggleSwitch } from 'primeng/toggleswitch';
 
-import { DayOfWeek, Technician, WorkShift } from '../../core/api.types';
+import { DayOfWeek, ServiceOffering, Technician, WorkShift } from '../../core/api.types';
 import { AuthService } from '../../core/auth/auth.service';
 import { errorMessage } from '../../core/http/api-error';
+import { LanguageService } from '../../core/i18n/language.service';
 import { TenantService } from '../../core/tenant.service';
 import { PhonePipe, SAUDI_MOBILE_PATTERN, toHalalas } from '../../shared/format';
 import { FinanceApi } from '../finance/finance.api';
@@ -54,6 +56,7 @@ type ShiftGroup = ReturnType<typeof makeShift>;
     InputNumber,
     Password,
     Select,
+    MultiSelect,
     ToggleSwitch,
     Tag,
     Message,
@@ -88,7 +91,16 @@ type ShiftGroup = ReturnType<typeof makeShift>;
     </div>
 
     <div class="panel-flush">
-      <p-table [value]="technicians()" [loading]="loading()" [rowHover]="true" dataKey="id">
+      <p-table
+        [value]="technicians()"
+        [loading]="loading()"
+        [rowHover]="true"
+        dataKey="id"
+        [paginator]="technicians().length > 0"
+        [rows]="10"
+        [showCurrentPageReport]="true"
+        [currentPageReportTemplate]="'common.pageReport' | translate"
+      >
         <ng-template #header>
           <tr>
             <th>{{ 'technicians.name' | translate }}</th>
@@ -103,16 +115,23 @@ type ShiftGroup = ReturnType<typeof makeShift>;
         </ng-template>
         <ng-template #body let-t>
           <tr>
-            <td>{{ t.name }}</td>
+            <td>
+              <div class="avatar-cell">
+                <span class="avatar" [style.color]="t.color"><i class="pi pi-user"></i></span>
+                <span>{{ t.name }}</span>
+              </div>
+            </td>
             <td><span class="ltr">{{ t.phone | phone }}</span></td>
             <td>
               <div class="skills">
                 @for (s of t.skills; track s) {
-                  <p-tag [value]="s" severity="secondary" />
+                  <span class="soft-chip"><i class="pi pi-wrench"></i>{{ serviceLabel(s) }}</span>
+                } @empty {
+                  <span class="muted">—</span>
                 }
               </div>
             </td>
-            <td class="muted">{{ workDays(t) }}</td>
+            <td><span class="icon-text"><i class="pi pi-calendar"></i>{{ workDays(t) }}</span></td>
             <td>
               <p-tag [value]="(t.active ? 'common.active' : 'common.inactive') | translate" [severity]="t.active ? 'success' : 'secondary'" />
               @if (t.mustChangePassword) {
@@ -180,9 +199,21 @@ type ShiftGroup = ReturnType<typeof makeShift>;
             <small class="hint">{{ 'payroll.monthlySalaryHint' | translate }}</small>
           </div>
         }
-        <div class="field">
-          <label for="t-skills">{{ 'technicians.skills' | translate }}</label>
-          <input pInputText id="t-skills" formControlName="skills" [placeholder]="'technicians.skillsHint' | translate" />
+        <div class="field full">
+          <label for="t-services">{{ 'technicians.skills' | translate }}</label>
+          <p-multiselect
+            inputId="t-services"
+            formControlName="serviceIds"
+            [options]="serviceOptions()"
+            optionLabel="label"
+            optionValue="value"
+            display="chip"
+            [filter]="true"
+            [fluid]="true"
+            appendTo="body"
+            [placeholder]="'technicians.skillsHint' | translate"
+          />
+          <small class="hint">{{ 'technicians.servicesHint' | translate }}</small>
         </div>
         @if (editing()) {
           <div class="field">
@@ -231,6 +262,26 @@ export class TechniciansPage implements OnInit {
   protected readonly editing = signal<Technician | null>(null);
   protected readonly resetFor = signal<Technician | null>(null);
   protected readonly error = signal<string | null>(null);
+  private readonly lang = inject(LanguageService);
+  protected readonly services = signal<ServiceOffering[]>([]);
+
+  /** Active services, plus inactive ones the technician being edited still has. */
+  protected readonly serviceOptions = computed(() => {
+    const keep = new Set(this.editing()?.skills ?? []);
+    return this.services()
+      .filter((s) => s.active || keep.has(s.id))
+      .map((s) => ({ value: s.id, label: this.name(s) }));
+  });
+
+  private name(s: ServiceOffering): string {
+    return (this.lang.current() === 'en' && s.nameEn?.trim()) || s.name;
+  }
+
+  /** A service ID as its name; older free-text skills are shown as they were typed. */
+  protected serviceLabel(idOrText: string): string {
+    const s = this.services().find((x) => x.id === idOrText);
+    return s ? this.name(s) : idOrText;
+  }
 
   protected readonly dayOptions = () =>
     DAYS.map((d) => ({ value: d, label: this.translate.instant('days.' + d) }));
@@ -240,7 +291,8 @@ export class TechniciansPage implements OnInit {
     phone: ['', [Validators.required, Validators.pattern(SAUDI_MOBILE_PATTERN)]],
     email: ['', [Validators.email]],
     password: ['', [Validators.required, Validators.pattern(STRONG_PASSWORD)]],
-    skills: [''],
+    /** Services this technician does (sent to the API in the `skills` list as service IDs). */
+    serviceIds: [[] as string[], [Validators.required]],
     color: ['#0EA5A4'],
     active: [true],
     salary: [null as number | null, [Validators.min(0)]],
@@ -264,6 +316,7 @@ export class TechniciansPage implements OnInit {
   }
 
   ngOnInit(): void {
+    this.http.get<ServiceOffering[]>('/api/v1/services').subscribe((s) => this.services.set(s));
     this.reload();
   }
 
@@ -293,7 +346,8 @@ export class TechniciansPage implements OnInit {
       phone: t?.phone ?? '',
       email: t?.email ?? '',
       password: '',
-      skills: t?.skills.join('، ') ?? '',
+      // Only real service IDs; older free-text skills are dropped when the form is saved.
+      serviceIds: (t?.skills ?? []).filter((x) => this.services().some((s) => s.id === x)),
       color: t?.color ?? '#0EA5A4',
       active: t?.active ?? true,
       salary: null,
@@ -319,10 +373,7 @@ export class TechniciansPage implements OnInit {
       return;
     }
     const v = this.form.getRawValue();
-    const skills = v.skills
-      .split(/[,،]/)
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0);
+    const skills = v.serviceIds;
     const editing = this.editing();
     const req$ = editing
       ? this.http.put<Technician>(`${BASE}/${editing.id}`, {

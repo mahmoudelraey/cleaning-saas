@@ -17,6 +17,7 @@ import { UpgradeService } from '../core/upgrade.service';
 import { GlobalSearch } from './global-search';
 import { NotificationBell } from './notification-bell';
 import { UpgradeDialog } from './upgrade-dialog';
+import { BrandLogo } from '../shared/brand-logo';
 
 type NavSection = 'platform' | 'work' | 'finance' | 'manage' | 'system';
 
@@ -54,6 +55,7 @@ const NAV: NavItem[] = [
   { path: '/payroll', icon: 'pi pi-money-bill', label: 'nav.payroll', roles: ['OWNER'], section: 'finance', feature: 'reports' },
   { path: '/customers', icon: 'pi pi-users', label: 'nav.customers', roles: ['OWNER', 'COORDINATOR'], section: 'manage', screen: 'CUSTOMERS' },
   { path: '/services', icon: 'pi pi-list-check', label: 'nav.services', roles: ['OWNER', 'COORDINATOR'], section: 'manage', screen: 'SERVICES' },
+  { path: '/promos', icon: 'pi pi-ticket', label: 'nav.promos', roles: ['OWNER', 'COORDINATOR'], section: 'manage', screen: 'SERVICES' },
   { path: '/technicians', icon: 'pi pi-wrench', label: 'nav.technicians', roles: ['OWNER', 'COORDINATOR'], section: 'manage', screen: 'TECHNICIANS' },
   { path: '/users', icon: 'pi pi-id-card', label: 'nav.users', roles: ['OWNER'], section: 'system' },
   { path: '/settings', icon: 'pi pi-cog', label: 'nav.settings', roles: ['OWNER'], section: 'system' },
@@ -66,7 +68,7 @@ const COLLAPSED_KEY = 'fo.sidebar.collapsed';
 
 @Component({
   selector: 'app-shell',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, TranslatePipe, Button, Menu, Tooltip, UpgradeDialog, GlobalSearch, NotificationBell],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, TranslatePipe, Button, Menu, Tooltip, UpgradeDialog, GlobalSearch, NotificationBell, BrandLogo],
   templateUrl: './shell.html',
   styleUrl: './shell.scss',
 })
@@ -79,6 +81,11 @@ export class Shell implements OnInit {
   private readonly inbox = inject(ContactInboxService);
 
   protected readonly menuOpen = signal(false);
+  /** The company's name in the chosen language (Arabic when no English name was given). */
+  protected readonly companyName = computed(() => {
+    const t = this.tenants.tenant();
+    return (this.lang.current() === 'en' && t?.nameEn) || t?.name || '';
+  });
   /** Search and the attention bell are for the office; technicians work from their visit list. */
   protected readonly isOffice = computed(() => this.auth.hasRole('OWNER', 'COORDINATOR'));
   protected readonly upgrade = inject(UpgradeService);

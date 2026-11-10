@@ -1,15 +1,27 @@
 /**
- * Address of the customer portal (frontend/portal). Set it for production, e.g. 'https://my.example.sa'.
- * Empty: worked out from this app's address (dev :4200 → :4300, docker :8081 → :8082, otherwise same host).
+ * Address of the customer portal (frontend/portal). Set it to force one, e.g. 'https://example.sa'.
+ * Empty: worked out from this app's address:
+ *   dev :4200 → :4300, docker :8081 → :8082,
+ *   production app.example.sa → example.sa (the deploy/ Caddyfile serves the portal on the bare domain),
+ *   otherwise the same host.
  */
 export const PORTAL_BASE_URL = '';
 
 const DEV_PORTS: Record<string, string> = { '4200': '4300', '8081': '8082' };
 
-/** The portal's address without a trailing slash, e.g. 'https://my.example.sa'. */
+/** The portal's address without a trailing slash, e.g. 'https://example.sa'. */
 export function portalBase(): string {
   const { protocol, hostname, port, origin } = location;
-  const base = PORTAL_BASE_URL || (DEV_PORTS[port] ? `${protocol}//${hostname}:${DEV_PORTS[port]}` : origin);
+  let base = PORTAL_BASE_URL;
+  if (!base) {
+    if (DEV_PORTS[port]) {
+      base = `${protocol}//${hostname}:${DEV_PORTS[port]}`;
+    } else if (hostname.startsWith('app.')) {
+      base = `${protocol}//${hostname.slice('app.'.length)}${port ? `:${port}` : ''}`;
+    } else {
+      base = origin;
+    }
+  }
   return base.replace(/\/+$/, '');
 }
 

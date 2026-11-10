@@ -60,7 +60,7 @@ public class BookingController {
                 CompanyController.lines(req.items()), req.scheduledStart(), req.addressId(),
                 a == null ? null : new CustomerPortalService.AddressInput(a.city(), a.district(), a.details(), a.lat(),
                         a.lng(), a.mapUrl(), a.cityId(), a.districtId()),
-                req.notes(), req.paymentMethod())));
+                req.notes(), req.paymentMethod(), req.promoCode())));
     }
 
     @PostMapping("/{id}/cancel")
@@ -76,7 +76,8 @@ public class BookingController {
 
     public record BookRequest(@NotEmpty @Size(max = 10) List<CompanyController.@Valid ItemRequest> items,
                               @NotNull Instant scheduledStart, UUID addressId, @Valid AddressRequest address,
-                              @Size(max = 1000) String notes, PaymentMethod paymentMethod) {
+                              @Size(max = 1000) String notes, PaymentMethod paymentMethod,
+                              @Size(max = 40) String promoCode) {
     }
 
     public record CancelRequest(@Size(max = 500) String reason) {

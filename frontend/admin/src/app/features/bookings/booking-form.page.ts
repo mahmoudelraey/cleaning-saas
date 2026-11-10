@@ -30,6 +30,7 @@ import { errorMessage } from '../../core/http/api-error';
 import { PhonePipe, SarPipe } from '../../shared/format';
 import { CustomersApi } from '../customers/customers.api';
 import { BookingsApi } from './bookings.api';
+import { doesAnyService } from '../../shared/technician-services';
 
 interface Line {
   serviceId: string | null;
@@ -325,8 +326,9 @@ export class BookingFormPage implements OnInit {
   protected readonly addresses = computed<Address[]>(() => this.customer()?.addresses ?? []);
   protected readonly technicianOptions = computed(() => {
     const free = this.freeTechIds();
+    const wanted = new Set(this.lines().map((l) => l.serviceId).filter((id): id is string => !!id));
     return this.technicians()
-      .filter((t) => t.active)
+      .filter((t) => t.active && (doesAnyService(t, wanted) || this.technicianIds.includes(t.id)))
       .map((t) => ({
         value: t.id,
         label:

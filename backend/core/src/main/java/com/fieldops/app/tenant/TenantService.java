@@ -41,6 +41,12 @@ public class TenantService {
      */
     @Transactional
     public Tenant createTrialTenant(String name, String rawSlug) {
+        return createTrialTenant(name, null, rawSlug);
+    }
+
+    /** @param nameEn the company's English name (null = none) */
+    @Transactional
+    public Tenant createTrialTenant(String name, String nameEn, String rawSlug) {
         String slug = Slugs.normalize(rawSlug);
         if (!Slugs.isValid(slug)) {
             throw ApiException.badRequest("invalid_slug", "Slug must be 3-40 lowercase letters, digits or hyphens");
@@ -50,7 +56,8 @@ public class TenantService {
         }
         Instant trialEnds = Instant.now(clock).plus(Duration.ofDays(platform.trialDays()));
         String planId = plans.existsById(platform.trialPlanId()) ? platform.trialPlanId() : DEFAULT_PLAN;
-        return tenants.save(Tenant.startTrial(name.trim(), slug, planId, defaultTimezone, trialEnds));
+        String en = nameEn == null || nameEn.isBlank() ? null : nameEn.trim();
+        return tenants.save(Tenant.startTrial(name.trim(), en, slug, planId, defaultTimezone, trialEnds));
     }
 
     @Transactional(readOnly = true)
@@ -59,8 +66,14 @@ public class TenantService {
         return tenants.findById(id).orElseThrow(() -> ApiException.notFound("tenant"));
     }
 
+    /** @param nameEn null leaves the English name as it is; blank clears it */
     public record ProfileUpdate(String name, String phone, String vatNumber, String address,
-                                String commercialRegistration, boolean pricesIncludeVat, Boolean autoInvoice) {
+                                String commercialRegistration, boolean pricesIncludeVat, Boolean autoInvoice,
+                                String nameEn) {
+        public ProfileUpdate(String name, String phone, String vatNumber, String address,
+                             String commercialRegistration, boolean pricesIncludeVat, Boolean autoInvoice) {
+            this(name, phone, vatNumber, address, commercialRegistration, pricesIncludeVat, autoInvoice, null);
+        }
     }
 
     @Transactional
@@ -68,6 +81,9 @@ public class TenantService {
         Tenant t = current();
         t.updateProfile(u.name().trim(), u.phone(), u.vatNumber(), u.address(), u.commercialRegistration(),
                 u.pricesIncludeVat(), u.autoInvoice() == null ? t.isAutoInvoice() : u.autoInvoice());
+        if (u.nameEn() != null) {
+            t.renameEn(u.nameEn().isBlank() ? null : u.nameEn().trim());
+        }
         return t;
     }
 

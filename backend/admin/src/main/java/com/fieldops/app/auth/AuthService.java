@@ -63,13 +63,13 @@ public class AuthService {
 
     /** Self-serve signup: creates the company (14-day trial) and its owner account, then signs in. */
     @Transactional
-    public Tokens signup(String companyName, String slug, String ownerName, String rawPhone, String email,
-                         String password) {
+    public Tokens signup(String companyName, String companyNameEn, String slug, String ownerName, String rawPhone,
+                         String email, String password) {
         String phone = AccountRules.normalizePhone(rawPhone);
         String normalizedEmail = AccountRules.normalizeEmail(email);
         rules.assertIdentifiersFree(phone, normalizedEmail);
 
-        Tenant tenant = tenantService.createTrialTenant(companyName, slug);
+        Tenant tenant = tenantService.createTrialTenant(companyName, companyNameEn, slug);
         User owner = users.save(new User(tenant.getId(), ownerName.trim(), phone, normalizedEmail,
                 passwordEncoder.encode(password), Role.OWNER));
         owner.markLoggedIn(Instant.now(clock));

@@ -168,9 +168,18 @@ public class BillingService {
         for (BookingItem item : b.getItems()) {
             lines.add(lineFrom(item));
         }
+        // The booking's promo discount comes first; the office may add more on top (never past the lines total).
+        long linesTotal = lines.stream().mapToLong(DocumentLine::getTotalHalalas).sum();
+        long discount = Math.min(linesTotal, b.getDiscountHalalas() + Math.max(0, cmd.discountHalalas()));
+        String notes = cmd.notes();
+        if (b.getPromoCode() != null && b.getDiscountHalalas() > 0) {
+            String promoNote = "Promo / كود الخصم: " + b.getPromoCode();
+            notes = notes == null || notes.isBlank() ? promoNote : notes + "\n" + promoNote;
+            notes = notes.length() > 2000 ? notes.substring(0, 2000) : notes;
+        }
         // Snapshot from the booking (works even if the customer was deleted since).
         Invoice inv = issue(b.getCustomerId(), b.getCustomerName(), b.getCustomerPhone(), cmd.customerVatNumber(),
-                lines, cmd.discountHalalas(), cmd.dueDate(), cmd.notes(), bookingId, null);
+                lines, discount, cmd.dueDate(), notes, bookingId, null);
         b.invoiceIssued();
         bookings.log(bookingId, VisitEvent.Type.INVOICE_ISSUED, null, null, "#" + inv.getNumber());
         if (cmd.send()) {
@@ -278,7 +287,7 @@ public class BillingService {
         Quote q = new Quote(counters.next(TenantCounterService.QUOTE));
         q.setCustomer(b.getCustomerId(), b.getCustomerName(), b.getCustomerPhone());
         q.setDetails(bookingId, validUntilOrDefault(validUntil), trimToNull(notes));
-        q.replaceLines(lines, 0, t.isVatRegistered(), t.isPricesIncludeVat());
+        q.replaceLines(lines, b.getDiscountHalalas(), t.isVatRegistered(), t.isPricesIncludeVat());
         return quotes.save(q);
     }
 

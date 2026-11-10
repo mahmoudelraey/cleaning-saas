@@ -39,7 +39,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         // The company card, its services and prices are public; so is signing in.
                         .requestMatchers(HttpMethod.GET, "/api/portal/*", "/api/portal/*/services", "/api/portal/*/reviews",
-                                "/api/portal/*/google-reviews").permitAll()
+                                "/api/portal/*/google-reviews", "/api/portal/*/stats").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/portal/*/quote", "/api/portal/*/availability").permitAll()
                         .requestMatchers("/api/portal/*/auth/otp", "/api/portal/*/auth/verify").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/portal/*/contact").permitAll()

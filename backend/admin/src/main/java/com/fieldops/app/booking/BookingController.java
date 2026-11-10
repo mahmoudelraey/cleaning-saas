@@ -212,7 +212,8 @@ public class BookingController {
                                 String notes, String internalNotes, String cancelReason, Instant completedAt,
                                 long subtotalHalalas, List<ItemDto> items, List<TechnicianRef> technicians,
                                 List<EventDto> events, Set<BookingStatus> allowedTransitions, Instant createdAt,
-                                Booking.InvoiceState invoiceState, String invoiceError, PaymentMethod paymentMethod) {
+                                Booking.InvoiceState invoiceState, String invoiceError, PaymentMethod paymentMethod,
+                                String promoCode, long discountHalalas) {
         static BookingDetail of(BookingService.Detail d) {
             Booking b = d.booking();
             return new BookingDetail(b.getId(), b.getNumber(), b.getStatus(), b.getSource(), b.getScheduledStart(),
@@ -223,7 +224,7 @@ public class BookingController {
                     d.assignments().stream().map(TechnicianRef::of).toList(),
                     d.events().stream().map(EventDto::of).toList(),
                     d.allowedTransitions(), b.getCreatedAt(), b.getInvoiceState(), b.getInvoiceError(),
-                    b.getPaymentMethod());
+                    b.getPaymentMethod(), b.getPromoCode(), b.getDiscountHalalas());
         }
     }
 

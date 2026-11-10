@@ -64,7 +64,7 @@ public class BookingQueries {
 
     public record Detail(Summary booking, String notes, String cancelReason, String navigationUrl, List<Item> items,
                          List<Event> events, InvoiceRef invoice, boolean canCancel, Instant cancelDeadline,
-                         boolean canReview, Review review) {
+                         boolean canReview, Review review, String promoCode, long discountHalalas) {
     }
 
     public List<Summary> list(CurrentCustomer me, boolean upcoming) {
@@ -91,14 +91,15 @@ public class BookingQueries {
             List<Object[]> extra = new ArrayList<>();
             List<Summary> rows = q.query("""
                     select b.id, b.number, b.status, b.scheduled_start, b.scheduled_end, b.subtotal_halalas,
-                           %s as address_text, b.payment_method, b.notes, b.cancel_reason,
-                           ad.lat as address_lat, ad.lng as address_lng, ad.map_url as address_map_url
+                           %s as address_text, b.payment_method, b.notes, b.cancel_reason, b.promo_code,
+                           b.discount_halalas, ad.lat as address_lat, ad.lng as address_lng, ad.map_url as address_map_url
                     from bookings b left join addresses ad on ad.id = b.address_id
                     where b.tenant_id = :t and b.customer_id = :c and b.id = :b
                     """.formatted(ADDRESS_TEXT), p, (rs, i) -> {
                 extra.add(new Object[] {rs.getString("notes"), rs.getString("cancel_reason"),
                         navigationUrl(rs.getBigDecimal("address_lat"), rs.getBigDecimal("address_lng"),
-                                rs.getString("address_map_url"))});
+                                rs.getString("address_map_url")), rs.getString("promo_code"),
+                        rs.getLong("discount_halalas")});
                 return new Summary(rs.getObject("id", UUID.class), rs.getLong("number"), rs.getString("status"),
                         rs.getTimestamp("scheduled_start").toInstant(), rs.getTimestamp("scheduled_end").toInstant(),
                         rs.getLong("subtotal_halalas"), rs.getString("address_text"), rs.getString("payment_method"),
@@ -143,7 +144,7 @@ public class BookingQueries {
             Object[] x = extra.get(0);
             return new Detail(b, (String) x[0], (String) x[1], (String) x[2], items, events,
                     inv.isEmpty() ? null : inv.get(0), canCancel, deadline, "COMPLETED".equals(b.status()),
-                    review.isEmpty() ? null : review.get(0));
+                    review.isEmpty() ? null : review.get(0), (String) x[3], (Long) x[4]);
         });
     }
 

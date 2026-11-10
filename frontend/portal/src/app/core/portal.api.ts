@@ -18,6 +18,7 @@ import {
   PaymentMethod,
   Profile,
   PublicReviews,
+  PublicStats,
   Quote,
   Service,
   Session,
@@ -34,6 +35,10 @@ export class PortalApi {
 
   company(slug: string): Observable<Company> {
     return this.http.get<Company>(this.base(slug));
+  }
+
+  stats(slug: string): Observable<PublicStats> {
+    return this.http.get<PublicStats>(`${this.base(slug)}/stats`);
   }
 
   reviews(slug: string): Observable<PublicReviews> {
@@ -100,8 +105,8 @@ export class PortalApi {
     return this.http.get<Service[]>(`${this.base(slug)}/services`);
   }
 
-  quote(slug: string, items: Item[]): Observable<Quote> {
-    return this.http.post<Quote>(`${this.base(slug)}/quote`, { items });
+  quote(slug: string, items: Item[], promoCode?: string | null): Observable<Quote> {
+    return this.http.post<Quote>(`${this.base(slug)}/quote`, { items, promoCode: promoCode || null });
   }
 
   availability(slug: string, date: string, items: Item[]): Observable<Slot[]> {
@@ -117,6 +122,7 @@ export class PortalApi {
       address?: NewAddress | null;
       notes?: string | null;
       paymentMethod?: PaymentMethod | null;
+      promoCode?: string | null;
     },
   ): Observable<Booked> {
     return this.http.post<Booked>(`${this.base(slug)}/bookings`, body);

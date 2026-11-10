@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 130" role="img" aria-label="">
+  <!-- Calendar with a clock: "book any time". White and pale teal on the teal card. -->
+  <rect x="18" y="22" width="104" height="92" rx="14" fill="#ffffff"/>
+  <path d="M18 36a14 14 0 0 1 14-14h76a14 14 0 0 1 14 14v12H18z" fill="#2fa89d"/>
+  <rect x="40" y="12" width="8" height="22" rx="4" fill="#d5efec"/>
+  <rect x="92" y="12" width="8" height="22" rx="4" fill="#d5efec"/>
+  <g fill="#cdeeea">
+    <rect x="30" y="58" width="16" height="12" rx="3"/>
+    <rect x="52" y="58" width="16" height="12" rx="3"/>
+    <rect x="74" y="58" width="16" height="12" rx="3"/>
+    <rect x="96" y="58" width="16" height="12" rx="3"/>
+    <rect x="30" y="76" width="16" height="12" rx="3"/>
+    <rect x="52" y="76" width="16" height="12" rx="3"/>
+    <rect x="30" y="94" width="16" height="12" rx="3"/>
+    <rect x="52" y="94" width="16" height="12" rx="3"/>
+  </g>
+  <rect x="74" y="76" width="16" height="12" rx="3" fill="#0e9086"/>
+  <circle cx="114" cy="92" r="30" fill="#ffffff"/>
+  <circle cx="114" cy="92" r="24" fill="#0b7a73"/>
+  <circle cx="114" cy="92" r="20" fill="#ffffff"/>
+  <path d="M114 78v14l10 7" fill="none" stroke="#0b7a73" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

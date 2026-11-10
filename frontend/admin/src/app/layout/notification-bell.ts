@@ -56,10 +56,10 @@ const SEEN_KEY = 'fo.bell.seen';
   imports: [TranslatePipe, LocalDatePipe],
   styles: `
     :host { position: relative; display: block; }
-    .bell { position: relative; width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--fo-border); background: var(--fo-surface);
+    .bell { position: relative; width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--fo-border); background: var(--fo-surface); box-shadow: 0 6px 18px -14px rgba(16, 42, 46, .35);
             display: grid; place-items: center; cursor: pointer; color: var(--fo-text); transition: background .15s; }
     .bell:hover { background: var(--fo-bg); }
-    .bell i { font-size: 1.05rem; }
+    .bell i { font-size: 1.2rem; }
     .count { position: absolute; top: -5px; inset-inline-end: -5px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
              background: var(--p-red-500); color: #fff; font-size: .68rem; font-weight: 700; display: grid; place-items: center;
              border: 2px solid var(--fo-surface); }

@@ -49,7 +49,7 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     <div class="wrap">
       @if (step() === 'details') {
         <h1>{{ 'register.title' | translate }}</h1>
-        <p class="lead">{{ 'register.lead' | translate: { company: store.company()?.name ?? '' } }}</p>
+        <p class="lead">{{ 'register.lead' | translate: { company: store.name() } }}</p>
         <ul class="perks">
           <li><i class="pi pi-calendar-plus"></i>{{ 'register.perk1' | translate }}</li>
           <li><i class="pi pi-map"></i>{{ 'register.perk2' | translate }}</li>

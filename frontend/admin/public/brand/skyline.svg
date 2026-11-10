@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 260" preserveAspectRatio="xMidYMax meet">
+  <!-- A faint Riyadh-like skyline for the sign-in backdrop. -->
+  <g fill="#cfe6e6">
+    <rect x="20" y="150" width="46" height="110" rx="3"/>
+    <rect x="74" y="120" width="34" height="140" rx="3"/>
+    <rect x="116" y="170" width="52" height="90" rx="3"/>
+    <path d="M190 260V70c0-22 12-38 22-46 10 8 22 24 22 46v190h-14v-80h-16v80z"/>
+    <rect x="248" y="110" width="40" height="150" rx="3"/>
+    <rect x="296" y="160" width="58" height="100" rx="3"/>
+    <path d="M370 260V40l18-28 18 28v220z"/>
+    <rect x="420" y="135" width="44" height="125" rx="3"/>
+    <rect x="472" y="175" width="60" height="85" rx="3"/>
+    <rect x="540" y="150" width="40" height="110" rx="3"/>
+  </g>
+  <path d="M0 250c120-20 240-26 360-16s160 12 240 6v20H0z" fill="#dff0ef"/>
+</svg>

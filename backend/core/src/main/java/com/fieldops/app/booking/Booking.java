@@ -86,6 +86,17 @@ public class Booking extends TenantScopedEntity {
     @Column(name = "subtotal_halalas", nullable = false)
     private long subtotalHalalas;
 
+    /** The promo the customer booked with (null once that promo is deleted; the code and discount stay). */
+    @Column(name = "promo_id")
+    private UUID promoId;
+
+    @Column(name = "promo_code")
+    private String promoCode;
+
+    /** Taken off the subtotal by the promo; the invoice starts from this discount. */
+    @Column(name = "discount_halalas", nullable = false)
+    private long discountHalalas;
+
     private String notes;
 
     @Column(name = "internal_notes")
@@ -204,6 +215,22 @@ public class Booking extends TenantScopedEntity {
 
     public String getInvoiceError() {
         return invoiceError;
+    }
+
+    /** Records the promo code used for this booking and what it takes off (at most the subtotal). */
+    public void applyPromo(UUID promoId, String code, long discount) {
+        this.promoId = promoId;
+        this.promoCode = code;
+        this.discountHalalas = Math.max(0, Math.min(discount, subtotalHalalas));
+    }
+
+    /** After the services changed: the promo's discount on the new subtotal (or the old one, capped). */
+    public void rediscount(Long discount) {
+        if (promoCode == null && discountHalalas == 0) {
+            return;
+        }
+        long d = discount != null ? discount : discountHalalas;
+        this.discountHalalas = Math.max(0, Math.min(d, subtotalHalalas));
     }
 
     /** Replaces all lines and recomputes the subtotal. */
@@ -325,6 +352,23 @@ public class Booking extends TenantScopedEntity {
 
     public long getSubtotalHalalas() {
         return subtotalHalalas;
+    }
+
+    public UUID getPromoId() {
+        return promoId;
+    }
+
+    public String getPromoCode() {
+        return promoCode;
+    }
+
+    public long getDiscountHalalas() {
+        return discountHalalas;
+    }
+
+    /** What the customer pays for the services before VAT: subtotal − promo discount. */
+    public long getTotalAfterDiscountHalalas() {
+        return subtotalHalalas - discountHalalas;
     }
 
     public String getNotes() {

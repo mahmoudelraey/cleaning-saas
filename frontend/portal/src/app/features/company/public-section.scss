@@ -1,0 +1,181 @@
+// Shared look of the company page's sections (about us, contact us): the emerald + gold palette from the
+// portal_redesign design, the centred section header and the white cards. company.page.scss uses the same tokens.
+
+:host {
+  --b50: #f0fdf8;
+  --b100: #ddf7ed;
+  --b200: #b6eeda;
+  --b500: #149b74;
+  --b600: #0d5c46;
+  --b700: #0a4938;
+  --gold: #ffc107;
+  --slate-5: #64748b;
+  --slate-2: #e2e8f0;
+  --lift: 0 20px 40px -15px rgba(13, 92, 70, 0.15);
+  display: block;
+  color: #1e293b;
+}
+
+.band {
+  padding: 56px 0;
+  background: #fff;
+}
+
+.band-soft {
+  background: #f8fafc;
+}
+
+.wrap {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+h2,
+h3 {
+  margin: 0;
+  color: #0f172a;
+}
+
+.sec-head {
+  max-width: 46rem;
+  margin: 0 auto 32px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+
+  h2 {
+    font-size: clamp(1.7rem, 3.4vw, 2.3rem);
+    font-weight: 900;
+  }
+
+  p {
+    margin: 0;
+    color: #475569;
+    font-weight: 500;
+    line-height: 1.8;
+  }
+}
+
+.kicker {
+  padding: 6px 16px;
+  border-radius: 999px;
+  background: var(--b100);
+  color: var(--b600);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.panel {
+  padding: 30px;
+  background: #fff;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 26px;
+  box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.06);
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+
+  h3 {
+    font-size: 1.2rem;
+    font-weight: 900;
+  }
+}
+
+.p-ico {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: var(--b50);
+  color: var(--b600);
+  font-size: 1.1rem;
+}
+
+.tags {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+
+  li {
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: var(--b50);
+    color: var(--b600);
+    font-size: 0.8rem;
+    font-weight: 700;
+  }
+}
+
+.btn-main {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 24px;
+  border: 0;
+  border-radius: 14px;
+  background: linear-gradient(90deg, var(--b600), var(--b500));
+  color: #fff;
+  font: inherit;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: 0 10px 20px -10px rgba(20, 155, 116, 0.6);
+  transition: transform 0.2s;
+
+  &:hover {
+    transform: translateY(-1px);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: default;
+    transform: none;
+  }
+
+  .gold {
+    color: var(--gold);
+  }
+}
+
+.btn-soft {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 13px 22px;
+  border: 1px solid var(--b200);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--b600);
+  font: inherit;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--b50);
+  }
+}
+
+@media (max-width: 759px) {
+  .band {
+    padding: 40px 0;
+  }
+
+  .panel {
+    padding: 22px;
+  }
+}

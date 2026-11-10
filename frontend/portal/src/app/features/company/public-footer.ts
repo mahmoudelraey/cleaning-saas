@@ -62,7 +62,7 @@ import { socialLinks } from '../../core/socials';
         <div>
           <a class="brand" [routerLink]="['/', slug()]">
             <span class="mark"><img [src]="company()?.logoUrl || 'brand/logo.svg'" alt="" /></span>
-            <strong>{{ company()?.name }}</strong>
+            <strong>{{ companyName() }}</strong>
           </a>
           <p class="about">{{ page().headline || ('company.defaultHeadline' | translate) }}</p>
           @if (socials().length) {
@@ -80,9 +80,8 @@ import { socialLinks } from '../../core/socials';
           <h3>{{ 'footer.pages' | translate }}</h3>
           <ul>
             <li><a [routerLink]="['/', slug()]" fragment="services">{{ 'company.services' | translate }}</a></li>
-            <li><a [routerLink]="['/', slug(), 'about']">{{ 'company.aboutUs' | translate }}</a></li>
             <li><a [routerLink]="['/', slug()]" fragment="reviews">{{ 'company.reviews' | translate }}</a></li>
-            <li><a [routerLink]="['/', slug(), 'contact']">{{ 'company.contact' | translate }}</a></li>
+            <li><a [routerLink]="['/', slug()]" fragment="contact">{{ 'company.contact' | translate }}</a></li>
             @if (company()?.bookingOpen) {
               <li><a [routerLink]="['/', slug(), 'book']">{{ 'company.book' | translate }}</a></li>
             }
@@ -118,7 +117,7 @@ import { socialLinks } from '../../core/socials';
 
       <div class="bottom">
         <div class="bottom-in">
-          <span>© <span class="ltr tnum">{{ year }}</span> {{ company()?.name }}. {{ 'footer.rights' | translate }}</span>
+          <span>© <span class="ltr tnum">{{ year }}</span> {{ companyName() }}. {{ 'footer.rights' | translate }}</span>
           @if (!signedIn()) {
             <a class="signin" [routerLink]="['/', slug(), 'login']"><i class="pi pi-shield" aria-hidden="true"></i>{{ 'company.signInHint' | translate }}</a>
           }
@@ -133,6 +132,7 @@ export class PublicFooter {
 
   protected readonly slug = this.store.slug;
   protected readonly company = this.store.company;
+  protected readonly companyName = this.store.name;
   protected readonly page = computed(() => this.company()?.page ?? {});
   protected readonly signedIn = computed(() => !!this.sessions.get(this.slug()));
   protected readonly year = new Date().getFullYear();

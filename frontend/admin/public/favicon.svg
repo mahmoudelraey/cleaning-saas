@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="FieldOps">
+  <defs>
+    <linearGradient id="fo-pin" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#14a89c"/>
+      <stop offset="1" stop-color="#0a6e67"/>
+    </linearGradient>
+  </defs>
+  <!-- Map pin -->
+  <path d="M32 2C19.3 2 9 12.1 9 24.6 9 41.2 32 62 32 62s23-20.8 23-37.4C55 12.1 44.7 2 32 2z" fill="url(#fo-pin)"/>
+  <!-- Hard hat -->
+  <path d="M18.5 31.5c0-8.4 6-14.5 13.5-14.5s13.5 6.1 13.5 14.5z" fill="#fff"/>
+  <rect x="14.5" y="30.5" width="35" height="5" rx="2.5" fill="#fff"/>
+  <rect x="30" y="15.5" width="4" height="15" rx="2" fill="#fff"/>
+  <path d="M25.5 21.5v9M38.5 21.5v9" stroke="#0e8a80" stroke-width="2.4" stroke-linecap="round"/>
+  <path d="M32 17.5v13" stroke="#0e8a80" stroke-width="2.4" stroke-linecap="round"/>
+</svg>

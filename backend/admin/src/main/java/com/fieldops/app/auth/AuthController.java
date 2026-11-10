@@ -28,7 +28,8 @@ public class AuthController {
     @PostMapping("/signup")
     @ResponseStatus(HttpStatus.CREATED)
     public AuthService.Tokens signup(@Valid @RequestBody SignupRequest req) {
-        return auth.signup(req.companyName(), req.slug(), req.ownerName(), req.phone(), req.email(), req.password());
+        return auth.signup(req.companyName(), req.companyNameEn(), req.slug(), req.ownerName(), req.phone(), req.email(),
+                req.password());
     }
 
     @PostMapping("/login")
@@ -60,6 +61,7 @@ public class AuthController {
 
     public record SignupRequest(
             @NotBlank @Size(max = 150) String companyName,
+            @NotBlank @Size(max = 150) String companyNameEn,
             @NotBlank @Size(min = 3, max = 40) String slug,
             @NotBlank @Size(max = 150) String ownerName,
             @NotBlank @SaudiMobile String phone,

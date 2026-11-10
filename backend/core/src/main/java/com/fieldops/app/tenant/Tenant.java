@@ -15,8 +15,13 @@ import com.fieldops.app.common.persistence.BaseEntity;
 @Table(name = "tenants")
 public class Tenant extends BaseEntity {
 
+    /** Arabic (main) name: invoices, messages and everything in Arabic use it. */
     @Column(nullable = false)
     private String name;
+
+    /** English name; may be empty for companies created before it was asked for. */
+    @Column(name = "name_en")
+    private String nameEn;
 
     @Column(nullable = false, unique = true)
     private String slug;
@@ -210,6 +215,17 @@ public class Tenant extends BaseEntity {
         return t;
     }
 
+    public static Tenant startTrial(String name, String nameEn, String slug, String planId, String timezone,
+                                    Instant trialEndsAt) {
+        Tenant t = startTrial(name, slug, planId, timezone, trialEndsAt);
+        t.nameEn = nameEn;
+        return t;
+    }
+
+    public void renameEn(String nameEn) {
+        this.nameEn = nameEn;
+    }
+
     public void updateProfile(String name, String phone, String vatNumber, String address,
                               String commercialRegistration, boolean pricesIncludeVat, boolean autoInvoice) {
         this.autoInvoice = autoInvoice;
@@ -358,6 +374,10 @@ public class Tenant extends BaseEntity {
 
     public String getName() {
         return name;
+    }
+
+    public String getNameEn() {
+        return nameEn;
     }
 
     public String getSlug() {

@@ -28,6 +28,8 @@ import com.fieldops.app.customer.Address;
 import com.fieldops.app.customer.Customer;
 import com.fieldops.app.customer.CustomerRepository;
 import com.fieldops.app.customer.CustomerService;
+import com.fieldops.app.promo.Promo;
+import com.fieldops.app.promo.PromoService;
 import com.fieldops.app.publicpage.OtpService;
 import com.fieldops.app.scheduling.SchedulingService;
 import com.fieldops.app.contact.ContactMessage;
@@ -66,12 +68,13 @@ public class CustomerPortalService {
     private final Clock clock;
     private final ReviewService reviews;
     private final ContactService contacts;
+    private final PromoService promos;
 
     public CustomerPortalService(TenantService tenants, OtpService otp, CustomerService customers,
                             CustomerRepository customerRepo, CatalogService catalog, BookingPricing pricing,
                             CalendarService calendar, BookingService bookings, BillingService billing,
                             InvoiceRepository invoices, TransactionTemplate tx, Clock clock,
-                            ReviewService reviews, ContactService contacts) {
+                            ReviewService reviews, ContactService contacts, PromoService promos) {
         this.tenants = tenants;
         this.otp = otp;
         this.customers = customers;
@@ -86,6 +89,7 @@ public class CustomerPortalService {
         this.clock = clock;
         this.reviews = reviews;
         this.contacts = contacts;
+        this.promos = promos;
     }
 
     public record Identity(String phone, UUID customerId, String customerName) {
@@ -96,7 +100,17 @@ public class CustomerPortalService {
     }
 
     public record NewBooking(List<BookingPricing.Line> items, Instant scheduledStart, UUID addressId, AddressInput address,
-                             String notes, PaymentMethod paymentMethod) {
+                             String notes, PaymentMethod paymentMethod, String promoCode) {
+    }
+
+    /**
+     * A price, with a promo code if one was given: {@code promo} and {@code discountHalalas} when it applies,
+     * otherwise {@code promoError} says why not (the price is then without discount).
+     */
+    public record PricedQuote(BookingPricing.Priced priced, Promo promo, long discountHalalas, String promoError) {
+        public long totalHalalas() {
+            return priced.subtotalHalalas() - discountHalalas;
+        }
     }
 
     // --- company ------------------------------------------------------------------------------------
@@ -167,6 +181,28 @@ public class CustomerPortalService {
         return as(t, () -> pricing.price(items));
     }
 
+    /** @param customerId the signed-in customer, or null for a visitor (per-customer rules are then left for booking) */
+    public PricedQuote quote(String slug, List<BookingPricing.Line> items, String promoCode, UUID customerId) {
+        Tenant t = company(slug);
+        return as(t, () -> {
+            BookingPricing.Priced priced = pricing.price(items);
+            if (promoCode == null || promoCode.isBlank()) {
+                return new PricedQuote(priced, null, 0, null);
+            }
+            try {
+                PromoService.Applied a = promos.check(promoCode, customerId, priced.subtotalHalalas(), false);
+                return new PricedQuote(priced, a.promo(), a.discountHalalas(), null);
+            } catch (ApiException e) {
+                return new PricedQuote(priced, null, 0, e.getCode());
+            }
+        });
+    }
+
+    /** The promo shown on the company's public page right now, if it announces one. */
+    public Optional<Promo> announcement(Tenant t) {
+        return as(t, promos::announced);
+    }
+
     public List<SchedulingService.Slot> availability(String slug, LocalDate date, List<BookingPricing.Line> items) {
         Tenant t = openForBooking(slug);
         ZoneId zone = ZoneId.of(t.getTimezone());
@@ -187,6 +223,9 @@ public class CustomerPortalService {
         return as(t, () -> tx.execute(s -> {
             Customer c = customers.get(customerId);
             BookingPricing.Priced priced = pricing.price(req.items());
+            // Checked again here (and locked): it may have been used up or ended since the customer saw the price.
+            PromoService.Applied promo = req.promoCode() == null || req.promoCode().isBlank() ? null
+                    : promos.check(req.promoCode(), c.getId(), priced.subtotalHalalas(), true);
             LocalDate date = LocalDate.ofInstant(req.scheduledStart(), zone);
             boolean free = calendar.availability(date, priced.durationMin(), zone, true).stream()
                     .anyMatch(slot -> slot.start().equals(req.scheduledStart()));
@@ -205,8 +244,13 @@ public class CustomerPortalService {
                         cut(a.details(), 300), a.lat(), a.lng(), safeMapUrl(a.mapUrl()), a.cityId(), a.districtId()));
                 addressId = saved.getId();
             }
-            return bookings.create(new BookingService.BookingCommand(c.getId(), addressId, req.scheduledStart(), null,
-                    req.items(), cut(req.notes(), 1000), null, req.paymentMethod()), BookingSource.PORTAL, List.of(), false);
+            Booking booking = bookings.create(new BookingService.BookingCommand(c.getId(), addressId, req.scheduledStart(),
+                    null, req.items(), cut(req.notes(), 1000), null, req.paymentMethod()), BookingSource.PORTAL, List.of(),
+                    false);
+            if (promo != null) {
+                booking.applyPromo(promo.promo().getId(), promo.promo().getCode(), promo.discountHalalas());
+            }
+            return booking;
         }));
     }
 

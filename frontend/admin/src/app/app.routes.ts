@@ -111,6 +111,12 @@ export const routes: Routes = [
         loadComponent: () => import('./features/services/services.page').then((m) => m.ServicesPage),
       },
       {
+        // Discount codes; managing them is part of managing prices, so the Services screen opens it.
+        path: 'promos',
+        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('SERVICES')],
+        loadComponent: () => import('./features/promos/promos.page').then((m) => m.PromosPage),
+      },
+      {
         path: 'technicians',
         canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('TECHNICIANS')],
         loadComponent: () => import('./features/technicians/technicians.page').then((m) => m.TechniciansPage),

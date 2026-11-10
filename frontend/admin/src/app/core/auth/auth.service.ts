@@ -15,6 +15,7 @@ interface StoredSession {
 
 export interface SignupForm {
   companyName: string;
+  companyNameEn: string;
   slug: string;
   ownerName: string;
   phone: string;

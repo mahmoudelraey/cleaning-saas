@@ -22,6 +22,7 @@ import com.fieldops.app.common.web.ApiException;
 import com.fieldops.app.customer.Address;
 import com.fieldops.app.customer.Customer;
 import com.fieldops.app.customer.CustomerService;
+import com.fieldops.app.promo.PromoRepository;
 import com.fieldops.app.scheduling.Assignment;
 import com.fieldops.app.scheduling.SchedulingService;
 import com.fieldops.app.scheduling.Technician;
@@ -49,11 +50,12 @@ public class BookingService {
     private final TenantCounterService counters;
     private final ApplicationEventPublisher publisher;
     private final Clock clock;
+    private final PromoRepository promos;
 
     public BookingService(BookingRepository bookings, VisitEventRepository events, BookingPricing pricing,
                           CustomerService customers, SchedulingService scheduling, TechnicianRepository technicians,
                           TenantService tenants, TenantCounterService counters, ApplicationEventPublisher publisher,
-                          Clock clock) {
+                          Clock clock, PromoRepository promos) {
         this.bookings = bookings;
         this.events = events;
         this.pricing = pricing;
@@ -64,6 +66,7 @@ public class BookingService {
         this.counters = counters;
         this.publisher = publisher;
         this.clock = clock;
+        this.promos = promos;
     }
 
     /** What the office (or the public page) asks for. Prices are never accepted from the client. */
@@ -191,6 +194,9 @@ public class BookingService {
         b.setNotes(trim(cmd.notes()), trim(cmd.internalNotes()));
         b.setPaymentMethod(cmd.paymentMethod());
         b.replaceItems(priced.items());
+        // A promo booking keeps its promo: same rule on the new subtotal (or the old discount, capped, if deleted).
+        b.rediscount(b.getPromoId() == null ? null
+                : promos.findById(b.getPromoId()).map(p -> p.discountOn(b.getSubtotalHalalas())).orElse(null));
 
         Instant start = cmd.scheduledStart();
         Instant end = start.plus(Duration.ofMinutes(durationOf(cmd, priced)));

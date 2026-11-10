@@ -1,6 +1,13 @@
-import { Routes } from '@angular/router';
+import { inject } from '@angular/core';
+import { CanActivateFn, Router, Routes } from '@angular/router';
 
 import { signedIn } from './core/guards';
+
+/** Contact us is a section of the company page now; old /about and /contact links land on the company page. */
+const toSection =
+  (fragment: string): CanActivateFn =>
+  (route) =>
+    inject(Router).createUrlTree(['/', route.parent?.paramMap.get('slug') ?? ''], { fragment, queryParams: route.queryParams });
 
 export const routes: Routes = [
   { path: '', loadComponent: () => import('./features/landing/landing.page').then((m) => m.LandingPage) },
@@ -10,10 +17,10 @@ export const routes: Routes = [
     path: ':slug',
     loadComponent: () => import('./shell/shell').then((m) => m.Shell),
     children: [
-      // Public company page: who they are, services, ratings, contact. Open to everyone.
+      // Public company page: services, ratings and contact us, all on one page. Open to everyone.
       { path: '', pathMatch: 'full', loadComponent: () => import('./features/company/company.page').then((m) => m.CompanyPage) },
-      { path: 'contact', loadComponent: () => import('./features/company/contact.page').then((m) => m.ContactPage) },
-      { path: 'about', loadComponent: () => import('./features/company/about.page').then((m) => m.AboutPage) },
+      { path: 'contact', canActivate: [toSection('contact')], children: [] },
+      { path: 'about', redirectTo: '', pathMatch: 'full' },
       { path: 'register', loadComponent: () => import('./features/register/register.page').then((m) => m.RegisterPage) },
       { path: 'login', loadComponent: () => import('./features/login/login.page').then((m) => m.LoginPage) },
       {

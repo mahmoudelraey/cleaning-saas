@@ -69,7 +69,7 @@ public class TenantController {
                 : req.phone().isBlank() ? null : PhoneNumbers.normalizeSaudiMobile(req.phone()).orElseThrow();
         Tenant t = service.updateCurrent(new TenantService.ProfileUpdate(req.name(), phone,
                 blankToNull(req.vatNumber()), blankToNull(req.address()), blankToNull(req.commercialRegistration()),
-                Boolean.TRUE.equals(req.pricesIncludeVat()), req.autoInvoice()));
+                Boolean.TRUE.equals(req.pricesIncludeVat()), req.autoInvoice(), req.nameEn()));
         return dto(t);
     }
 
@@ -193,7 +193,8 @@ public class TenantController {
             @Size(max = 300) String address,
             @Pattern(regexp = "^$|^\\d{10}$", message = "invalid_commercial_registration") String commercialRegistration,
             Boolean pricesIncludeVat,
-            Boolean autoInvoice) {
+            Boolean autoInvoice,
+            @Size(max = 150) String nameEn) {
     }
 
     /** The connected Google Maps listing, if any; {@code available} = a Places API key is set on the server. */
@@ -208,13 +209,13 @@ public class TenantController {
         }
     }
 
-    public record TenantDto(UUID id, String name, String slug, String logoUrl, String phone, String vatNumber,
+    public record TenantDto(UUID id, String name, String nameEn, String slug, String logoUrl, String phone, String vatNumber,
                             String address, String commercialRegistration, boolean pricesIncludeVat,
                             boolean autoInvoice, boolean bookingPageEnabled, String bookingPageNote,
                             String timezone, String status, Instant trialEndsAt, PlanDto plan,
                             PublicPage publicPage, GoogleDto google) {
         static TenantDto of(Tenant t, Plan plan, boolean googleAvailable) {
-            return new TenantDto(t.getId(), t.getName(), t.getSlug(), t.getLogoUrl(), t.getPhone(),
+            return new TenantDto(t.getId(), t.getName(), t.getNameEn(), t.getSlug(), t.getLogoUrl(), t.getPhone(),
                     t.getVatNumber(), t.getAddress(), t.getCommercialRegistration(), t.isPricesIncludeVat(),
                     t.isAutoInvoice(), t.isBookingPageEnabled(), t.getBookingPageNote(),
                     t.getTimezone(), t.getStatus().name(), t.getTrialEndsAt(), PlanDto.of(plan), t.getPublicPage(),

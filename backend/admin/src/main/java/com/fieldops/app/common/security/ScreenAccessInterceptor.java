@@ -52,6 +52,8 @@ public class ScreenAccessInterceptor implements HandlerInterceptor {
             rule(null, "/api/v1/bookings/" + ID + "/messages", Screen.MESSAGES, Screen.BOOKINGS),
             rule(null, "/api/v1/contact-messages(/.*)?", Screen.CONTACT_REQUESTS),
             rule(null, "/api/v1/reviews(/.*)?", Screen.REVIEWS),
+            // Promotions are part of prices (Services screen)
+            rule(null, "/api/v1/promos(/.*)?", Screen.SERVICES),
             // Calendar and bookings
             rule("GET", "/api/v1/scheduling(/.*)?", Screen.CALENDAR, Screen.BOOKINGS),
             rule("GET", "/api/v1/bookings(/.*)?", Screen.BOOKINGS, Screen.CALENDAR, Screen.CUSTOMERS, Screen.DASHBOARD),

@@ -57,6 +57,7 @@ export interface Plan {
 export interface TenantInfo {
   id: string;
   name: string;
+  nameEn?: string | null;
   slug: string;
   logoUrl?: string;
   phone?: string;
@@ -270,6 +271,9 @@ export interface BookingDetail extends BookingSummary {
   events: VisitEvent[];
   allowedTransitions: BookingStatus[];
   createdAt: string;
+  /** The promo code the customer booked with (portal), and what it takes off the subtotal. */
+  promoCode?: string | null;
+  discountHalalas?: number;
 }
 
 export interface BookingLineInput {
@@ -584,4 +588,30 @@ export interface ReportSummary {
     hours: number;
     completedValueHalalas: number;
   }[];
+}
+
+// ---- Promotions ----
+export type DiscountType = 'PERCENT' | 'AMOUNT';
+
+/** A discount code. discountValue is a percent (1-100) for PERCENT, halalas for AMOUNT. */
+export interface Promo {
+  id: string;
+  code: string;
+  title: string;
+  titleEn?: string | null;
+  discountType: DiscountType;
+  discountValue: number;
+  maxDiscountHalalas?: number | null;
+  minSubtotalHalalas: number;
+  startsAt?: string | null;
+  /** The moment it stops working (exclusive). */
+  endsAt?: string | null;
+  usageLimit?: number | null;
+  perCustomerLimit?: number | null;
+  firstBookingOnly: boolean;
+  active: boolean;
+  announce: boolean;
+  /** Bookings that used it (cancelled ones not counted). */
+  usedCount: number;
+  createdAt: string;
 }

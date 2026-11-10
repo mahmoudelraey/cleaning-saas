@@ -26,7 +26,8 @@
     "platformOverview": "Platform overview",
     "platformCompanies": "Companies",
     "platformPlans": "Plans & prices",
-    "platformSettings": "Settings & messaging"
+    "platformSettings": "Settings & messaging",
+    "promos": "Promotions"
   },
   "roles": {
     "OWNER": "Owner",
@@ -64,20 +65,21 @@
     "status": "Status",
     "active": "Active",
     "inactive": "Inactive",
-    "createdAt": "Added"
+    "createdAt": "Added",
+    "pageReport": "Showing {first} - {last} of {totalRecords} results"
   },
   "auth": {
-    "heroTitle": "Run your jobs and technicians without WhatsApp chaos",
+    "heroTitle": "Run your jobs and technicians without WhatsApp and paper",
     "heroPoint1": "One calendar, no double bookings",
     "heroPoint2": "WhatsApp confirmations and reminders",
     "heroPoint3": "Arabic quotes and invoices with your logo",
     "loginTitle": "Sign in",
-    "loginSubtitle": "Use your mobile number or email",
+    "loginSubtitle": "Welcome back! Enter your account details to continue.",
     "identifier": "Mobile or email",
     "password": "Password",
     "login": "Sign in",
     "noAccount": "No account yet?",
-    "startTrial": "Start a free trial",
+    "startTrial": "Start your free trial",
     "signupHero": "Try it free for 14 days, no card required",
     "signupPoint1": "Set up services, prices and technicians in minutes",
     "signupPoint2": "Your own booking link",
@@ -93,7 +95,18 @@
     "emailOptional": "Email (optional)",
     "passwordRule": "At least 8 characters",
     "createAccount": "Create account",
-    "haveAccount": "Already have an account?"
+    "haveAccount": "Already have an account?",
+    "heroSubtitle": "A smart way to run field operations efficiently and professionally",
+    "feature1": "Reliable and secure, around the clock",
+    "feature2": "Faster, more efficient management",
+    "feature3": "Detailed reports and analytics",
+    "forgotPassword": "Forgot your password?",
+    "forgotHint": "Ask your company's account owner to set a new password for you. If you are the owner, contact support.",
+    "or": "or",
+    "footerTagline": "Smart solutions for easier field operations",
+    "signupHeroSub": "14 days free, no card, set up in minutes",
+    "companyNameAr": "Company name (Arabic)",
+    "companyNameEn": "Company name (English)"
   },
   "dashboard": {
     "hello": "Hello {{name}}",
@@ -188,8 +201,9 @@
     "emailOptional": "Email (optional)",
     "initialPassword": "Initial password",
     "passwordHint": "Temporary password (8+ characters, letters and numbers). The technician must change it at first sign-in.",
-    "skills": "Skills",
-    "skillsHint": "AC, plumbing, deep cleaning",
+    "skills": "Services",
+    "skillsHint": "Pick services",
+    "servicesHint": "The services this technician does. When booking, only technicians who do the booked services are offered.",
     "color": "Calendar colour",
     "workHours": "Working hours",
     "workDays": "Work days",
@@ -321,7 +335,9 @@
     "onlineBooking": "Accept online bookings",
     "onlineBookingHint": "Customers can book a visit from your portal. Turn off to show your services and contact details only.",
     "onlineBookingOn": "Online booking is on",
-    "onlineBookingOff": "Online booking is off"
+    "onlineBookingOff": "Online booking is off",
+    "companyNameAr": "Company name (Arabic)",
+    "companyNameEn": "Company name (English)"
   },
   "days": {
     "SATURDAY": "Saturday",
@@ -471,7 +487,9 @@
     "invalid_max_technicians": "Technicians must be 1 to 1000.",
     "invalid_feature": "Unknown feature.",
     "invalid_url": "URLs must start with https://",
-    "invalid_status": "Unknown status."
+    "invalid_status": "Unknown status.",
+    "promo_code_taken": "Another promo already uses this code",
+    "promo_invalid": "The promo details are not valid"
   },
   "primeng": {
     "accept": "Yes",
@@ -1639,5 +1657,60 @@
       "test": "Send a test",
       "testHint": "WhatsApp sends Meta's built-in “hello_world” template (the number must have messaged you or be a test number); SMS sends a short text. Uses the saved settings."
     }
+  },
+  "promos": {
+    "title": "Promotions & discount codes",
+    "subtitle": "Create discount codes customers use when booking, and announce one on your company page.",
+    "new": "New promo",
+    "edit": "Edit promo",
+    "code": "Discount code",
+    "codeHint": "Letters, digits and dashes only, e.g. WELCOME20",
+    "titleCol": "Promo",
+    "titleAr": "Promo text (Arabic)",
+    "titleEn": "Promo text (English)",
+    "discount": "Discount",
+    "discountType": "Discount type",
+    "types": {
+      "PERCENT": "Percentage",
+      "AMOUNT": "Fixed amount"
+    },
+    "percent": "Discount percent",
+    "amountSar": "Discount amount (SAR)",
+    "maxSar": "Maximum discount (SAR)",
+    "minSar": "Minimum order (SAR)",
+    "noLimit": "No limit",
+    "noMin": "No minimum",
+    "upTo": "Up to {{v}}",
+    "minOrder": "Orders from {{v}}",
+    "validity": "Valid",
+    "always": "Always",
+    "noEnd": "No end date",
+    "fromNow": "From now",
+    "when": "Promo period",
+    "startsAt": "Starts on",
+    "endsAt": "Last day",
+    "limits": "Usage limits",
+    "usage": "Usage",
+    "usageLimit": "Total uses",
+    "perCustomer": "Per customer",
+    "firstOnly": "First booking only",
+    "firstOnlyLong": "Only for a customer's first booking",
+    "visibility": "Visibility",
+    "announce": "Announce on company page",
+    "announceHint": "Shows a bar at the top of your company page with the promo text and code while it is valid. Only the newest announced promo is shown.",
+    "announced": "Announced on company page",
+    "previewTag": "Special offer",
+    "state": {
+      "LIVE": "Live",
+      "SCHEDULED": "Scheduled",
+      "EXPIRED": "Expired",
+      "USED_UP": "Used up",
+      "OFF": "Off"
+    },
+    "empty": "No promos yet. Create your first discount code.",
+    "confirmDelete": "Delete promo {{code}}?",
+    "confirmDeleteUsed": "{{code}} was used in past bookings. Their discounts stay, but the code will stop working. Delete it?",
+    "bookingDiscount": "Promo {{code}}",
+    "afterDiscount": "Total after discount"
   }
 }

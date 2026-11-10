@@ -24,6 +24,7 @@ import { LocalDatePipe, LocalTimeRangePipe, formatLocalDate } from '../../shared
 import { LanguageService } from '../../core/i18n/language.service';
 import { TenantService } from '../../core/tenant.service';
 import { LockedFeature } from '../../shared/locked-feature';
+import { doesAnyService } from '../../shared/technician-services';
 
 /** Button style per target status. */
 const ACTION_STYLE: Partial<Record<BookingStatus, { icon: string; severity: 'primary' | 'secondary' | 'danger' | 'success' | 'warn' | 'info' }>> = {
@@ -207,6 +208,8 @@ interface JourneyStep {
     table.items .end { text-align: end; }
     .total { display: flex; justify-content: space-between; align-items: center; padding: 1rem .75rem 0; font-weight: 700; }
     .total .amount { color: var(--p-primary-600); font-size: 1.1rem; }
+    .total.promo-line { border-top: 0; padding-bottom: 0; font-weight: 500; }
+    .total.off { color: var(--p-green-700, #15803d); }
 
     /* ---------- notes ---------- */
     .note-list { display: flex; flex-direction: column; gap: .6rem; }
@@ -398,10 +401,25 @@ interface JourneyStep {
                 }
               </tbody>
             </table>
-            <div class="total">
-              <span>{{ 'bookings.subtotal' | translate }}</span>
-              <span class="amount ltr">{{ b.subtotalHalalas | sar }}</span>
-            </div>
+            @if (b.discountHalalas) {
+              <div class="total promo-line">
+                <span>{{ 'bookings.subtotal' | translate }}</span>
+                <span class="ltr">{{ b.subtotalHalalas | sar }}</span>
+              </div>
+              <div class="total promo-line off">
+                <span><i class="pi pi-ticket"></i> {{ 'promos.bookingDiscount' | translate: { code: b.promoCode ?? '' } }}</span>
+                <span class="ltr">−{{ b.discountHalalas | sar }}</span>
+              </div>
+              <div class="total">
+                <span>{{ 'promos.afterDiscount' | translate }}</span>
+                <span class="amount ltr">{{ b.subtotalHalalas - (b.discountHalalas ?? 0) | sar }}</span>
+              </div>
+            } @else {
+              <div class="total">
+                <span>{{ 'bookings.subtotal' | translate }}</span>
+                <span class="amount ltr">{{ b.subtotalHalalas | sar }}</span>
+              </div>
+            }
           </section>
 
           <section class="card">
@@ -830,8 +848,9 @@ export class BookingDetailPage implements OnInit {
   protected readonly technicianOptions = computed(() => {
     const free = this.freeTechIds();
     const current = new Set(this.booking()?.technicians.map((t) => t.id) ?? []);
+    const wanted = new Set((this.booking()?.items ?? []).map((i) => i.serviceId).filter((id): id is string => !!id));
     return this.technicians()
-      .filter((t) => t.active)
+      .filter((t) => current.has(t.id) || (t.active && doesAnyService(t, wanted)))
       .map((t) => ({
         value: t.id,
         label:

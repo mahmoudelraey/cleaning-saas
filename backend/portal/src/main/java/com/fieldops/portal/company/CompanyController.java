@@ -17,8 +17,10 @@ import com.fieldops.app.catalog.ServiceOffering;
 import com.fieldops.app.common.web.ApiException;
 import com.fieldops.app.customerportal.CustomerPortalService;
 import com.fieldops.app.google.GooglePlacesClient;
+import com.fieldops.app.promo.Promo;
 import com.fieldops.app.tenant.PublicPage;
 import com.fieldops.app.tenant.Tenant;
+import com.fieldops.portal.security.CurrentCustomer;
 import com.fieldops.portal.config.PortalProperties;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -35,13 +37,15 @@ public class CompanyController {
 
     private final CustomerPortalService portal;
     private final ReviewQueries reviews;
+    private final StatsQueries stats;
     private final GooglePlacesClient google;
     private final String adminPublicUrl;
 
-    public CompanyController(CustomerPortalService portal, ReviewQueries reviews, GooglePlacesClient google,
+    public CompanyController(CustomerPortalService portal, ReviewQueries reviews, StatsQueries stats, GooglePlacesClient google,
                              PortalProperties props) {
         this.portal = portal;
         this.reviews = reviews;
+        this.stats = stats;
         this.google = google;
         String url = props.adminPublicUrl();
         this.adminPublicUrl = url == null ? "" : url.replaceAll("/+$", "");
@@ -52,10 +56,11 @@ public class CompanyController {
         Tenant t = portal.company(slug);
         // Logos are served by the admin backend's public endpoint (it holds the uploaded files).
         String logo = t.getLogoUrl() != null && t.getLogoUrl().startsWith("/") ? adminPublicUrl + t.getLogoUrl() : t.getLogoUrl();
-        return new CompanyDto(t.getId(), t.getName(), t.getSlug(), logo, t.getPhone(), t.getTimezone(),
+        return new CompanyDto(t.getId(), t.getName(), t.getNameEn(), t.getSlug(), logo, t.getPhone(), t.getTimezone(),
                 portal.bookingOpen(t), t.isVatRegistered(), t.isPricesIncludeVat(), CustomerPortalService.MAX_DAYS_AHEAD,
                 (int) CalendarService.PUBLIC_LEAD_TIME.toHours(), (int) CustomerPortalService.CANCEL_NOTICE.toHours(),
-                t.getPublicPage(), t.getAddress(), google.configured() && t.getGooglePlaceId() != null);
+                t.getPublicPage(), t.getAddress(), google.configured() && t.getGooglePlaceId() != null,
+                portal.announcement(t).map(AnnouncementDto::of).orElse(null));
     }
 
     /**
@@ -78,16 +83,34 @@ public class CompanyController {
         return reviews.forPublicPage(t.getId());
     }
 
+    /** Completed visits, active technicians and customer satisfaction, for the stats band on the public page. */
+    @GetMapping("/stats")
+    public StatsQueries.Stats stats(@PathVariable String slug) {
+        Tenant t = portal.company(slug);
+        return stats.forPublicPage(t.getId());
+    }
+
     @GetMapping("/services")
     public List<ServiceDto> services(@PathVariable String slug) {
         return portal.services(slug).stream().map(ServiceDto::of).toList();
     }
 
+    /**
+     * Prices the chosen services. With {@code promoCode}, also checks it (for the signed-in customer, if any): the
+     * answer then carries the discount and the total, or {@code promoError} with the reason it does not apply.
+     */
     @PostMapping("/quote")
-    public QuoteDto quote(@PathVariable String slug, @Valid @RequestBody ItemsRequest req) {
-        BookingPricing.Priced p = portal.quote(slug, lines(req.items()));
+    public QuoteDto quote(@PathVariable String slug, @Valid @RequestBody QuoteRequest req) {
+        CurrentCustomer me = CurrentCustomer.optional(slug);
+        CustomerPortalService.PricedQuote q = portal.quote(slug, lines(req.items()), req.promoCode(),
+                me == null ? null : me.customerId());
+        BookingPricing.Priced p = q.priced();
+        Promo promo = q.promo();
         return new QuoteDto(p.items().stream().map(i -> new QuoteItemDto(i.getServiceId(), i.getAddonId(),
-                i.getDescription(), i.getQuantity(), i.getTotalHalalas())).toList(), p.subtotalHalalas(), p.durationMin());
+                i.getDescription(), i.getQuantity(), i.getTotalHalalas())).toList(), p.subtotalHalalas(), p.durationMin(),
+                q.discountHalalas(), q.totalHalalas(),
+                promo == null ? null : new QuotePromoDto(promo.getCode(), promo.getTitle(), promo.getTitleEn()),
+                q.promoError());
     }
 
     @PostMapping("/availability")
@@ -106,13 +129,26 @@ public class CompanyController {
     public record ItemsRequest(@NotEmpty @Size(max = 10) List<@Valid ItemRequest> items) {
     }
 
+    public record QuoteRequest(@NotEmpty @Size(max = 10) List<@Valid ItemRequest> items, @Size(max = 40) String promoCode) {
+    }
+
     public record AvailabilityRequest(@NotNull LocalDate date, @NotEmpty @Size(max = 10) List<@Valid ItemRequest> items) {
     }
 
-    public record CompanyDto(UUID tenantId, String name, String slug, String logoUrl, String phone, String timezone,
+    /** {@code name} is Arabic; {@code nameEn} English (may be empty). */
+    public record CompanyDto(UUID tenantId, String name, String nameEn, String slug, String logoUrl, String phone, String timezone,
                              boolean bookingOpen, boolean vatRegistered, boolean pricesIncludeVat, int maxDaysAhead,
                              int leadTimeHours, int cancelNoticeHours, PublicPage page, String address,
-                             boolean googleReviews) {
+                             boolean googleReviews, AnnouncementDto announcement) {
+    }
+
+    /** The announced promo: the bar at the top of the company page. */
+    public record AnnouncementDto(String code, String title, String titleEn, String discountType, long discountValue,
+                                  java.time.Instant endsAt, boolean firstBookingOnly) {
+        static AnnouncementDto of(Promo p) {
+            return new AnnouncementDto(p.getCode(), p.getTitle(), p.getTitleEn(), p.getDiscountType().name(),
+                    p.getDiscountValue(), p.getEndsAt(), p.isFirstBookingOnly());
+        }
     }
 
     public record AddonDto(UUID id, String name, String nameEn, long priceHalalas) {
@@ -132,7 +168,11 @@ public class CompanyController {
     public record QuoteItemDto(UUID serviceId, UUID addonId, String description, BigDecimal quantity, long totalHalalas) {
     }
 
-    public record QuoteDto(List<QuoteItemDto> items, long subtotalHalalas, int durationMin) {
+    public record QuoteDto(List<QuoteItemDto> items, long subtotalHalalas, int durationMin, long discountHalalas,
+                           long totalHalalas, QuotePromoDto promo, String promoError) {
+    }
+
+    public record QuotePromoDto(String code, String title, String titleEn) {
     }
 
     public record SlotDto(java.time.Instant start, java.time.Instant end) {

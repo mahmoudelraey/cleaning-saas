@@ -68,9 +68,13 @@ import { NotificationSettingsPanel } from './notification-settings.panel';
       <div class="panel">
         <h2>{{ 'settings.company' | translate }}</h2>
         <form [formGroup]="form" (ngSubmit)="save()" class="form-grid">
-          <div class="field full">
-            <label for="s-name">{{ 'settings.companyName' | translate }}</label>
-            <input pInputText id="s-name" formControlName="name" />
+          <div class="field">
+            <label for="s-name">{{ 'settings.companyNameAr' | translate }}</label>
+            <input pInputText id="s-name" formControlName="name" dir="rtl" />
+          </div>
+          <div class="field">
+            <label for="s-name-en">{{ 'settings.companyNameEn' | translate }}</label>
+            <input pInputText id="s-name-en" formControlName="nameEn" dir="ltr" placeholder="e.g. Lamaa Cleaning" />
           </div>
           <div class="field">
             <label for="s-vat">{{ 'settings.vatNumber' | translate }}</label>
@@ -314,6 +318,7 @@ export class SettingsPage implements OnInit {
 
   protected readonly form = inject(FormBuilder).nonNullable.group({
     name: ['', [Validators.required, Validators.maxLength(150)]],
+    nameEn: ['', [Validators.maxLength(150)]],
     vatNumber: ['', [Validators.pattern(/^3\d{13}3$/)]],
     commercialRegistration: ['', [Validators.pattern(/^\d{10}$/)]],
     address: ['', [Validators.maxLength(300)]],
@@ -362,6 +367,7 @@ export class SettingsPage implements OnInit {
       if (t && this.form.pristine) {
         this.form.reset({
           name: t.name,
+          nameEn: t.nameEn ?? '',
           vatNumber: t.vatNumber ?? '',
           commercialRegistration: t.commercialRegistration ?? '',
           address: t.address ?? '',
@@ -382,6 +388,7 @@ export class SettingsPage implements OnInit {
     this.tenants
       .update({
         name: v.name,
+        nameEn: v.nameEn.trim(),
         vatNumber: v.vatNumber || null,
         commercialRegistration: v.commercialRegistration || null,
         address: v.address.trim() || null,

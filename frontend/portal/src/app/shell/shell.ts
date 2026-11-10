@@ -6,12 +6,13 @@ import { filter } from 'rxjs';
 import { CompanyStore } from '../core/company.store';
 import { PortalApi } from '../core/portal.api';
 import { SessionService } from '../core/session.service';
+import { AnnouncementBar } from '../features/company/announcement-bar';
 import { PublicFooter } from '../features/company/public-footer';
 import { PublicHeader } from '../features/company/public-header';
 
 @Component({
   selector: 'pt-shell',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, TranslatePipe, PublicHeader, PublicFooter],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, TranslatePipe, AnnouncementBar, PublicHeader, PublicFooter],
   styles: `
     :host { display: flex; flex-direction: column; min-height: 100vh; }
     .main { flex: 1; }
@@ -39,6 +40,8 @@ import { PublicHeader } from '../features/company/public-header';
         <p class="muted">{{ 'shell.notFoundHint' | translate }}</p>
       </div>
     } @else {
+      <!-- The company's announced promo, on every page of its portal. -->
+      <pt-announcement-bar />
       <pt-public-header [current]="section()" />
       @if (showNav()) {
         <nav class="tabs-nav" [attr.aria-label]="'shell.nav' | translate">
@@ -98,7 +101,7 @@ export class Shell implements OnInit {
     this.api.company(this.slug()).subscribe({
       next: (c) => {
         this.store.company.set(c);
-        document.title = c.name;
+        document.title = this.store.name() || c.name;
       },
       error: () => this.missing.set(true),
     });

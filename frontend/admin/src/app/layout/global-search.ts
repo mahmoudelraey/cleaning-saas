@@ -23,14 +23,15 @@ interface Hit {
   selector: 'app-global-search',
   imports: [TranslatePipe, PhonePipe, LocalDatePipe],
   styles: `
-    :host { position: relative; display: block; width: min(420px, 100%); }
-    .box { display: flex; align-items: center; gap: .5rem; height: 40px; padding-inline: .8rem; border-radius: 10px;
-           border: 1px solid var(--fo-border); background: var(--fo-bg); transition: border-color .15s, background .15s, box-shadow .15s; }
+    :host { position: relative; display: block; width: min(520px, 100%); }
+    .box { display: flex; align-items: center; gap: .6rem; height: 50px; padding-inline: 1rem; border-radius: 16px;
+           border: 1px solid var(--fo-border); background: var(--fo-surface); box-shadow: 0 6px 18px -14px rgba(16, 42, 46, .35);
+           transition: border-color .15s, background .15s, box-shadow .15s; }
     .box:focus-within { background: var(--fo-surface); border-color: var(--p-primary-400);
                         box-shadow: 0 0 0 3px color-mix(in srgb, var(--p-primary-500) 15%, transparent); }
-    .box > i { color: var(--fo-muted); font-size: .9rem; }
+    .box > i { color: var(--fo-muted); font-size: 1.05rem; }
     input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: inherit; font-size: .9rem; color: var(--fo-text); }
-    kbd { font: inherit; font-size: .7rem; color: var(--fo-muted); border: 1px solid var(--fo-border); border-radius: 5px; padding: .05rem .35rem; background: var(--fo-surface); }
+    kbd { font: inherit; font-size: .72rem; font-weight: 600; color: var(--fo-muted); border: 1px solid var(--fo-border); border-radius: 999px; padding: .15rem .6rem; background: var(--fo-bg); }
     .panel { position: absolute; top: calc(100% + 6px); inset-inline: 0; z-index: 30; background: var(--fo-surface); border: 1px solid var(--fo-border);
              border-radius: 12px; box-shadow: 0 16px 40px -12px rgba(15, 23, 42, .25); max-height: 420px; overflow-y: auto; padding: .35rem; }
     .group { font-size: .72rem; font-weight: 600; color: var(--fo-muted); padding: .5rem .6rem .25rem; }

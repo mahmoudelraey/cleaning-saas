@@ -1,78 +1,182 @@
+// Sign-in / sign-up: the teal hero panel and a light form side with a soft city backdrop.
 :host {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
   min-height: 100vh;
-}
-
-.hero {
-  background: radial-gradient(circle at 20% 20%, #14b8a6 0%, #0f2a2e 60%);
-  color: #e6f4f3;
-  padding: 3rem;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-
-  h2 {
-    font-size: 2rem;
-    line-height: 1.4;
-    margin: 0 0 1rem;
-  }
-
-  ul {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: grid;
-    gap: 0.875rem;
-
-    li {
-      display: flex;
-      gap: 0.625rem;
-      align-items: center;
-      opacity: 0.92;
-    }
-  }
-
-  .lang {
-    align-self: flex-start;
-  }
+  background: #f5fafa;
 }
 
 .form-side {
-  display: grid;
-  place-items: center;
-  padding: 2rem 1.25rem;
-  background: var(--fo-surface);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem 1.5rem 4.5rem;
+  overflow: hidden;
+  background:
+    radial-gradient(90% 60% at 20% 0%, #ffffff 0%, transparent 70%),
+    linear-gradient(180deg, #fbfdfd 0%, #eef6f6 100%);
+
+  // Faint skyline at the bottom corner.
+  &::before {
+    content: '';
+    position: absolute;
+    inset-block-end: 0;
+    inset-inline-end: 0;
+    width: 55%;
+    height: 45%;
+    background: url('/brand/skyline.svg') no-repeat bottom / contain;
+    opacity: 0.55;
+    pointer-events: none;
+  }
+}
+
+.form-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 470px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+
+  .logo {
+    margin-block-end: 1.75rem;
+  }
+
+  h1 {
+    margin: 0 0 0.4rem;
+    font-size: 2rem;
+    font-weight: 700;
+    color: #10202a;
+  }
+
+  .sub {
+    margin: 0 0 1.75rem;
+    color: var(--fo-muted);
+    font-size: 1rem;
+  }
 }
 
 .card {
   width: 100%;
-  max-width: 440px;
+  text-align: start;
+  background: #fff;
+  border-radius: 22px;
+  padding: 1.75rem 1.75rem 1.5rem;
+  box-shadow:
+    0 1px 2px rgba(16, 42, 46, 0.04),
+    0 18px 40px -18px rgba(16, 42, 46, 0.22);
 
-  h1 {
-    margin: 0 0 0.25rem;
-    font-size: 1.6rem;
-  }
-
-  > p {
-    margin: 0 0 1.75rem;
-    color: var(--fo-muted);
+  p-message {
+    display: block;
+    margin-block-end: 1rem;
   }
 
   form {
     display: grid;
+    gap: 1.1rem;
+  }
+
+  .field label {
+    font-weight: 600;
+    color: #10202a;
+  }
+
+  // Icon boxes before the inputs.
+  .p-inputgroup {
+    direction: inherit;
+  }
+
+  .p-inputgroupaddon {
+    background: #fff;
+    color: #334155;
+    min-width: 3rem;
+  }
+
+  .p-inputtext,
+  ::ng-deep .p-password-input {
+    min-height: 3rem;
+  }
+
+  // The password box fills the rest of its input group.
+  p-password {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .forgot {
+    justify-self: start;
+    background: none;
+    border: none;
+    padding: 0;
+    margin-block-start: -0.35rem;
+    font: inherit;
+    font-weight: 600;
+    color: var(--p-primary-600);
+    cursor: pointer;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  .submit {
+    margin-block-start: 0.25rem;
+
+    ::ng-deep .p-button {
+      min-height: 3.1rem;
+      font-size: 1.05rem;
+      font-weight: 700;
+      border-radius: 12px;
+    }
+  }
+
+  .or {
+    display: flex;
+    align-items: center;
     gap: 1rem;
+    margin: 1.4rem 2rem 1rem;
+    color: var(--fo-muted);
+
+    &::before,
+    &::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--fo-border);
+    }
   }
 
   .switch {
     text-align: center;
-    margin-top: 1.25rem;
     color: var(--fo-muted);
 
     a {
       color: var(--p-primary-600);
-      font-weight: 600;
+      font-weight: 700;
+      text-decoration: none;
+      margin-inline-start: 0.35rem;
+
+      &:hover {
+        text-decoration: underline;
+      }
     }
+  }
+}
+
+.auth-footer {
+  position: absolute;
+  inset-block-end: 1.25rem;
+  inset-inline-end: 2rem;
+  font-size: 0.85rem;
+  color: var(--fo-muted);
+  direction: inherit;
+
+  .sep {
+    margin-inline: 0.6rem;
+    opacity: 0.6;
   }
 }
 
@@ -93,19 +197,36 @@
     background: var(--fo-bg);
     border: 1px solid var(--fo-border);
     border-inline-start: none;
-    border-radius: 0 6px 6px 0;
+    border-radius: 0 10px 10px 0;
     color: var(--fo-muted);
     white-space: nowrap;
     font-size: 0.85rem;
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1000px) {
   :host {
     grid-template-columns: 1fr;
   }
 
-  .hero {
+  app-auth-hero {
     display: none;
+  }
+
+  .form-side {
+    min-height: 100vh;
+  }
+
+  .form-wrap h1 {
+    font-size: 1.6rem;
+  }
+
+  .card {
+    padding: 1.25rem;
+  }
+
+  .auth-footer {
+    inset-inline: 0;
+    text-align: center;
   }
 }

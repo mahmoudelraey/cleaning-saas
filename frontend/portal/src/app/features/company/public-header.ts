@@ -1,6 +1,7 @@
-import { Component, computed, inject, input, signal } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { Component, DOCUMENT, HostListener, computed, inject, input, signal } from '@angular/core';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
+import { filter } from 'rxjs';
 
 import { CompanyStore } from '../../core/company.store';
 import { LanguageService } from '../../core/language.service';
@@ -8,150 +9,196 @@ import { SessionService } from '../../core/session.service';
 import { InboxBell } from './inbox-bell';
 
 /**
- * Top bar of the public pages (company page and About us): a white strip above the hero with brand, menu,
- * language and the account actions (Sign in + Create account, or My visits once signed in).
+ * Top bar of the portal: brand, the company page's sections, language, account and "Book a visit now".
+ * Wide screens show everything in one row. Below 1100px the sections move into a menu that opens under the bar
+ * (with booking, the customer's own pages and the language), so nothing is ever cut off or scrolled away.
+ * A signed-in customer's own pages live in the account menu (and the bottom tabs on phones), not in the row.
  */
 @Component({
   selector: 'pt-public-header',
   imports: [RouterLink, RouterLinkActive, TranslatePipe, InboxBell],
   styles: `
     :host { display: block; position: sticky; top: 0; z-index: 20; }
-    /* No overflow:hidden here: the account menu opens below the bar. A thin teal line echoes the hero. */
-    .bar { position: relative; background: var(--surface); border-radius: 0 0 28px 28px;
-           box-shadow: 0 10px 30px -22px rgba(15, 42, 61, .55); border-bottom: 3px solid color-mix(in srgb, var(--tide) 35%, transparent); }
-    .row { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; display: flex; align-items: center; gap: 12px;
-           padding: 12px 20px; }
-    .brand { flex: 0 1 auto; max-width: 260px; display: flex; align-items: center; gap: 10px; color: var(--tide-deep);
-             text-decoration: none; min-width: 0; }
-    .mark { width: 40px; height: 40px; border-radius: 50%; background: var(--foam); display: grid; place-items: center;
-            overflow: hidden; font-weight: 700; flex: none; color: var(--tide-deep); }
+    .bar { position: relative; background: rgba(255, 255, 255, .88); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+           border-bottom: 1px solid rgba(226, 232, 240, .8); box-shadow: 0 1px 3px rgba(15, 23, 42, .05); }
+    .row { position: relative; z-index: 2; max-width: 1200px; margin: 0 auto; display: flex; align-items: center; gap: 16px;
+           padding: 12px 20px; min-height: 72px; }
+
+    .brand { flex: 0 1 auto; min-width: 0; display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .mark { width: 44px; height: 44px; border-radius: 14px; background: #f0fdf8; box-shadow: 0 4px 10px -4px rgba(13, 92, 70, .35);
+            display: grid; place-items: center; overflow: hidden; flex: none; }
     .mark img { width: 100%; height: 100%; object-fit: contain; }
-    .name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .name { font-weight: 900; font-size: 1.1rem; color: #0d5c46; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            max-width: 22ch; }
 
-    /* The menu may shrink (English labels are longer); it never pushes the brand or the buttons off screen. */
-    nav { display: flex; align-items: center; gap: 2px; flex: 1 1 auto; min-width: 0; justify-content: safe center;
-          overflow-x: auto; scrollbar-width: none; }
-    nav::-webkit-scrollbar { display: none; }
-    nav a { color: var(--ink); text-decoration: none; font-size: .95rem; font-weight: 500; padding: 8px 12px; position: relative;
-            white-space: nowrap; flex: none; }
-    nav a:hover { color: var(--tide-deep); }
-    nav a.on { font-weight: 700; }
-    nav .nav-sep { width: 1px; align-self: stretch; margin: 8px 6px; background: var(--line); flex: none; }
-    nav a.mine { display: inline-flex; align-items: center; gap: 6px; color: var(--tide-deep); }
-    nav a.mine i { font-size: .85rem; }
-    nav a.mine.on { background: var(--foam); border-radius: 999px; }
+    nav.links { flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px; }
+    nav.links a { position: relative; padding: 8px 12px; color: #334155; text-decoration: none; font-weight: 600; font-size: .95rem;
+                  white-space: nowrap; }
+    nav.links a:hover { color: #149b74; }
+    nav.links a::after { content: ''; position: absolute; inset-inline: 12px; bottom: 2px; height: 2px; border-radius: 2px;
+                         background: #149b74; transform: scaleX(0); transition: transform .2s; }
+    nav.links a:hover::after, nav.links a.on::after { transform: scaleX(1); }
+    nav.links a.on { color: #0d5c46; }
 
-    .actions { display: flex; align-items: center; gap: 8px; flex: none; }
-    .pill { display: inline-flex; align-items: center; gap: 8px; border: 0; border-radius: 999px; font: inherit; font-size: .9rem;
-            font-weight: 600; padding: 9px 18px; cursor: pointer; text-decoration: none; white-space: nowrap; }
-    .pill i { font-size: .95rem; }
-    .lang { background: transparent; color: var(--ink); }
-    .soft { background: var(--foam); color: var(--tide-deep); }
-    .solid { background: var(--tide); color: #fff; box-shadow: 0 10px 20px -12px var(--tide); }
-    .solid:hover { background: var(--tide-deep); }
-    .pill:focus-visible, nav a:focus-visible, .brand:focus-visible { outline: 3px solid color-mix(in srgb, var(--tide) 45%, transparent);
-                                                                      outline-offset: 2px; }
+    .actions { margin-inline-start: auto; display: flex; align-items: center; gap: 8px; flex: none; }
+    .pill { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 12px;
+            font: inherit; font-size: .88rem; font-weight: 700; padding: 10px 16px; cursor: pointer; text-decoration: none;
+            white-space: nowrap; }
+    .lang { background: none; color: #475569; border: 1px solid #e2e8f0; padding: 9px 12px; }
+    .lang:hover { background: #f1f5f9; }
+    .soft { background: #f0fdf8; color: #0d5c46; }
+    .soft:hover { background: #ddf7ed; }
+    .book-cta { background: linear-gradient(90deg, #0d5c46, #149b74); color: #fff; font-weight: 800;
+                box-shadow: 0 4px 12px -4px rgba(13, 92, 70, .5); transition: transform .2s, box-shadow .2s; }
+    .book-cta:hover { transform: scale(1.04); box-shadow: 0 12px 24px -10px rgba(13, 92, 70, .6); }
+    .book-cta i { color: #ffc107; }
+    .icon-btn { width: 44px; height: 44px; padding: 0; border-radius: 12px; background: #f1f5f9; color: #334155; font-size: 1.15rem; }
+    .icon-btn:hover { background: #e2e8f0; }
+    .pill:focus-visible, nav a:focus-visible, .brand:focus-visible, .me:focus-visible {
+      outline: 3px solid rgba(20, 155, 116, .35); outline-offset: 2px; }
 
+    /* Account */
     .account { position: relative; }
-    .caret { font-size: .7rem; opacity: .85; }
-    .who { max-width: 10ch; overflow: hidden; text-overflow: ellipsis; }
+    .me { display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px 4px 4px; border: 1px solid #e2e8f0; border-radius: 999px;
+          background: #fff; color: #1e293b; font: inherit; cursor: pointer; }
+    :host-context([dir='rtl']) .me { padding: 4px 4px 4px 12px; }
+    .me-avatar { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; flex: none;
+                 background: linear-gradient(160deg, #149b74, #0d5c46); color: #fff; }
+    .who { font-weight: 700; font-size: .9rem; max-width: 10ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .caret { font-size: .7rem; opacity: .7; }
     .menu-backdrop { position: fixed; inset: 0; z-index: 1; }
-    .menu { position: absolute; inset-inline-end: 0; top: calc(100% + 8px); z-index: 2; min-width: 210px; list-style: none; margin: 0;
-            padding: 6px; background: var(--surface); border-radius: 16px; box-shadow: 0 22px 50px -20px rgba(15, 42, 61, .5);
-            border: 1px solid var(--line); }
+    .menu { position: absolute; inset-inline-end: 0; top: calc(100% + 8px); z-index: 2; min-width: 220px; list-style: none; margin: 0;
+            padding: 6px; background: #fff; border-radius: 16px; box-shadow: 0 22px 50px -20px rgba(15, 42, 61, .5);
+            border: 1px solid #e2e8f0; }
     .menu a, .menu button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border-radius: 10px;
-                            color: var(--ink); text-decoration: none; font: inherit; font-size: .93rem; background: none; border: 0;
+                            color: #1e293b; text-decoration: none; font: inherit; font-size: .93rem; background: none; border: 0;
                             cursor: pointer; text-align: start; }
-    .menu i { color: var(--tide); width: 1.1em; }
-    .menu a:hover, .menu button:hover { background: var(--mist); }
-    .menu a.on { background: var(--foam); color: var(--tide-deep); font-weight: 600; }
-    .menu .book { color: var(--tide-deep); font-weight: 600; }
-    .menu .sep { border-top: 1px solid var(--line); margin-top: 4px; padding-top: 4px; }
+    .menu i { color: #149b74; width: 1.1em; }
+    .menu a:hover, .menu button:hover { background: #f8fafc; }
+    .menu a.on { background: #f0fdf8; color: #0d5c46; font-weight: 700; }
+    .menu .sep { border-top: 1px solid #e2e8f0; margin-top: 4px; padding-top: 4px; }
     .menu .sep i { color: var(--rose); }
 
-    /* Medium screens: My visits / Invoices stay in the account menu so the row fits (English labels are longer). */
-    @media (min-width: 900px) and (max-width: 1279px) {
-      nav a.mine, nav .nav-sep { display: none; }
-      nav a { padding: 8px 10px; font-size: .92rem; }
-      .pill { padding: 9px 14px; }
-      .brand { max-width: 200px; }
-    }
+    /* Drawer under the bar (below 1100px) */
+    .burger { display: none; }
+    .drawer { position: relative; z-index: 1; border-top: 1px solid #e2e8f0; background: rgba(255, 255, 255, .97);
+              box-shadow: 0 20px 30px -20px rgba(15, 23, 42, .3); }
+    .drawer-in { max-width: 1200px; margin: 0 auto; padding: 12px 20px 18px; display: flex; flex-direction: column; gap: 4px; }
+    .drawer a.item, .drawer button.item { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px;
+                                          color: #1e293b; font: inherit; font-weight: 700; text-decoration: none; background: none;
+                                          border: 0; cursor: pointer; text-align: start; }
+    .drawer a.item i, .drawer button.item i { color: #149b74; width: 1.2em; }
+    .drawer a.item:hover, .drawer button.item:hover, .drawer a.item.on { background: #f0fdf8; color: #0d5c46; }
+    .drawer hr { border: 0; border-top: 1px solid #f1f5f9; margin: 6px 0; width: 100%; }
+    .drawer .drawer-cta { display: grid; gap: 8px; margin-top: 8px; }
+    .drawer .drawer-cta .pill { padding: 13px; }
 
-    /* Phones: brand + actions on one row, the menu scrolls sideways under it. */
-    @media (max-width: 899px) {
-      .row { flex-wrap: wrap; padding: 10px 14px; gap: 6px; }
-      .brand { flex: 1; }
-      nav { order: 3; flex-basis: 100%; justify-content: flex-start; overflow-x: auto; scrollbar-width: none; margin: 0 -6px; }
-      nav::-webkit-scrollbar { display: none; }
-      nav a { padding: 6px 10px; font-size: .88rem; }
-      .hide-sm { display: none; }
-      .pill { padding: 8px 12px; font-size: .84rem; }
-      .brand { max-width: none; }
+    /* Medium: the sections go into the drawer; the account shows only its avatar. */
+    @media (max-width: 1099px) {
+      nav.links { display: none; }
+      .burger { display: inline-flex; }
+      .who, .me .caret { display: none; }
+      .me { padding: 3px !important; }
+    }
+    /* Phones: booking and the language move into the drawer too (the page has its own booking bar). */
+    @media (max-width: 680px) {
+      .row { padding: 10px 14px; gap: 10px; min-height: 64px; }
+      .mark { width: 40px; height: 40px; }
+      .name { font-size: 1rem; max-width: 14ch; }
+      .hide-sm { display: none !important; }
+      .actions { gap: 6px; }
+      .icon-btn { width: 40px; height: 40px; }
+      .soft .label { display: none; }
+      .soft { padding: 10px 12px; }
     }
   `,
   template: `
     <div class="bar">
       <div class="row">
         <a class="brand" [routerLink]="['/', slug()]">
-          <span class="mark">
-            <img [src]="store.company()?.logoUrl || 'brand/logo.svg'" alt="" />
-          </span>
-          <span class="name">{{ store.company()?.name }}</span>
+          <span class="mark"><img [src]="store.company()?.logoUrl || 'brand/logo-mark.svg'" alt="" /></span>
+          <span class="name">{{ store.name() }}</span>
         </a>
-        <nav [attr.aria-label]="'company.menu' | translate">
-          <a [routerLink]="['/', slug()]" fragment="services" [class.on]="current() === 'home'">{{ 'company.services' | translate }}</a>
-          <a [routerLink]="['/', slug(), 'about']" [class.on]="current() === 'about'">{{ 'company.aboutUs' | translate }}</a>
-          <a [routerLink]="['/', slug()]" fragment="reviews">{{ 'company.reviews' | translate }}</a>
-          <a [routerLink]="['/', slug(), 'contact']" [class.on]="current() === 'contact'">{{ 'company.contact' | translate }}</a>
-          @if (signedIn()) {
-            <!-- The customer's own pages, once signed in -->
-            <span class="nav-sep" aria-hidden="true"></span>
-            <a class="mine" [routerLink]="['/', slug(), 'home']" routerLinkActive="on">
-              <i class="pi pi-home" aria-hidden="true"></i>{{ 'company.myPage' | translate }}
-            </a>
-            <!-- Stays highlighted on a visit's own page too (/bookings/:id). -->
-            <a class="mine" [routerLink]="['/', slug(), 'bookings']" routerLinkActive="on">
-              <i class="pi pi-calendar" aria-hidden="true"></i>{{ 'shell.bookings' | translate }}
-            </a>
-            <a class="mine" [routerLink]="['/', slug(), 'invoices']" routerLinkActive="on">
-              <i class="pi pi-receipt" aria-hidden="true"></i>{{ 'shell.invoices' | translate }}
-            </a>
+
+        <nav class="links" [attr.aria-label]="'company.menu' | translate">
+          <!-- Every link is a section of the company page; the one in view is underlined. -->
+          @for (l of links; track l.id) {
+            <a [routerLink]="['/', slug()]" [fragment]="l.id" [class.on]="active() === l.id" (click)="jump(l.id)">{{ l.label | translate }}</a>
           }
         </nav>
+
         <div class="actions">
-          <button type="button" class="pill lang" (click)="lang.toggle()">
+          <button type="button" class="pill lang hide-sm" (click)="lang.toggle()" [attr.aria-label]="'company.switchLang' | translate">
             <i class="pi pi-globe" aria-hidden="true"></i>{{ lang.current() === 'ar' ? 'English' : 'العربية' }}
           </button>
+
           @if (signedIn()) {
             <pt-inbox-bell [slug]="slug()" />
-            <!-- One account menu instead of a second row of tabs. -->
             <div class="account">
-              <button type="button" class="pill solid" [attr.aria-expanded]="menuOpen()" aria-haspopup="true"
-                      aria-controls="account-menu" (click)="menuOpen.set(!menuOpen())">
-                <i class="pi pi-user" aria-hidden="true"></i>
+              <button type="button" class="me" [attr.aria-expanded]="menuOpen()" aria-haspopup="true" aria-controls="account-menu"
+                      [attr.aria-label]="'shell.profile' | translate" (click)="menuOpen.set(!menuOpen()); drawerOpen.set(false)">
+                <span class="me-avatar"><i class="pi pi-user" aria-hidden="true"></i></span>
                 <span class="who">{{ firstName() || ('shell.profile' | translate) }}</span>
                 <i class="pi pi-chevron-down caret" aria-hidden="true"></i>
               </button>
               @if (menuOpen()) {
                 <div class="menu-backdrop" (click)="menuOpen.set(false)"></div>
                 <ul class="menu" id="account-menu" (click)="menuOpen.set(false)">
-                  <li><a [routerLink]="['/', slug(), 'home']" routerLinkActive="on"><i class="pi pi-home"></i>{{ 'shell.home' | translate }}</a></li>
+                  <li><a [routerLink]="['/', slug(), 'home']" routerLinkActive="on"><i class="pi pi-home"></i>{{ 'company.myPage' | translate }}</a></li>
                   <li><a [routerLink]="['/', slug(), 'bookings']" routerLinkActive="on"><i class="pi pi-calendar"></i>{{ 'shell.bookings' | translate }}</a></li>
                   <li><a [routerLink]="['/', slug(), 'invoices']" routerLinkActive="on"><i class="pi pi-receipt"></i>{{ 'shell.invoices' | translate }}</a></li>
                   <li><a [routerLink]="['/', slug(), 'profile']" routerLinkActive="on"><i class="pi pi-user"></i>{{ 'shell.profile' | translate }}</a></li>
-                  @if (store.company()?.bookingOpen) {
-                    <li><a [routerLink]="['/', slug(), 'book']" class="book"><i class="pi pi-calendar-plus"></i>{{ 'company.book' | translate }}</a></li>
-                  }
                   <li class="sep"><button type="button" (click)="signOut()"><i class="pi pi-sign-out"></i>{{ 'profile.signOut' | translate }}</button></li>
                 </ul>
               }
             </div>
           } @else {
-            <a class="pill soft hide-sm" [routerLink]="['/', slug(), 'login']"><i class="pi pi-sign-in rtl-flip" aria-hidden="true"></i>{{ 'company.signIn' | translate }}</a>
-            <a class="pill solid" [routerLink]="['/', slug(), 'register']"><i class="pi pi-user-plus" aria-hidden="true"></i>{{ 'register.title' | translate }}</a>
+            <a class="pill soft" [routerLink]="['/', slug(), 'login']" [attr.aria-label]="'company.myAccount' | translate">
+              <i class="pi pi-user" aria-hidden="true"></i><span class="label">{{ 'company.myAccount' | translate }}</span>
+            </a>
           }
+
+          @if (store.company()?.bookingOpen) {
+            <a class="pill book-cta hide-sm" [routerLink]="['/', slug(), 'book']">
+              <i class="pi pi-calendar-plus" aria-hidden="true"></i>{{ 'company.bookNow' | translate }}
+            </a>
+          }
+
+          <button type="button" class="pill icon-btn burger" [attr.aria-expanded]="drawerOpen()" aria-controls="site-drawer"
+                  [attr.aria-label]="'company.menu' | translate" (click)="drawerOpen.set(!drawerOpen()); menuOpen.set(false)">
+            <i class="pi" [class]="drawerOpen() ? 'pi-times' : 'pi-bars'" aria-hidden="true"></i>
+          </button>
         </div>
       </div>
+
+      @if (drawerOpen()) {
+        <div class="drawer" id="site-drawer">
+          <nav class="drawer-in" [attr.aria-label]="'company.menu' | translate" (click)="drawerOpen.set(false)">
+            @for (l of links; track l.id) {
+              <a class="item" [routerLink]="['/', slug()]" [fragment]="l.id" [class.on]="active() === l.id" (click)="jump(l.id)">
+                <i class="pi" [class]="l.icon" aria-hidden="true"></i>{{ l.label | translate }}
+              </a>
+            }
+            @if (signedIn()) {
+              <hr />
+              <a class="item" [routerLink]="['/', slug(), 'home']" routerLinkActive="on"><i class="pi pi-home"></i>{{ 'company.myPage' | translate }}</a>
+              <a class="item" [routerLink]="['/', slug(), 'bookings']" routerLinkActive="on"><i class="pi pi-calendar"></i>{{ 'shell.bookings' | translate }}</a>
+              <a class="item" [routerLink]="['/', slug(), 'invoices']" routerLinkActive="on"><i class="pi pi-receipt"></i>{{ 'shell.invoices' | translate }}</a>
+            }
+            <hr />
+            <button type="button" class="item" (click)="lang.toggle()">
+              <i class="pi pi-globe" aria-hidden="true"></i>{{ lang.current() === 'ar' ? 'English' : 'العربية' }}
+            </button>
+            @if (store.company()?.bookingOpen) {
+              <div class="drawer-cta">
+                <a class="pill book-cta" [routerLink]="['/', slug(), 'book']">
+                  <i class="pi pi-calendar-plus" aria-hidden="true"></i>{{ 'company.bookNow' | translate }}
+                </a>
+              </div>
+            }
+          </nav>
+        </div>
+      }
     </div>
   `,
 })
@@ -167,7 +214,57 @@ export class PublicHeader {
   protected readonly signedIn = computed(() => !!this.sessions.get(this.slug()));
   protected readonly firstName = computed(() => (this.sessions.get(this.slug())?.name ?? '').trim().split(/\s+/)[0]);
   protected readonly menuOpen = signal(false);
+  protected readonly drawerOpen = signal(false);
   private readonly router = inject(Router);
+  private readonly document = inject(DOCUMENT);
+
+  /** The company page's sections, in page order. */
+  protected readonly links = [
+    { id: 'services', label: 'company.services', icon: 'pi-th-large' },
+    { id: 'how', label: 'company.instructions', icon: 'pi-list-check' },
+    { id: 'reviews', label: 'company.reviews', icon: 'pi-star' },
+    { id: 'contact', label: 'company.contact', icon: 'pi-phone' },
+  ];
+  /** The section under the header right now (only on the company page). */
+  protected readonly active = signal<string | null>(null);
+
+  constructor() {
+    // Any navigation closes the menus.
+    this.router.events.pipe(filter((e) => e instanceof NavigationEnd)).subscribe(() => {
+      this.drawerOpen.set(false);
+      this.menuOpen.set(false);
+    });
+  }
+
+  @HostListener('document:keydown.escape')
+  protected closeAll(): void {
+    this.drawerOpen.set(false);
+    this.menuOpen.set(false);
+  }
+
+  @HostListener('window:scroll')
+  protected onScroll(): void {
+    if (this.current() !== 'home') {
+      this.active.set(null);
+      return;
+    }
+    let on: string | null = null;
+    for (const l of this.links) {
+      const top = this.document.getElementById(l.id)?.getBoundingClientRect().top;
+      if (top !== undefined && top <= 120) on = l.id;
+    }
+    // At the very bottom the last short section may never reach the top: mark it anyway.
+    const el = this.document.documentElement;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 4) on = this.links.at(-1)!.id;
+    this.active.set(on);
+  }
+
+  /** Clicking the section that is already in the address does no navigation, so scroll to it here. */
+  protected jump(id: string): void {
+    if (this.current() === 'home' && this.router.parseUrl(this.router.url).fragment === id) {
+      this.document.getElementById(id)?.scrollIntoView({ block: 'start' });
+    }
+  }
 
   protected signOut(): void {
     this.sessions.clear(this.slug());

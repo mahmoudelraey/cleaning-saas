@@ -75,6 +75,22 @@ const PAYMENTS: PaymentMethod[] = ['CASH', 'MADA', 'BANK_TRANSFER', 'APPLE_PAY',
     .sum dt { color: var(--ink-2); }
     .sum dd { margin: 0; text-align: end; font-weight: 600; }
 
+    /* Promo code: a field and Apply button; once applied, a green chip with what it takes off. */
+    .promo { display: flex; gap: 8px; }
+    .promo .input { flex: 1; text-transform: uppercase; letter-spacing: .04em; }
+    .promo .btn { flex: none; }
+    .promo-ok { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: var(--r-md);
+                background: #f0fdf8; border: 1.5px dashed #6ee7b7; color: #0d5c46; }
+    .promo-ok i.pi-ticket { font-size: 1.2rem; }
+    .promo-ok span { flex: 1; line-height: 1.35; }
+    .promo-ok b { letter-spacing: .04em; }
+    .promo-ok small { display: block; color: #0a4938; opacity: .8; }
+    .promo-ok button { border: 0; background: none; color: inherit; font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
+    .promo-err { color: var(--rose); font-size: .88rem; margin: 6px 2px 0; }
+    .sum dd.off { color: #0d5c46; }
+    .sum .total dt, .sum .total dd { font-weight: 800; color: var(--ink); padding-top: 10px; border-top: 1px solid var(--line); }
+    .footer .amt s { color: var(--ink-3); font-size: .85rem; margin-inline-start: 6px; font-weight: 500; }
+
     .footer { position: fixed; inset-inline: 0; bottom: 0; background: var(--surface); border-top: 1px solid var(--line); z-index: 30;
               padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); }
     .footer .in { max-width: 640px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
@@ -206,8 +222,36 @@ const PAYMENTS: PaymentMethod[] = ['CASH', 'MADA', 'BANK_TRANSFER', 'APPLE_PAY',
               <section class="sheet sum">
                 <dl>
                   @for (it of q.items; track $index) { <dt>{{ line(it) }}</dt><dd class="ltr">{{ it.totalHalalas | sar }}</dd> }
+                  @if (q.discountHalalas) {
+                    <dt>{{ 'promo.discount' | translate: { code: q.promo?.code ?? '' } }}</dt>
+                    <dd class="ltr off">−{{ q.discountHalalas | sar }}</dd>
+                    <div class="total" style="display: contents">
+                      <dt>{{ 'detail.total' | translate }}</dt><dd class="ltr">{{ (q.totalHalalas ?? q.subtotalHalalas) | sar }}</dd>
+                    </div>
+                  }
                 </dl>
               </section>
+            }
+
+            <h2 class="section-title">{{ 'promo.fieldTitle' | translate }}</h2>
+            @if (quote()?.promo; as pr) {
+              <div class="promo-ok" role="status">
+                <i class="pi pi-ticket" aria-hidden="true"></i>
+                <span>
+                  <b class="ltr">{{ pr.code }}</b> · {{ 'promo.saved' | translate: { v: ((quote()?.discountHalalas ?? 0) | sar) } }}
+                  <small>{{ (lang.current() === 'en' && pr.titleEn) || pr.title }}</small>
+                </span>
+                <button type="button" (click)="removePromo()">{{ 'promo.remove' | translate }}</button>
+              </div>
+            } @else {
+              <form class="promo" (ngSubmit)="applyPromo()">
+                <input class="input ltr" name="promo" [(ngModel)]="promoInput" maxlength="30" autocomplete="off" autocapitalize="characters"
+                       [placeholder]="'promo.placeholder' | translate" [attr.aria-label]="'promo.fieldTitle' | translate" />
+                <button type="submit" class="btn btn-quiet" [disabled]="!promoInput.trim() || checkingPromo()">
+                  @if (checkingPromo()) { <i class="pi pi-spin pi-spinner"></i> } @else { {{ 'promo.apply' | translate }} }
+                </button>
+              </form>
+              @if (promoError()) { <p class="promo-err" role="alert">{{ promoError() }}</p> }
             }
             <p class="muted" style="font-size:.88rem; margin-top:14px">{{ 'book.confirmNote' | translate }}</p>
           }
@@ -220,7 +264,8 @@ const PAYMENTS: PaymentMethod[] = ['CASH', 'MADA', 'BANK_TRANSFER', 'APPLE_PAY',
         <div class="in">
           <div class="amt">
             <small>{{ 'detail.total' | translate }}</small>
-            <b class="ltr">{{ (quote()?.subtotalHalalas ?? 0) | sar }}</b>
+            <b class="ltr">{{ (quote()?.totalHalalas ?? quote()?.subtotalHalalas ?? 0) | sar }}</b>
+            @if (quote()?.discountHalalas) { <s class="ltr">{{ quote()!.subtotalHalalas | sar }}</s> }
           </div>
           @if (step() > 1) { <button type="button" class="btn btn-quiet" (click)="back()">{{ 'book.back' | translate }}</button> }
           @if (step() < 4) {
@@ -238,7 +283,7 @@ export class BookPage implements OnInit, OnDestroy {
   private readonly api = inject(PortalApi);
   private readonly translate = inject(TranslateService);
   private readonly toasts = inject(ToastService);
-  private readonly lang = inject(LanguageService);
+  protected readonly lang = inject(LanguageService);
 
   protected readonly payments = PAYMENTS;
   protected readonly step = signal<Step>(1);
@@ -261,6 +306,13 @@ export class BookPage implements OnInit, OnDestroy {
   protected notes = '';
 
   private readonly quote$ = new Subject<void>();
+
+  // --- promo code ---
+  protected promoInput = '';
+  /** The code sent with every quote; the server's answer says whether it applies. */
+  private readonly promoCode = signal<string | null>(null);
+  protected readonly promoError = signal<string | null>(null);
+  protected readonly checkingPromo = signal(false);
 
   protected readonly days = computed(() => {
     const c = this.store.company();
@@ -297,12 +349,29 @@ export class BookPage implements OnInit, OnDestroy {
     const slug = this.store.slug();
     // ?service=<id> comes from the public company page: start with that service picked.
     const preselect = this.route.snapshot.queryParamMap.get('service');
+    // ?promo=CODE comes from the announcement bar: try it as soon as there is something to price.
+    const promo = this.normalizeCode(this.route.snapshot.queryParamMap.get('promo') ?? '');
+    if (promo) {
+      this.promoInput = promo;
+      this.promoCode.set(promo);
+    }
     this.api.services(slug).subscribe({
       next: (s) => {
         this.services.set(s);
         const chosen = preselect ? s.find((x) => x.id === preselect) : undefined;
         if (chosen && !this.picked(chosen)) {
           this.toggle(chosen);
+          // The company page's cost estimator also passes ?qty= and ?addons=a,b: start from that estimate.
+          const pick = this.pickOf(chosen);
+          const params = this.route.snapshot.queryParamMap;
+          const qty = Number(params.get('qty'));
+          const addons = (params.get('addons') ?? '').split(',').filter((id) => chosen.addons.some((a) => a.id === id));
+          if (pick && chosen.pricingType !== 'FIXED' && qty > 0) {
+            this.setQty(pick, qty);
+          }
+          if (pick && addons.length) {
+            addons.forEach((id) => this.toggleAddon(pick, id));
+          }
         }
       },
       error: (e) => this.fail(e),
@@ -316,9 +385,11 @@ export class BookPage implements OnInit, OnDestroy {
     this.quote$
       .pipe(
         debounceTime(200),
-        switchMap(() => (this.items().length ? this.api.quote(slug, this.items()).pipe(catchError(() => of(null))) : of(null))),
+        switchMap(() =>
+          this.items().length ? this.api.quote(slug, this.items(), this.promoCode()).pipe(catchError(() => of(null))) : of(null),
+        ),
       )
-      .subscribe((q) => this.quote.set(q));
+      .subscribe((q) => this.onQuote(q));
   }
 
   ngOnDestroy(): void {
@@ -423,6 +494,47 @@ export class BookPage implements OnInit, OnDestroy {
     this.step.update((s) => Math.max(1, s - 1) as Step);
   }
 
+  protected applyPromo(): void {
+    const code = this.normalizeCode(this.promoInput);
+    this.promoInput = code;
+    this.promoError.set(null);
+    if (!code) return;
+    this.promoCode.set(code);
+    this.checkingPromo.set(true);
+    this.quote$.next();
+  }
+
+  protected removePromo(): void {
+    this.promoCode.set(null);
+    this.promoInput = '';
+    this.promoError.set(null);
+    this.quote$.next();
+  }
+
+  /** The price came back: if the code was refused, say why and price without it. */
+  private onQuote(q: Quote | null): void {
+    const asked = this.checkingPromo();
+    this.checkingPromo.set(false);
+    if (q?.promoError && this.promoCode()) {
+      // A code from the announcement link that no longer fits is dropped quietly until the customer tries one.
+      if (asked) this.promoError.set(this.promoMessage(q.promoError));
+      this.promoCode.set(null);
+      this.quote.set({ ...q, discountHalalas: 0, totalHalalas: q.subtotalHalalas, promo: undefined });
+      return;
+    }
+    this.quote.set(q);
+  }
+
+  private promoMessage(code: string): string {
+    const key = `errors.${code}`;
+    const text = this.translate.instant(key);
+    return text !== key ? text : this.translate.instant('errors.promo_not_found');
+  }
+
+  private normalizeCode(v: string): string {
+    return v.trim().toUpperCase().replace(/\s+/g, '');
+  }
+
   submit(): void {
     const slot = this.slot();
     if (!slot) {
@@ -440,6 +552,7 @@ export class BookPage implements OnInit, OnDestroy {
         address: newAddress,
         notes: this.notes.trim() || null,
         paymentMethod: this.payment(),
+        promoCode: this.quote()?.promo?.code ?? null,
       })
       .subscribe({
         next: (b) => {
@@ -449,6 +562,14 @@ export class BookPage implements OnInit, OnDestroy {
         error: (e) => {
           this.busy.set(false);
           const code = (e?.error as { code?: string } | null)?.code;
+          if (code?.startsWith('promo_')) {
+            // The code stopped applying since it was checked (used up, expired...): price without it.
+            this.promoError.set(this.promoMessage(code));
+            this.promoCode.set(null);
+            this.quote$.next();
+            this.busy.set(false);
+            return;
+          }
           if (code === 'slot_unavailable') {
             // Someone took it meanwhile: back to the times, refreshed.
             this.step.set(2);

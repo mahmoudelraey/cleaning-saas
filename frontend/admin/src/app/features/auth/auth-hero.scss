@@ -1,0 +1,120 @@
+// The teal panel. Its inner edge is a soft curve towards the form, like the design.
+:host {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  padding: 2rem 3rem 2.5rem;
+  color: #fff;
+  background:
+    radial-gradient(120% 80% at 70% 10%, rgba(45, 212, 191, 0.28) 0%, transparent 60%),
+    linear-gradient(160deg, #0b9187 0%, #0a7a73 45%, #08524f 100%);
+  // The curve faces the form (inline-start side of the panel).
+  border-start-end-radius: 180px 50%;
+  border-end-end-radius: 180px 50%;
+  overflow: hidden;
+  min-height: 100vh;
+}
+
+.lang {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.16);
+  }
+
+  .pi-angle-down {
+    font-size: 0.8rem;
+    opacity: 0.8;
+  }
+}
+
+.copy {
+  padding-inline-end: 3rem;
+
+  h2 {
+    margin: 0 0 0.85rem;
+    font-size: clamp(1.8rem, 2.6vw, 2.6rem);
+    line-height: 1.35;
+    font-weight: 700;
+    max-width: 16ch;
+  }
+
+  p {
+    margin: 0;
+    font-size: 1.1rem;
+    opacity: 0.88;
+  }
+}
+
+.art {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-inline-end: 2rem;
+
+  img {
+    width: 100%;
+    max-width: 720px;
+    height: auto;
+    // Fade the picture's edges into the panel colour.
+    -webkit-mask-image: radial-gradient(ellipse 70% 72% at 50% 50%, #000 62%, transparent 100%);
+    mask-image: radial-gradient(ellipse 70% 72% at 50% 50%, #000 62%, transparent 100%);
+  }
+}
+
+.strengths {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  padding-inline-end: 2rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+
+  li {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+    text-align: center;
+    padding: 0.25rem 1rem;
+    font-weight: 600;
+    line-height: 1.5;
+
+    + li {
+      border-inline-start: 1px solid rgba(255, 255, 255, 0.25);
+    }
+
+    i {
+      font-size: 1.6rem;
+      color: #ccfbf1;
+    }
+  }
+}
+
+@media (max-width: 1200px) {
+  :host {
+    padding: 1.75rem 2rem 2rem;
+    border-start-end-radius: 120px 50%;
+    border-end-end-radius: 120px 50%;
+  }
+
+  .copy,
+  .art,
+  .strengths {
+    padding-inline-end: 1.5rem;
+  }
+}

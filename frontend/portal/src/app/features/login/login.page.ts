@@ -38,7 +38,7 @@ type Step = 'phone' | 'code' | 'name';
       @switch (step()) {
         @case ('phone') {
           <h1>{{ 'login.title' | translate }}</h1>
-          <p class="lead">{{ 'login.lead' | translate: { company: store.company()?.name ?? '' } }}</p>
+          <p class="lead">{{ 'login.lead' | translate: { company: store.name() } }}</p>
           <form (ngSubmit)="sendCode()">
             <div class="field">
               <label for="ph">{{ 'login.phone' | translate }}</label>
@@ -79,7 +79,7 @@ type Step = 'phone' | 'code' | 'name';
         }
         @case ('name') {
           <h1>{{ 'login.nameTitle' | translate }}</h1>
-          <p class="lead">{{ 'login.nameLead' | translate: { company: store.company()?.name ?? '' } }}</p>
+          <p class="lead">{{ 'login.nameLead' | translate: { company: store.name() } }}</p>
           <form (ngSubmit)="saveName()">
             <div class="field">
               <label for="nm">{{ 'login.name' | translate }}</label>

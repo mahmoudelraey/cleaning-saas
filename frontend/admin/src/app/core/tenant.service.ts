@@ -8,6 +8,8 @@ import { portalUrl } from './portal';
 
 export interface TenantUpdate {
   name: string;
+  /** English name; empty clears it. */
+  nameEn?: string;
   phone?: string | null;
   vatNumber?: string | null;
   address?: string | null;

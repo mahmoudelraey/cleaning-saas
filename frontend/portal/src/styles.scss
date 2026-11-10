@@ -4,12 +4,12 @@
   --ink: #0f2a3d;
   --ink-2: #4a6273;
   --ink-3: #7d93a2;
-  --mist: #edf4f6;
+  --mist: #f1f8f8;
   --surface: #ffffff;
-  --line: #d9e6ea;
-  --tide: #0b7a83;
-  --tide-deep: #075c63;
-  --foam: #d3ecee;
+  --line: #dbe9eb;
+  --tide: #0b7a73;
+  --tide-deep: #08524f;
+  --foam: #d5efec;
   --sun: #f0a92e;
   --sun-soft: #fdf1da;
   --rose: #c2413b;
@@ -389,4 +389,30 @@ img,
 video {
   max-width: 100%;
   height: auto;
+}
+
+// Scrollbar in the brand's emerald, as in the portal_redesign design.
+// Firefox only: in Chrome, scrollbar-color would switch off the rounded ::-webkit-scrollbar look below.
+@supports (-moz-appearance: none) {
+  html {
+    scrollbar-color: #149b74 #f1f5f9;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #149b74;
+  border-radius: 5px;
+
+  &:hover {
+    background: #0d5c46;
+  }
 }
