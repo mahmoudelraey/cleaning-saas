@@ -1,8 +1,8 @@
 @if (company(); as c) {
-  <!-- HERO: who they are on one side, a live cost estimator on the other -->
+  <!-- HERO: the big promise on one side, a photo of the work on the other -->
   <section class="hero" id="hero">
-    <span class="blob blob-a" aria-hidden="true"></span>
-    <span class="blob blob-b" aria-hidden="true"></span>
+    <span class="hero-wave" aria-hidden="true"></span>
+    <img class="hero-photo" src="hero/cleaning-pro.jpg" alt="" aria-hidden="true" />
 
     <div class="wrap hero-grid">
       <div class="hero-copy">
@@ -17,128 +17,48 @@
           }
         }
 
-        <h1><span class="grad">{{ store.name() }}</span></h1>
-        <p class="lead">{{ page().headline || ('company.defaultHeadline' | translate) }}</p>
+        <h1>
+          <span class="l1">{{ 'company.heroLine1' | translate }}</span>
+          <span class="l2">{{ 'company.heroLine2' | translate }}</span>
+        </h1>
+        <p class="lead">{{ store.headline() || ('company.defaultHeadline' | translate) }}</p>
 
         <div class="cta">
           @if (c.bookingOpen) {
-            <a class="btn-hero pulse" [routerLink]="['/', slug(), 'book']">
-              <i class="pi pi-calendar-plus gold" aria-hidden="true"></i>{{ 'company.bookNow' | translate }}
+            <a class="btn-hero" [routerLink]="['/', slug(), 'book']">
+              <i class="pi pi-calendar-plus" aria-hidden="true"></i>{{ 'company.bookNow' | translate }}<i class="pi pi-arrow-left rtl-flip arrow" aria-hidden="true"></i>
             </a>
           }
-          @if (whatsappUrl(); as wa) {
-            <a class="btn-white" [href]="wa" target="_blank" rel="noopener">
-              <i class="pi pi-whatsapp wa" aria-hidden="true"></i>{{ 'company.whatsappUs' | translate }}
-            </a>
-          } @else if (c.phone) {
-            <a class="btn-white" [href]="'tel:' + c.phone"><i class="pi pi-phone" aria-hidden="true"></i>{{ 'company.call' | translate }}</a>
-          }
+          <a class="btn-ghost" [routerLink]="['/', slug()]" fragment="how">
+            <i class="pi pi-play-circle" aria-hidden="true"></i>{{ 'company.watchHow' | translate }}
+          </a>
         </div>
-
-        <!-- The company's promises (its own "what to expect" lines, or the standard three) -->
-        <ul class="trust">
-          @for (t of promiseTiles(); track $index) {
-            <li>
-              <span class="t-ico"><i class="pi" [class]="t.icon" aria-hidden="true"></i></span>
-              <span><strong>{{ t.title }}</strong>@if (t.sub) { <small>{{ t.sub }}</small> }</span>
-            </li>
-          }
-        </ul>
       </div>
-
-      <!-- Estimator -->
-      @if (estService(); as s) {
-        <div class="estimator">
-          <header class="est-head">
-            <span class="est-title"><span class="live" aria-hidden="true"></span>{{ 'company.estTitle' | translate }}</span>
-            <span class="est-tag">{{ 'company.estTag' | translate }}</span>
-          </header>
-
-          <div class="est-tabs" role="tablist" [attr.aria-label]="'company.services' | translate">
-            @for (t of services(); track t.id) {
-              <button type="button" role="tab" [attr.aria-selected]="t.id === s.id" [class.on]="t.id === s.id" (click)="pickEstimate(t)">
-                <i class="pi" [class]="serviceIcon(t)" aria-hidden="true"></i><span>{{ t | svc }}</span>
-              </button>
-            }
-          </div>
-
-          <div class="est-body">
-            @if (s.pricingType !== 'FIXED') {
-              <div class="est-row">
-                <span>
-                  <small>{{ 'book.qty.' + s.pricingType | translate }}</small>
-                  <strong class="tnum">{{ estQty() }} {{ 'book.unit.' + s.pricingType | translate }}</strong>
-                </span>
-                <span class="stepper">
-                  <button type="button" (click)="changeQty(-1)" [attr.aria-label]="'book.less' | translate">−</button>
-                  <b class="tnum">{{ estQty() }}</b>
-                  <button type="button" (click)="changeQty(1)" [attr.aria-label]="'book.more' | translate">+</button>
-                </span>
-              </div>
-            } @else {
-              <div class="est-row">
-                <span>
-                  <small>{{ 'company.estDuration' | translate }}</small>
-                  <strong>{{ duration(s.durationMin) }}</strong>
-                </span>
-                <span class="fixed-tag"><i class="pi pi-tag" aria-hidden="true"></i>{{ 'company.fixedPrice' | translate }}</span>
-              </div>
-            }
-
-            @if (s.addons.length) {
-              <div class="addons">
-                <span class="addons-label">{{ 'company.estAddons' | translate }}</span>
-                @for (a of s.addons; track a.id) {
-                  <label class="addon">
-                    <input type="checkbox" [checked]="estAddons().includes(a.id)" (change)="toggleAddon(a.id)" />
-                    <span class="addon-name">{{ addonName(a) }}</span>
-                    <span class="addon-price ltr tnum">+ {{ a.priceHalalas | sar }}</span>
-                  </label>
-                }
-              </div>
-            }
-
-            <div class="est-total">
-              <span>
-                <small>{{ 'company.estTotal' | translate }}</small>
-                <strong class="ltr tnum">{{ estTotal() | sar }}</strong>
-                @if (c.vatRegistered) {
-                  <em>{{ (c.pricesIncludeVat ? 'company.vatIncluded' : 'company.vatExcluded') | translate }}</em>
-                }
-              </span>
-              @if (c.bookingOpen) {
-                <a class="est-book" [routerLink]="['/', slug(), 'book']" [queryParams]="estParams()">
-                  {{ 'company.estConfirm' | translate }}<i class="pi pi-arrow-left rtl-flip" aria-hidden="true"></i>
-                </a>
-              }
-            </div>
-          </div>
-        </div>
-      }
     </div>
   </section>
 
-  <!-- STATS: counted from the company's own data -->
-  @if (statTiles().length) {
-    <section class="stats" [attr.aria-label]="'company.statsLabel' | translate">
-      <ul class="wrap stats-grid" [style.--cols]="statTiles().length">
-        @for (t of statTiles(); track t.label) {
-          <li>
-            <strong class="ltr tnum">{{ t.value }}</strong>
-            <span>{{ t.label }}</span>
-          </li>
-        }
-      </ul>
-    </section>
-  }
-
-  <!-- SERVICES & PRICES -->
-  <section class="band band-soft" id="services" aria-labelledby="h-services">
+  <!-- SERVICES & PRICES: photo cards -->
+  <section class="band" id="services" aria-labelledby="h-services">
     <div class="wrap">
-      <header class="sec-head">
-        <span class="kicker">{{ 'company.servicesKicker' | translate }}</span>
-        <h2 id="h-services">{{ 'company.servicesTitle' | translate }}</h2>
-        <p>{{ 'company.servicesSub' | translate }}</p>
+      <!-- What every customer gets through the portal (true for every company) -->
+      <ul class="trust-strip">
+        <li><span class="ts-ico"><i class="pi pi-mobile" aria-hidden="true"></i></span><span><strong>{{ 'company.ts1' | translate }}</strong><small>{{ 'company.ts1Sub' | translate }}</small></span></li>
+        <li><span class="ts-ico"><i class="pi pi-tag" aria-hidden="true"></i></span><span><strong>{{ 'company.ts2' | translate }}</strong><small>{{ 'company.ts2Sub' | translate }}</small></span></li>
+        <li><span class="ts-ico"><i class="pi pi-receipt" aria-hidden="true"></i></span><span><strong>{{ 'company.ts3' | translate }}</strong><small>{{ 'company.ts3Sub' | translate }}</small></span></li>
+        <li><span class="ts-ico"><i class="pi pi-user" aria-hidden="true"></i></span><span><strong>{{ 'company.ts4' | translate }}</strong><small>{{ 'company.ts4Sub' | translate }}</small></span></li>
+      </ul>
+
+      <header class="svc-head">
+        <div>
+          <span class="kicker-line">{{ 'company.servicesKicker' | translate }}</span>
+          <h2 id="h-services">{{ 'company.servicesTitle' | translate }}</h2>
+          <p>{{ 'company.servicesSub' | translate }}</p>
+        </div>
+        @if ((services()?.length ?? 0) > cardsShown) {
+          <a class="btn-outline" [routerLink]="['/', slug(), 'services']">
+            {{ 'company.viewAllServices' | translate }}<i class="pi pi-arrow-left rtl-flip" aria-hidden="true"></i>
+          </a>
+        }
       </header>
 
       @if (services() === null) {
@@ -148,46 +68,9 @@
       } @else {
         <ul class="cards">
           @for (s of shownServices(); track s.id) {
-            <li class="svc-card">
-              <div>
-                <span class="svc-ico"><i class="pi" [class]="serviceIcon(s)" aria-hidden="true"></i></span>
-                <h3>{{ s | svc }}</h3>
-                @if (s | svc: 'description'; as d) { <p class="svc-desc">{{ d }}</p> }
-                <ul class="features">
-                  <li><i class="pi pi-check-circle" aria-hidden="true"></i>{{ 'company.visitLength' | translate: { d: duration(s.durationMin) } }}</li>
-                  @if (s.pricingType !== 'FIXED') {
-                    <li><i class="pi pi-check-circle" aria-hidden="true"></i>{{ 'company.pricedPer' | translate: { u: ('book.unit.' + s.pricingType | translate) } }}</li>
-                  }
-                  @for (a of s.addons.slice(0, 2); track a.id) {
-                    <li><i class="pi pi-plus-circle" aria-hidden="true"></i>{{ addonName(a) }} <span class="ltr tnum muted">(+{{ a.priceHalalas | sar }})</span></li>
-                  }
-                  @if (s.addons.length > 2) {
-                    <li class="muted"><i class="pi pi-ellipsis-h" aria-hidden="true"></i>{{ 'company.moreAddons' | translate: { n: s.addons.length - 2 } }}</li>
-                  }
-                </ul>
-              </div>
-              <footer class="svc-foot">
-                <span>
-                  <small>{{ 'company.startsFrom' | translate }}</small>
-                  <span class="price">
-                    <strong class="ltr tnum">{{ s.basePriceHalalas | sar }}</strong>
-                    <em>/ {{ (s.pricingType === 'FIXED' ? 'company.perVisit' : 'book.unit.' + s.pricingType) | translate }}</em>
-                  </span>
-                </span>
-                @if (c.bookingOpen) {
-                  <a class="svc-book" [routerLink]="['/', slug(), 'book']" [queryParams]="{ service: s.id }">{{ 'company.bookService' | translate }}</a>
-                }
-              </footer>
-            </li>
+            <li><pt-service-card [service]="s" /></li>
           }
         </ul>
-        @if ((services()?.length ?? 0) > cardsShown) {
-          <div class="center">
-            <button type="button" class="btn-outline" (click)="allServices.set(!allServices())">
-              {{ allServices() ? ('company.showLess' | translate) : ('company.allServices' | translate: { n: services()!.length }) }}
-            </button>
-          </div>
-        }
         @if (c.vatRegistered) {
           <p class="fine">{{ (c.pricesIncludeVat ? 'company.vatIncluded' : 'company.vatExcluded') | translate }}</p>
         }
@@ -197,7 +80,7 @@
 
   <!-- HOW IT WORKS -->
   @if (c.bookingOpen) {
-    <section class="band" id="how" aria-labelledby="h-how">
+    <section class="band band-soft" id="how" aria-labelledby="h-how">
       <div class="wrap">
         <header class="sec-head">
           <span class="kicker">{{ 'company.howKicker' | translate }}</span>
@@ -216,7 +99,7 @@
 
   <!-- REVIEWS: real ones only (portal visits and, if linked, Google) -->
   @if (c.googleReviews || (reviews()?.count ?? 0) > 0) {
-    <section class="band band-soft" id="reviews" aria-labelledby="h-reviews">
+    <section class="band" id="reviews" aria-labelledby="h-reviews">
       <div class="wrap">
         <header class="sec-head">
           <span class="kicker">{{ 'company.reviewsKicker' | translate }}</span>
@@ -286,6 +169,9 @@
 
   <!-- CONTACT: message form + ways to reach them (was its own page) -->
   <pt-contact-section id="contact" />
+
+  <!-- ABOUT US: the company's "about you" text, facts, areas and hours -->
+  <pt-about-section id="about" [reviews]="reviews()" />
 
   <!-- Closing call to book -->
   @if (c.bookingOpen) {

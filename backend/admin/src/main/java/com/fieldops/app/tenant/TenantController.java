@@ -69,7 +69,7 @@ public class TenantController {
                 : req.phone().isBlank() ? null : PhoneNumbers.normalizeSaudiMobile(req.phone()).orElseThrow();
         Tenant t = service.updateCurrent(new TenantService.ProfileUpdate(req.name(), phone,
                 blankToNull(req.vatNumber()), blankToNull(req.address()), blankToNull(req.commercialRegistration()),
-                Boolean.TRUE.equals(req.pricesIncludeVat()), req.autoInvoice(), req.nameEn()));
+                Boolean.TRUE.equals(req.pricesIncludeVat()), req.autoInvoice(), req.nameEn(), req.addressEn()));
         return dto(t);
     }
 
@@ -89,7 +89,8 @@ public class TenantController {
     @PreAuthorize("hasRole('OWNER')")
     public TenantDto updatePublicPage(@Valid @RequestBody PublicPageRequest req) {
         Tenant t = service.updatePublicPage(new PublicPage(req.headline(), req.about(), req.areas(), req.hours(),
-                null, null, null, null, null, req.foundedYear(), req.teamSize(), req.promises(), null));
+                null, null, null, null, null, req.foundedYear(), req.teamSize(), req.promises(), null,
+                req.headlineEn(), req.aboutEn(), req.promisesEn(), req.areasEn(), req.hoursEn()));
         return dto(t);
     }
 
@@ -141,7 +142,9 @@ public class TenantController {
     public record PublicPageRequest(@Size(max = 120) String headline, @Size(max = 2000) String about,
                                     @Size(max = 300) String areas, @Size(max = 150) String hours,
                                     @Min(1950) @Max(2100) Integer foundedYear, @Min(1) @Max(10000) Integer teamSize,
-                                    @Size(max = 1000) String promises) {
+                                    @Size(max = 1000) String promises, @Size(max = 120) String headlineEn,
+                                    @Size(max = 2000) String aboutEn, @Size(max = 1000) String promisesEn,
+                                    @Size(max = 300) String areasEn, @Size(max = 150) String hoursEn) {
     }
 
     @PutMapping("/tenant/booking-page")
@@ -194,7 +197,8 @@ public class TenantController {
             @Pattern(regexp = "^$|^\\d{10}$", message = "invalid_commercial_registration") String commercialRegistration,
             Boolean pricesIncludeVat,
             Boolean autoInvoice,
-            @Size(max = 150) String nameEn) {
+            @Size(max = 150) String nameEn,
+            @Size(max = 300) String addressEn) {
     }
 
     /** The connected Google Maps listing, if any; {@code available} = a Places API key is set on the server. */
@@ -210,13 +214,13 @@ public class TenantController {
     }
 
     public record TenantDto(UUID id, String name, String nameEn, String slug, String logoUrl, String phone, String vatNumber,
-                            String address, String commercialRegistration, boolean pricesIncludeVat,
+                            String address, String addressEn, String commercialRegistration, boolean pricesIncludeVat,
                             boolean autoInvoice, boolean bookingPageEnabled, String bookingPageNote,
                             String timezone, String status, Instant trialEndsAt, PlanDto plan,
                             PublicPage publicPage, GoogleDto google) {
         static TenantDto of(Tenant t, Plan plan, boolean googleAvailable) {
             return new TenantDto(t.getId(), t.getName(), t.getNameEn(), t.getSlug(), t.getLogoUrl(), t.getPhone(),
-                    t.getVatNumber(), t.getAddress(), t.getCommercialRegistration(), t.isPricesIncludeVat(),
+                    t.getVatNumber(), t.getAddress(), t.getAddressEn(), t.getCommercialRegistration(), t.isPricesIncludeVat(),
                     t.isAutoInvoice(), t.isBookingPageEnabled(), t.getBookingPageNote(),
                     t.getTimezone(), t.getStatus().name(), t.getTrialEndsAt(), PlanDto.of(plan), t.getPublicPage(),
                     new GoogleDto(googleAvailable, t.getGooglePlaceId(), t.getGooglePlaceName()));

@@ -17,11 +17,10 @@ import { PhonePipe, SAUDI_MOBILE_PATTERN, SarPipe } from '../../shared/format';
 import { LocalDatePipe } from '../../shared/local-date.pipe';
 import { LockedFeature } from '../../shared/locked-feature';
 import { UpgradeService } from '../../core/upgrade.service';
-import { NotificationSettingsPanel } from './notification-settings.panel';
 
 @Component({
   selector: 'app-settings',
-  imports: [ReactiveFormsModule, FormsModule, Textarea, TranslatePipe, Button, Checkbox, InputText, Tag, LocalDatePipe, SarPipe, NotificationSettingsPanel, LockedFeature],
+  imports: [ReactiveFormsModule, FormsModule, Textarea, TranslatePipe, Button, Checkbox, InputText, Tag, LocalDatePipe, SarPipe, LockedFeature],
   styles: `
     .layout { display: grid; grid-template-columns: 1.4fr 1fr; gap: 1rem; align-items: start; }
     @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
@@ -84,10 +83,15 @@ import { NotificationSettingsPanel } from './notification-settings.panel';
             <label for="s-cr">{{ 'settings.cr' | translate }}</label>
             <input pInputText id="s-cr" formControlName="commercialRegistration" dir="ltr" placeholder="10XXXXXXXX" maxlength="10" />
           </div>
-          <div class="field full">
-            <label for="s-address">{{ 'settings.address' | translate }}</label>
-            <input pInputText id="s-address" formControlName="address" maxlength="300" />
+          <div class="field">
+            <label for="s-address">{{ 'settings.address' | translate }} <span class="hint">({{ 'settings.pp.ar' | translate }})</span></label>
+            <input pInputText id="s-address" formControlName="address" dir="rtl" maxlength="300" />
             <small class="hint">{{ 'settings.addressHint' | translate }}</small>
+          </div>
+          <div class="field">
+            <label for="s-address-en">{{ 'settings.address' | translate }} <span class="hint">({{ 'settings.pp.en' | translate }})</span></label>
+            <input pInputText id="s-address-en" formControlName="addressEn" dir="ltr" maxlength="300" placeholder="e.g. King Fahd Rd, Al Olaya, Riyadh" />
+            <small class="hint">{{ 'settings.addressEnHint' | translate }}</small>
           </div>
           <div class="field full">
             <label class="check"><p-checkbox formControlName="pricesIncludeVat" [binary]="true" /> {{ 'settings.pricesIncludeVat' | translate }}</label>
@@ -103,10 +107,104 @@ import { NotificationSettingsPanel } from './notification-settings.panel';
         </form>
       </div>
 
-      <!-- Customer messages sit right under the company details, filling that column. -->
-      <div class="panel" style="margin-top: 1rem">
-        <app-notification-settings />
-      </div>
+      <!-- Contact details, Google Maps reviews and the subscription sit under the company details. -->
+      @if (tenants.tenant(); as t) {
+        <div class="panel" style="margin-top: 1rem">
+          <h2>{{ 'settings.contact.title' | translate }}</h2>
+          <p class="hint">{{ 'settings.contact.hint' | translate }}</p>
+          <div class="pp-grid">
+            <div class="field">
+              <label for="ct-phone"><i class="pi pi-phone"></i> {{ 'settings.contact.phone' | translate }}</label>
+              <input pInputText id="ct-phone" class="ltr" [(ngModel)]="contact.phone" inputmode="tel" maxlength="15" placeholder="05XXXXXXXX" />
+            </div>
+            <div class="field">
+              <label for="ct-wa"><i class="pi pi-whatsapp"></i> {{ 'settings.contact.whatsapp' | translate }}</label>
+              <div class="with-action">
+                <input pInputText id="ct-wa" class="ltr" [(ngModel)]="contact.whatsapp" inputmode="tel" maxlength="15" placeholder="05XXXXXXXX" />
+                @if (contact.phone && !contact.whatsapp) {
+                  <p-button [label]="'settings.contact.sameAsPhone' | translate" size="small" [text]="true" (onClick)="contact.whatsapp = contact.phone" />
+                }
+              </div>
+            </div>
+            <div class="field">
+              <label for="ct-fb"><i class="pi pi-facebook"></i> Facebook</label>
+              <input pInputText id="ct-fb" class="ltr" [(ngModel)]="contact.facebook" maxlength="300" [placeholder]="'settings.contact.fbPlaceholder' | translate" />
+            </div>
+            <div class="field">
+              <label for="ct-ig"><i class="pi pi-instagram"></i> Instagram</label>
+              <input pInputText id="ct-ig" class="ltr" [(ngModel)]="contact.instagram" maxlength="200" [placeholder]="'settings.pp.handlePlaceholder' | translate" />
+            </div>
+            <div class="field">
+              <label for="ct-tt"><i class="pi pi-tiktok"></i> TikTok</label>
+              <input pInputText id="ct-tt" class="ltr" [(ngModel)]="contact.tiktok" maxlength="200" [placeholder]="'settings.pp.handlePlaceholder' | translate" />
+            </div>
+            <div class="field">
+              <label for="ct-sc">Snapchat</label>
+              <input pInputText id="ct-sc" class="ltr" [(ngModel)]="contact.snapchat" maxlength="200" [placeholder]="'settings.pp.handlePlaceholder' | translate" />
+            </div>
+            <div class="field">
+              <label for="ct-x">X</label>
+              <input pInputText id="ct-x" class="ltr" [(ngModel)]="contact.x" maxlength="200" [placeholder]="'settings.pp.handlePlaceholder' | translate" />
+            </div>
+          </div>
+          <small class="hint">{{ 'settings.pp.handleHint' | translate }}</small>
+          <div class="link-row">
+            <p-button [label]="'common.save' | translate" size="small" [loading]="contactSaving()" (onClick)="saveContact()" />
+            <a [href]="tenants.portalUrl() + '/contact'" target="_blank" rel="noopener"><p-button icon="pi pi-external-link" [label]="'settings.contact.preview' | translate" [text]="true" size="small" /></a>
+          </div>
+        </div>
+        <div class="panel" style="margin-top: 1rem">
+          <h2>{{ 'settings.google.title' | translate }}</h2>
+          <p class="hint">{{ 'settings.google.hint' | translate }}</p>
+          @if (!t.google?.available) {
+            <p class="hint warn">{{ 'settings.google.notAvailable' | translate }}</p>
+          } @else if (t.google?.placeId) {
+            <div class="g-connected">
+              <i class="pi pi-map-marker"></i>
+              <span style="flex:1"><strong>{{ t.google?.name }}</strong><br /><small class="hint">{{ 'settings.google.connected' | translate }}</small></span>
+              <a [href]="tenants.portalUrl() + '#reviews'" target="_blank" rel="noopener"><p-button icon="pi pi-external-link" [text]="true" size="small" [ariaLabel]="'settings.pp.preview' | translate" /></a>
+              <p-button [label]="'settings.google.disconnect' | translate" severity="secondary" [outlined]="true" size="small" [loading]="gSaving()" (onClick)="connectGoogle(null)" />
+            </div>
+          } @else {
+            <form class="g-search" (ngSubmit)="searchGoogle()">
+              <input pInputText name="gq" [(ngModel)]="gQuery" maxlength="200" [placeholder]="'settings.google.placeholder' | translate" [attr.aria-label]="'settings.google.search' | translate" />
+              <p-button type="submit" icon="pi pi-search" [label]="'settings.google.search' | translate" size="small" [loading]="gSearching()" [disabled]="!gQuery.trim()" />
+            </form>
+            @if (gResults(); as list) {
+              @if (list.length) {
+                <ul class="g-results">
+                  @for (c of list; track c.placeId) {
+                    <li>
+                      <span style="flex:1; min-width:0"><strong>{{ c.name }}</strong><br /><small class="hint">{{ c.address }}</small></span>
+                      <p-button [label]="'settings.google.thisIsUs' | translate" size="small" [loading]="gSaving()" (onClick)="connectGoogle(c)" />
+                    </li>
+                  }
+                </ul>
+              } @else {
+                <p class="hint">{{ 'settings.google.noResults' | translate }}</p>
+              }
+            }
+          }
+        </div>
+        <div class="panel" style="margin-top: 1rem">
+          <h2>{{ 'settings.subscription' | translate }}</h2>
+          <dl>
+            <dt>{{ 'settings.plan' | translate }}</dt>
+            <dd>{{ lang.current() === 'ar' ? t.plan.nameAr : t.plan.nameEn }} · <span class="ltr">{{ t.plan.priceMonthlyHalalas | sar }}</span> / {{ 'settings.month' | translate }}</dd>
+            <dt>{{ 'common.status' | translate }}</dt>
+            <dd><p-tag [value]="'settings.status.' + t.status | translate" [severity]="t.status === 'ACTIVE' ? 'success' : 'warn'" /></dd>
+            @if (t.trialEndsAt) {
+              <dt>{{ 'settings.trialEnds' | translate }}</dt>
+              <dd>{{ t.trialEndsAt | ldate: 'mediumDate' }}</dd>
+            }
+            <dt>{{ 'settings.maxTechnicians' | translate }}</dt>
+            <dd>{{ t.plan.maxTechnicians }}</dd>
+            <dt>{{ 'settings.bookingSlug' | translate }}</dt>
+            <dd class="ltr">{{ t.slug }}</dd>
+          </dl>
+          <p-button icon="pi pi-bolt" [label]="'upgrade.changePlan' | translate" size="small" [outlined]="true" (onClick)="upgrade.prompt()" />
+        </div>
+      }
       </div>
 
       @if (tenants.tenant(); as t) {
@@ -165,62 +263,28 @@ import { NotificationSettingsPanel } from './notification-settings.panel';
           </div>
         </div>
         <div class="panel" style="margin-top: 1rem">
-          <h2>{{ 'settings.contact.title' | translate }}</h2>
-          <p class="hint">{{ 'settings.contact.hint' | translate }}</p>
-          <div class="pp-grid">
-            <div class="field">
-              <label for="ct-phone"><i class="pi pi-phone"></i> {{ 'settings.contact.phone' | translate }}</label>
-              <input pInputText id="ct-phone" class="ltr" [(ngModel)]="contact.phone" inputmode="tel" maxlength="15" placeholder="05XXXXXXXX" />
-            </div>
-            <div class="field">
-              <label for="ct-wa"><i class="pi pi-whatsapp"></i> {{ 'settings.contact.whatsapp' | translate }}</label>
-              <div class="with-action">
-                <input pInputText id="ct-wa" class="ltr" [(ngModel)]="contact.whatsapp" inputmode="tel" maxlength="15" placeholder="05XXXXXXXX" />
-                @if (contact.phone && !contact.whatsapp) {
-                  <p-button [label]="'settings.contact.sameAsPhone' | translate" size="small" [text]="true" (onClick)="contact.whatsapp = contact.phone" />
-                }
-              </div>
-            </div>
-            <div class="field">
-              <label for="ct-fb"><i class="pi pi-facebook"></i> Facebook</label>
-              <input pInputText id="ct-fb" class="ltr" [(ngModel)]="contact.facebook" maxlength="300" [placeholder]="'settings.contact.fbPlaceholder' | translate" />
-            </div>
-            <div class="field">
-              <label for="ct-ig"><i class="pi pi-instagram"></i> Instagram</label>
-              <input pInputText id="ct-ig" class="ltr" [(ngModel)]="contact.instagram" maxlength="200" [placeholder]="'settings.pp.handlePlaceholder' | translate" />
-            </div>
-            <div class="field">
-              <label for="ct-tt"><i class="pi pi-tiktok"></i> TikTok</label>
-              <input pInputText id="ct-tt" class="ltr" [(ngModel)]="contact.tiktok" maxlength="200" [placeholder]="'settings.pp.handlePlaceholder' | translate" />
-            </div>
-            <div class="field">
-              <label for="ct-sc">Snapchat</label>
-              <input pInputText id="ct-sc" class="ltr" [(ngModel)]="contact.snapchat" maxlength="200" [placeholder]="'settings.pp.handlePlaceholder' | translate" />
-            </div>
-            <div class="field">
-              <label for="ct-x">X</label>
-              <input pInputText id="ct-x" class="ltr" [(ngModel)]="contact.x" maxlength="200" [placeholder]="'settings.pp.handlePlaceholder' | translate" />
-            </div>
-          </div>
-          <small class="hint">{{ 'settings.pp.handleHint' | translate }}</small>
-          <div class="link-row">
-            <p-button [label]="'common.save' | translate" size="small" [loading]="contactSaving()" (onClick)="saveContact()" />
-            <a [href]="tenants.portalUrl() + '/contact'" target="_blank" rel="noopener"><p-button icon="pi pi-external-link" [label]="'settings.contact.preview' | translate" [text]="true" size="small" /></a>
-          </div>
-        </div>
-        <div class="panel" style="margin-top: 1rem">
           <h2>{{ 'settings.publicPage' | translate }}</h2>
           <p class="hint">{{ 'settings.publicPageHint' | translate }}</p>
           <div class="pp-grid">
-            <div class="field wide">
-              <label for="pp-headline">{{ 'settings.pp.headline' | translate }}</label>
-              <input pInputText id="pp-headline" [(ngModel)]="pp.headline" maxlength="120" [placeholder]="'settings.pp.headlinePlaceholder' | translate" />
+            <div class="field">
+              <label for="pp-headline">{{ 'settings.pp.headline' | translate }} <span class="hint">({{ 'settings.pp.ar' | translate }})</span></label>
+              <input pInputText id="pp-headline" dir="rtl" [(ngModel)]="pp.headline" maxlength="120" [placeholder]="'settings.pp.headlinePlaceholder' | translate" />
             </div>
-            <div class="field wide">
-              <label for="pp-about">{{ 'settings.pp.about' | translate }}</label>
-              <textarea pTextarea id="pp-about" [(ngModel)]="pp.about" rows="4" maxlength="2000" [placeholder]="'settings.pp.aboutPlaceholder' | translate"></textarea>
+            <div class="field">
+              <label for="pp-headline-en">{{ 'settings.pp.headline' | translate }} <span class="hint">({{ 'settings.pp.en' | translate }})</span></label>
+              <input pInputText id="pp-headline-en" dir="ltr" [(ngModel)]="pp.headlineEn" maxlength="120" placeholder="Book in a minute, follow the visit live." />
+            </div>
+            <div class="field">
+              <label for="pp-about">{{ 'settings.pp.about' | translate }} <span class="hint">({{ 'settings.pp.ar' | translate }})</span></label>
+              <textarea pTextarea id="pp-about" dir="rtl" [(ngModel)]="pp.about" rows="5" maxlength="2000" [placeholder]="'settings.pp.aboutPlaceholder' | translate"></textarea>
               <small class="hint">{{ (pp.about || '').length }}/2000</small>
             </div>
+            <div class="field">
+              <label for="pp-about-en">{{ 'settings.pp.about' | translate }} <span class="hint">({{ 'settings.pp.en' | translate }})</span></label>
+              <textarea pTextarea id="pp-about-en" dir="ltr" [(ngModel)]="pp.aboutEn" rows="5" maxlength="2000" placeholder="Who you are, what you do best and why customers choose you."></textarea>
+              <small class="hint">{{ (pp.aboutEn || '').length }}/2000</small>
+            </div>
+            <small class="hint wide">{{ 'settings.pp.enHint' | translate }}</small>
             <div class="field">
               <label for="pp-year">{{ 'settings.pp.foundedYear' | translate }}</label>
               <input pInputText id="pp-year" class="ltr" type="number" [(ngModel)]="pp.foundedYear" min="1950" [max]="thisYear" placeholder="2018" />
@@ -229,76 +293,40 @@ import { NotificationSettingsPanel } from './notification-settings.panel';
               <label for="pp-team">{{ 'settings.pp.teamSize' | translate }}</label>
               <input pInputText id="pp-team" class="ltr" type="number" [(ngModel)]="pp.teamSize" min="1" max="10000" placeholder="12" />
             </div>
-            <div class="field wide">
-              <label for="pp-promises">{{ 'settings.pp.promises' | translate }}</label>
-              <textarea pTextarea id="pp-promises" [(ngModel)]="pp.promises" rows="4" maxlength="1000" [placeholder]="'settings.pp.promisesPlaceholder' | translate"></textarea>
+            <div class="field">
+              <label for="pp-promises">{{ 'settings.pp.promises' | translate }} <span class="hint">({{ 'settings.pp.ar' | translate }})</span></label>
+              <textarea pTextarea id="pp-promises" dir="rtl" [(ngModel)]="pp.promises" rows="4" maxlength="1000" [placeholder]="'settings.pp.promisesPlaceholder' | translate"></textarea>
               <small class="hint">{{ 'settings.pp.promisesHint' | translate }}</small>
             </div>
             <div class="field">
-              <label for="pp-areas">{{ 'settings.pp.areas' | translate }}</label>
-              <input pInputText id="pp-areas" [(ngModel)]="pp.areas" maxlength="300" [placeholder]="'settings.pp.areasPlaceholder' | translate" />
+              <label for="pp-promises-en">{{ 'settings.pp.promises' | translate }} <span class="hint">({{ 'settings.pp.en' | translate }})</span></label>
+              <textarea pTextarea id="pp-promises-en" dir="ltr" [(ngModel)]="pp.promisesEn" rows="4" maxlength="1000"
+                        placeholder="Quality guarantee - Free re-clean if you're not happy&#10;On time - We arrive when we say"></textarea>
+              <small class="hint">{{ 'settings.pp.promisesHint' | translate }}</small>
+            </div>
+            <div class="field">
+              <label for="pp-areas">{{ 'settings.pp.areas' | translate }} <span class="hint">({{ 'settings.pp.ar' | translate }})</span></label>
+              <input pInputText id="pp-areas" dir="rtl" [(ngModel)]="pp.areas" maxlength="300" [placeholder]="'settings.pp.areasPlaceholder' | translate" />
               <small class="hint">{{ 'settings.pp.areasHint' | translate }}</small>
             </div>
             <div class="field">
-              <label for="pp-hours">{{ 'settings.pp.hours' | translate }}</label>
-              <input pInputText id="pp-hours" [(ngModel)]="pp.hours" maxlength="150" [placeholder]="'settings.pp.hoursPlaceholder' | translate" />
+              <label for="pp-areas-en">{{ 'settings.pp.areas' | translate }} <span class="hint">({{ 'settings.pp.en' | translate }})</span></label>
+              <input pInputText id="pp-areas-en" dir="ltr" [(ngModel)]="pp.areasEn" maxlength="300" placeholder="Al Olaya, Al Malqa, Hittin" />
+              <small class="hint">{{ 'settings.pp.areasHint' | translate }}</small>
+            </div>
+            <div class="field">
+              <label for="pp-hours">{{ 'settings.pp.hours' | translate }} <span class="hint">({{ 'settings.pp.ar' | translate }})</span></label>
+              <input pInputText id="pp-hours" dir="rtl" [(ngModel)]="pp.hours" maxlength="150" [placeholder]="'settings.pp.hoursPlaceholder' | translate" />
+            </div>
+            <div class="field">
+              <label for="pp-hours-en">{{ 'settings.pp.hours' | translate }} <span class="hint">({{ 'settings.pp.en' | translate }})</span></label>
+              <input pInputText id="pp-hours-en" dir="ltr" [(ngModel)]="pp.hoursEn" maxlength="150" placeholder="Sat - Thu, 8 AM - 10 PM" />
             </div>
           </div>
           <div class="link-row">
             <p-button [label]="'common.save' | translate" size="small" [loading]="ppSaving()" (onClick)="savePublicPage()" />
             <a [href]="tenants.portalUrl()" target="_blank" rel="noopener"><p-button icon="pi pi-external-link" [label]="'settings.pp.preview' | translate" [text]="true" size="small" /></a>
           </div>
-        </div>
-        <div class="panel" style="margin-top: 1rem">
-          <h2>{{ 'settings.google.title' | translate }}</h2>
-          <p class="hint">{{ 'settings.google.hint' | translate }}</p>
-          @if (!t.google?.available) {
-            <p class="hint warn">{{ 'settings.google.notAvailable' | translate }}</p>
-          } @else if (t.google?.placeId) {
-            <div class="g-connected">
-              <i class="pi pi-map-marker"></i>
-              <span style="flex:1"><strong>{{ t.google?.name }}</strong><br /><small class="hint">{{ 'settings.google.connected' | translate }}</small></span>
-              <a [href]="tenants.portalUrl() + '#reviews'" target="_blank" rel="noopener"><p-button icon="pi pi-external-link" [text]="true" size="small" [ariaLabel]="'settings.pp.preview' | translate" /></a>
-              <p-button [label]="'settings.google.disconnect' | translate" severity="secondary" [outlined]="true" size="small" [loading]="gSaving()" (onClick)="connectGoogle(null)" />
-            </div>
-          } @else {
-            <form class="g-search" (ngSubmit)="searchGoogle()">
-              <input pInputText name="gq" [(ngModel)]="gQuery" maxlength="200" [placeholder]="'settings.google.placeholder' | translate" [attr.aria-label]="'settings.google.search' | translate" />
-              <p-button type="submit" icon="pi pi-search" [label]="'settings.google.search' | translate" size="small" [loading]="gSearching()" [disabled]="!gQuery.trim()" />
-            </form>
-            @if (gResults(); as list) {
-              @if (list.length) {
-                <ul class="g-results">
-                  @for (c of list; track c.placeId) {
-                    <li>
-                      <span style="flex:1; min-width:0"><strong>{{ c.name }}</strong><br /><small class="hint">{{ c.address }}</small></span>
-                      <p-button [label]="'settings.google.thisIsUs' | translate" size="small" [loading]="gSaving()" (onClick)="connectGoogle(c)" />
-                    </li>
-                  }
-                </ul>
-              } @else {
-                <p class="hint">{{ 'settings.google.noResults' | translate }}</p>
-              }
-            }
-          }
-        </div>
-        <div class="panel" style="margin-top: 1rem">
-          <h2>{{ 'settings.subscription' | translate }}</h2>
-          <dl>
-            <dt>{{ 'settings.plan' | translate }}</dt>
-            <dd>{{ lang.current() === 'ar' ? t.plan.nameAr : t.plan.nameEn }} · <span class="ltr">{{ t.plan.priceMonthlyHalalas | sar }}</span> / {{ 'settings.month' | translate }}</dd>
-            <dt>{{ 'common.status' | translate }}</dt>
-            <dd><p-tag [value]="'settings.status.' + t.status | translate" [severity]="t.status === 'ACTIVE' ? 'success' : 'warn'" /></dd>
-            @if (t.trialEndsAt) {
-              <dt>{{ 'settings.trialEnds' | translate }}</dt>
-              <dd>{{ t.trialEndsAt | ldate: 'mediumDate' }}</dd>
-            }
-            <dt>{{ 'settings.maxTechnicians' | translate }}</dt>
-            <dd>{{ t.plan.maxTechnicians }}</dd>
-            <dt>{{ 'settings.bookingSlug' | translate }}</dt>
-            <dd class="ltr">{{ t.slug }}</dd>
-          </dl>
-          <p-button icon="pi pi-bolt" [label]="'upgrade.changePlan' | translate" size="small" [outlined]="true" (onClick)="upgrade.prompt()" />
         </div>
         </div>
       }
@@ -322,6 +350,7 @@ export class SettingsPage implements OnInit {
     vatNumber: ['', [Validators.pattern(/^3\d{13}3$/)]],
     commercialRegistration: ['', [Validators.pattern(/^\d{10}$/)]],
     address: ['', [Validators.maxLength(300)]],
+    addressEn: ['', [Validators.maxLength(300)]],
     pricesIncludeVat: [false],
     autoInvoice: [true],
   });
@@ -371,6 +400,7 @@ export class SettingsPage implements OnInit {
           vatNumber: t.vatNumber ?? '',
           commercialRegistration: t.commercialRegistration ?? '',
           address: t.address ?? '',
+          addressEn: t.addressEn ?? '',
           pricesIncludeVat: t.pricesIncludeVat,
           autoInvoice: t.autoInvoice ?? true,
         });
@@ -392,6 +422,7 @@ export class SettingsPage implements OnInit {
         vatNumber: v.vatNumber || null,
         commercialRegistration: v.commercialRegistration || null,
         address: v.address.trim() || null,
+        addressEn: v.addressEn.trim(),
         pricesIncludeVat: v.pricesIncludeVat,
         autoInvoice: v.autoInvoice,
       })
@@ -482,11 +513,16 @@ export class SettingsPage implements OnInit {
       .updatePublicPage({
         headline: blank(p.headline) ?? undefined,
         about: blank(p.about) ?? undefined,
+        headlineEn: blank(p.headlineEn) ?? undefined,
+        aboutEn: blank(p.aboutEn) ?? undefined,
         areas: blank(p.areas) ?? undefined,
         hours: blank(p.hours) ?? undefined,
         foundedYear: p.foundedYear || undefined,
         teamSize: p.teamSize || undefined,
         promises: blank(p.promises) ?? undefined,
+        promisesEn: blank(p.promisesEn) ?? undefined,
+        areasEn: blank(p.areasEn) ?? undefined,
+        hoursEn: blank(p.hoursEn) ?? undefined,
       })
       .subscribe({
         next: () => {

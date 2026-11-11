@@ -44,6 +44,10 @@ public class ServiceOffering extends TenantScopedEntity {
     @Column(nullable = false)
     private boolean active = true;
 
+    /** Storage key of the service's photo (null = the portal's default picture). */
+    @Column(name = "image_key")
+    private String imageKey;
+
     @OneToMany(mappedBy = "service", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("createdAt asc")
     private List<ServiceAddon> addons = new ArrayList<>();
@@ -116,6 +120,31 @@ public class ServiceOffering extends TenantScopedEntity {
 
     public boolean isActive() {
         return active;
+    }
+
+    /** Sets (or clears, with null) the photo and returns the key it replaced, for deleting the old file. */
+    public String replaceImage(String key) {
+        String old = this.imageKey;
+        this.imageKey = key;
+        return old;
+    }
+
+    public String getImageKey() {
+        return imageKey;
+    }
+
+    /**
+     * Public address of the photo on the admin backend (null without one). The {@code v} part changes with every
+     * upload, so browsers and caches never show an old picture.
+     */
+    public String getImageUrl() {
+        if (imageKey == null) {
+            return null;
+        }
+        String file = imageKey.substring(imageKey.lastIndexOf('/') + 1);
+        int dot = file.indexOf('.');
+        return "/api/v1/public/services/" + getTenantId() + "/" + getId() + "/image?v="
+                + (dot > 0 ? file.substring(0, dot) : file);
     }
 
     public List<ServiceAddon> getAddons() {

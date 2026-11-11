@@ -19,6 +19,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { errorMessage } from '../../core/http/api-error';
 import { LanguageService } from '../../core/i18n/language.service';
 import { SarPipe, toHalalas, toSar } from '../../shared/format';
+import { defaultServiceImage } from '../../shared/service-image';
 
 const BASE = '/api/v1/services';
 
@@ -58,6 +59,14 @@ type AddonGroup = ReturnType<typeof makeAddonGroup>;
     .addon-row > * { min-width: 0; }
     .addon-row + .addon-row { margin-top: .5rem; }
     h3 { margin: .5rem 0; font-size: 1rem; }
+    /* Service photo: a thumbnail in the list, a preview with change/remove in the dialog. */
+    .name-cell { display: flex; align-items: center; gap: .75rem; }
+    .thumb { width: 64px; height: 44px; flex: none; border-radius: 10px; object-fit: cover; background: var(--p-surface-100, #f1f5f9); }
+    .photo { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+    .photo img { width: 220px; height: 120px; object-fit: cover; border-radius: 14px; border: 1px solid var(--fo-border); }
+    .photo .side { display: flex; flex-direction: column; gap: .5rem; align-items: flex-start; }
+    .photo input[type=file] { display: none; }
+    .badge-default { font-size: .75rem; color: var(--fo-muted); }
   `,
   template: `
     <div class="page-header">
@@ -88,13 +97,18 @@ type AddonGroup = ReturnType<typeof makeAddonGroup>;
         <ng-template #body let-s>
           <tr>
             <td>
-              <strong>{{ label(s.name, s.nameEn) }}</strong>
-              @if (label(s.description, s.descriptionEn); as d) {
-                <div class="muted">{{ d }}</div>
-              }
-              @if (!s.nameEn) {
-                <div class="missing-en"><i class="pi pi-language"></i> {{ 'services.noEnglish' | translate }}</div>
-              }
+              <div class="name-cell">
+                <img class="thumb" [src]="s.imageUrl || defaultImage(s.name, s.nameEn)" alt="" loading="lazy" />
+                <div>
+                  <strong>{{ label(s.name, s.nameEn) }}</strong>
+                  @if (label(s.description, s.descriptionEn); as d) {
+                    <div class="muted">{{ d }}</div>
+                  }
+                  @if (!s.nameEn) {
+                    <div class="missing-en"><i class="pi pi-language"></i> {{ 'services.noEnglish' | translate }}</div>
+                  }
+                </div>
+              </div>
             </td>
             <td>{{ 'services.pricingTypes.' + s.pricingType | translate }}</td>
             <td><span class="ltr">{{ s.basePriceHalalas | sar }}</span></td>
@@ -135,6 +149,23 @@ type AddonGroup = ReturnType<typeof makeAddonGroup>;
       [draggable]="false"
     >
       <form [formGroup]="form" (ngSubmit)="save()" class="form-grid">
+        <!-- Photo for the service card on the company's public page -->
+        <div class="field full">
+          <label>{{ 'services.photo' | translate }}</label>
+          <div class="photo">
+            <img [src]="photoPreview()" alt="" />
+            <div class="side">
+              <input #photoInput type="file" accept="image/jpeg,image/png,image/webp" (change)="pickPhoto(photoInput)" />
+              <p-button icon="pi pi-upload" size="small" [outlined]="true" [label]="'services.choosePhoto' | translate" (onClick)="photoInput.click()" />
+              @if (hasOwnPhoto()) {
+                <p-button icon="pi pi-trash" size="small" severity="danger" [text]="true" [label]="'services.useDefaultPhoto' | translate" (onClick)="clearPhoto()" />
+              } @else {
+                <span class="badge-default"><i class="pi pi-image"></i> {{ 'services.defaultPhoto' | translate }}</span>
+              }
+              <small class="hint">{{ 'services.photoHint' | translate }}</small>
+            </div>
+          </div>
+        </div>
         <div class="field">
           <label for="s-name">{{ 'services.nameAr' | translate }}</label>
           <input pInputText id="s-name" dir="rtl" formControlName="name" placeholder="مثال: تنظيف شقة" />
@@ -213,6 +244,20 @@ export class ServicesPage implements OnInit {
   protected readonly dialogOpen = signal(false);
   protected readonly editing = signal<ServiceOffering | null>(null);
 
+  // --- photo (applied after the service itself is saved) ---
+  /** A newly chosen file, and its preview. */
+  private pendingPhoto: File | null = null;
+  private readonly pendingPreview = signal<string | null>(null);
+  /** The owner removed the current photo (back to the default picture). */
+  private readonly removePhoto = signal(false);
+  private readonly nameValue = signal('');
+  protected readonly defaultImage = defaultServiceImage;
+  protected readonly hasOwnPhoto = () => !!this.pendingPreview() || (!!this.editing()?.imageUrl && !this.removePhoto());
+  protected readonly photoPreview = (): string =>
+    this.pendingPreview() ||
+    (!this.removePhoto() && this.editing()?.imageUrl) ||
+    defaultServiceImage(this.nameValue(), this.form.controls.nameEn.value);
+
   protected readonly pricingOptions = () =>
     (['FIXED', 'HOURLY', 'PER_SQM'] as PricingType[]).map((v) => ({
       value: v,
@@ -237,6 +282,7 @@ export class ServicesPage implements OnInit {
 
   ngOnInit(): void {
     this.reload();
+    this.form.controls.name.valueChanges.subscribe((v) => this.nameValue.set(v ?? ''));
   }
 
   reload(): void {
@@ -252,6 +298,10 @@ export class ServicesPage implements OnInit {
 
   open(s: ServiceOffering | null): void {
     this.editing.set(s);
+    this.pendingPhoto = null;
+    this.setPreview(null);
+    this.removePhoto.set(false);
+    this.nameValue.set(s?.name ?? '');
     this.addons.clear();
     this.form.reset({
       name: s?.name ?? '',
@@ -298,13 +348,53 @@ export class ServicesPage implements OnInit {
 
     saveService$.subscribe({
       next: (saved) => {
-        this.syncAddons(saved, existing).subscribe({
-          next: () => this.done(),
-          error: (err) => this.fail(err),
-        });
+        concat(this.syncAddons(saved, existing), this.syncPhoto(saved))
+          .pipe(toArray())
+          .subscribe({
+            next: () => this.done(),
+            error: (err) => this.fail(err),
+          });
       },
       error: (err) => this.fail(err),
     });
+  }
+
+  protected pickPhoto(input: HTMLInputElement): void {
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    if (file.size > 3 * 1024 * 1024) {
+      this.messages.add({ severity: 'error', summary: this.translate.instant('errors.file_too_large') });
+      return;
+    }
+    this.pendingPhoto = file;
+    this.removePhoto.set(false);
+    this.setPreview(URL.createObjectURL(file));
+  }
+
+  protected clearPhoto(): void {
+    this.pendingPhoto = null;
+    this.setPreview(null);
+    this.removePhoto.set(true);
+  }
+
+  /** Uploads the chosen photo, or removes the current one, once the service is saved. */
+  private syncPhoto(saved: ServiceOffering): Observable<unknown> {
+    if (this.pendingPhoto) {
+      const data = new FormData();
+      data.append('file', this.pendingPhoto);
+      return this.http.post(`${BASE}/${saved.id}/image`, data);
+    }
+    if (this.removePhoto() && saved.imageUrl) {
+      return this.http.delete(`${BASE}/${saved.id}/image`);
+    }
+    return of(null);
+  }
+
+  private setPreview(url: string | null): void {
+    const old = this.pendingPreview();
+    if (old) URL.revokeObjectURL(old);
+    this.pendingPreview.set(url);
   }
 
   archive(): void {

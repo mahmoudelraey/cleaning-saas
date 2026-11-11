@@ -20,7 +20,7 @@ import { PublicHeader } from '../features/company/public-header';
     /* Customers' own pages on phones: app-style tabs at the bottom. */
     nav.tabs-nav { position: fixed; inset-inline: 0; bottom: 0; z-index: 30; background: var(--surface);
                    border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
-    .tabs { max-width: 640px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); height: var(--tabbar); }
+    .tabs { max-width: 640px; margin: 0 auto; display: grid; grid-template-columns: repeat(3, 1fr); height: var(--tabbar); }
     .tabs a { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
               color: var(--ink-3); text-decoration: none; font-size: .74rem; font-weight: 600; }
     .tabs a i { font-size: 1.2rem; }
@@ -46,9 +46,6 @@ import { PublicHeader } from '../features/company/public-header';
       @if (showNav()) {
         <nav class="tabs-nav" [attr.aria-label]="'shell.nav' | translate">
           <div class="tabs">
-            <a [routerLink]="['/', slug(), 'home']" routerLinkActive="active">
-              <i class="pi pi-home"></i>{{ 'shell.home' | translate }}
-            </a>
             <a [routerLink]="['/', slug(), 'bookings']" routerLinkActive="active">
               <i class="pi pi-calendar"></i>{{ 'shell.bookings' | translate }}
             </a>

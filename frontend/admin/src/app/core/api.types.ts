@@ -63,6 +63,8 @@ export interface TenantInfo {
   phone?: string;
   vatNumber?: string;
   address?: string;
+  /** English address shown in the portal. */
+  addressEn?: string | null;
   commercialRegistration?: string;
   pricesIncludeVat: boolean;
   autoInvoice: boolean;
@@ -86,6 +88,13 @@ export interface GoogleCandidate {
 export interface PublicPage {
   headline?: string;
   about?: string;
+  /** English versions of the headline and "about us". */
+  headlineEn?: string;
+  aboutEn?: string;
+  /** English versions of the promises, service areas and working hours. */
+  promisesEn?: string;
+  areasEn?: string;
+  hoursEn?: string;
   areas?: string;
   hours?: string;
   /** E.164 */
@@ -157,6 +166,8 @@ export interface ServiceOffering {
   durationMin: number;
   active: boolean;
   addons: Addon[];
+  /** The service's photo (null = the default picture is shown). */
+  imageUrl?: string | null;
 }
 
 export interface WorkShift {

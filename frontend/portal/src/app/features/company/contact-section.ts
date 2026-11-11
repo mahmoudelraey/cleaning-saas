@@ -79,7 +79,7 @@ const TOPICS: ContactTopic[] = ['BOOKING', 'QUESTION', 'QUOTE', 'COMPLAINT', 'OT
   `,
   template: `
     @if (company(); as c) {
-      <section class="band" aria-labelledby="h-contact">
+      <section class="band band-soft" aria-labelledby="h-contact">
         <div class="wrap">
           <header class="sec-head">
             <span class="kicker">{{ 'company.contact' | translate }}</span>
@@ -171,19 +171,19 @@ const TOPICS: ContactTopic[] = ['BOOKING', 'QUESTION', 'QUOTE', 'COMPLAINT', 'OT
                     <span><strong>{{ 'company.call' | translate }}</strong><small class="ltr">{{ c.phone | phone }}</small></span>
                   </a>
                 }
-                @if (c.address) {
-                  <a class="crow" [href]="mapUrl(c.address)" target="_blank" rel="noopener">
+                @if (address()) {
+                  <a class="crow" [href]="mapUrl(c.address || address())" target="_blank" rel="noopener">
                     <i class="pi pi-map-marker ico" aria-hidden="true"></i>
-                    <span><strong>{{ 'company.address' | translate }}</strong><small>{{ c.address }}</small></span>
+                    <span><strong>{{ 'company.address' | translate }}</strong><small>{{ address() }}</small></span>
                   </a>
                 }
-                @if (page().hours) {
+                @if (hours()) {
                   <div class="crow">
                     <i class="pi pi-clock ico" aria-hidden="true"></i>
-                    <span><strong>{{ 'company.hoursLabel' | translate }}</strong><small>{{ page().hours }}</small></span>
+                    <span><strong>{{ 'company.hoursLabel' | translate }}</strong><small>{{ hours() }}</small></span>
                   </div>
                 }
-                @if (!whatsappUrl() && !c.phone && !c.address && !page().hours) {
+                @if (!whatsappUrl() && !c.phone && !address() && !hours()) {
                   <p class="muted">{{ 'contact.formOnly' | translate }}</p>
                 }
               </div>
@@ -215,6 +215,8 @@ export class ContactSection {
 
   protected readonly slug = this.store.slug;
   protected readonly companyName = this.store.name;
+  protected readonly address = this.store.address;
+  protected readonly hours = this.store.hours;
   protected readonly company = this.store.company;
   protected readonly page = computed(() => this.company()?.page ?? {});
   protected readonly topics = TOPICS;

@@ -69,10 +69,16 @@ public class TenantService {
     /** @param nameEn null leaves the English name as it is; blank clears it */
     public record ProfileUpdate(String name, String phone, String vatNumber, String address,
                                 String commercialRegistration, boolean pricesIncludeVat, Boolean autoInvoice,
-                                String nameEn) {
+                                String nameEn, String addressEn) {
         public ProfileUpdate(String name, String phone, String vatNumber, String address,
                              String commercialRegistration, boolean pricesIncludeVat, Boolean autoInvoice) {
-            this(name, phone, vatNumber, address, commercialRegistration, pricesIncludeVat, autoInvoice, null);
+            this(name, phone, vatNumber, address, commercialRegistration, pricesIncludeVat, autoInvoice, null, null);
+        }
+
+        public ProfileUpdate(String name, String phone, String vatNumber, String address,
+                             String commercialRegistration, boolean pricesIncludeVat, Boolean autoInvoice,
+                             String nameEn) {
+            this(name, phone, vatNumber, address, commercialRegistration, pricesIncludeVat, autoInvoice, nameEn, null);
         }
     }
 
@@ -83,6 +89,9 @@ public class TenantService {
                 u.pricesIncludeVat(), u.autoInvoice() == null ? t.isAutoInvoice() : u.autoInvoice());
         if (u.nameEn() != null) {
             t.renameEn(u.nameEn().isBlank() ? null : u.nameEn().trim());
+        }
+        if (u.addressEn() != null) {
+            t.setAddressEn(u.addressEn().isBlank() ? null : u.addressEn().trim());
         }
         return t;
     }
@@ -113,7 +122,9 @@ public class TenantService {
     public Tenant updatePublicPage(PublicPage p) {
         Tenant t = current();
         t.updatePublicPage(new PublicPage(clean(p.headline()), clean(p.about()), clean(p.areas()), clean(p.hours()),
-                null, null, null, null, null, p.foundedYear(), p.teamSize(), clean(p.promises()), null));
+                null, null, null, null, null, p.foundedYear(), p.teamSize(), clean(p.promises()), null,
+                clean(p.headlineEn()), clean(p.aboutEn()), clean(p.promisesEn()), clean(p.areasEn()),
+                clean(p.hoursEn())));
         return t;
     }
 

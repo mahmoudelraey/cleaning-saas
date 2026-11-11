@@ -19,6 +19,8 @@ export const routes: Routes = [
     children: [
       // Public company page: services, ratings and contact us, all on one page. Open to everyone.
       { path: '', pathMatch: 'full', loadComponent: () => import('./features/company/company.page').then((m) => m.CompanyPage) },
+      // All services, with search and pages. Open to everyone.
+      { path: 'services', loadComponent: () => import('./features/company/services.page').then((m) => m.ServicesPage) },
       { path: 'contact', canActivate: [toSection('contact')], children: [] },
       { path: 'about', redirectTo: '', pathMatch: 'full' },
       { path: 'register', loadComponent: () => import('./features/register/register.page').then((m) => m.RegisterPage) },
@@ -27,7 +29,8 @@ export const routes: Routes = [
         path: '',
         canActivate: [signedIn],
         children: [
-          { path: 'home', loadComponent: () => import('./features/home/home.page').then((m) => m.HomePage) },
+          // "My page" is now part of My visits; old links (and sign-in) land there.
+          { path: 'home', redirectTo: 'bookings', pathMatch: 'full' },
           { path: 'bookings', loadComponent: () => import('./features/bookings/bookings.page').then((m) => m.BookingsPage) },
           {
             path: 'bookings/:id',

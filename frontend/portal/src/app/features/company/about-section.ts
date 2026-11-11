@@ -42,13 +42,13 @@ import { CompanyStore } from '../../core/company.store';
     .hours i { color: var(--b500); }
   `,
   template: `
-    @if (company(); as c) {
+    @if (company() && hasContent()) {
       <section class="band" aria-labelledby="h-about">
         <div class="wrap">
           <header class="sec-head">
             <span class="kicker">{{ 'company.aboutUs' | translate }}</span>
-            <h2 id="h-about">{{ 'company.about' | translate: { name: c.name } }}</h2>
-            @if (page().headline) { <p>{{ page().headline }}</p> }
+            <h2 id="h-about">{{ 'company.about' | translate: { name: store.name() } }}</h2>
+            @if (store.headline()) { <p>{{ store.headline() }}</p> }
           </header>
 
           <div class="about-grid">
@@ -57,10 +57,10 @@ import { CompanyStore } from '../../core/company.store';
                 <span class="p-ico"><i class="pi pi-book" aria-hidden="true"></i></span>
                 <h3>{{ 'about.story' | translate }}</h3>
               </div>
-              @if (page().about) {
-                <p class="story">{{ page().about }}</p>
+              @if (store.about()) {
+                <p class="story">{{ store.about() }}</p>
               } @else {
-                <p class="story empty">{{ 'about.noStory' | translate: { name: c.name } }}</p>
+                <p class="story empty">{{ 'about.noStory' | translate: { name: store.name() } }}</p>
               }
               @if (promises().length) {
                 <div class="promises">
@@ -86,14 +86,14 @@ import { CompanyStore } from '../../core/company.store';
                   }
                 </dl>
               }
-              @if (areas().length || page().hours) {
+              @if (areas().length || store.hours()) {
                 <div class="panel where">
                   <h4>{{ 'about.where' | translate }}</h4>
                   @if (areas().length) {
                     <ul class="tags">@for (a of areas(); track a) { <li>{{ a }}</li> }</ul>
                   }
-                  @if (page().hours) {
-                    <p class="hours"><i class="pi pi-clock" aria-hidden="true"></i>{{ page().hours }}</p>
+                  @if (store.hours()) {
+                    <p class="hours"><i class="pi pi-clock" aria-hidden="true"></i>{{ store.hours() }}</p>
                   }
                 </div>
               }
@@ -105,7 +105,7 @@ import { CompanyStore } from '../../core/company.store';
   `,
 })
 export class AboutSection {
-  private readonly store = inject(CompanyStore);
+  protected readonly store = inject(CompanyStore);
   private readonly translate = inject(TranslateService);
 
   /** The portal ratings, already loaded by the company page. */
@@ -114,10 +114,13 @@ export class AboutSection {
   protected readonly company = this.store.company;
   protected readonly page = computed(() => this.company()?.page ?? {});
   protected readonly areas = computed(() =>
-    (this.page().areas ?? '').split(/[,،\n]+/).map((a) => a.trim()).filter(Boolean),
+    this.store.areas().split(/[,،\n]+/).map((a) => a.trim()).filter(Boolean),
   );
+  /** Shown once the company wrote something about itself or gave a fact; otherwise the section stays out. */
+  protected readonly hasContent = computed(() => !!this.store.about() || this.facts().length > 0 || this.promises().length > 0);
+
   protected readonly promises = computed(() =>
-    (this.page().promises ?? '').split('\n').map((p) => p.replace(/^[-•*]\s*/, '').trim()).filter(Boolean),
+    this.store.promises().split('\n').map((p) => p.replace(/^[-•*]\s*/, '').trim()).filter(Boolean),
   );
 
   /** Only facts the company actually gave (or that its customers' ratings show). */

@@ -20,6 +20,8 @@ export interface Company {
   /** Owner-written public page content; any field may be missing. */
   page?: PublicPage;
   address?: string;
+  /** English address (empty = use the Arabic one). */
+  addressEn?: string;
   /** The company connected its Google Maps listing (and the server has a Google key). */
   googleReviews?: boolean;
   /** The promo the company announces on its page right now, if any. */
@@ -72,6 +74,13 @@ export interface GoogleReview {
 export interface PublicPage {
   headline?: string;
   about?: string;
+  /** English versions of the headline and "about us" (empty = use the Arabic). */
+  headlineEn?: string;
+  aboutEn?: string;
+  /** English versions of the promises, service areas and working hours. */
+  promisesEn?: string;
+  areasEn?: string;
+  hoursEn?: string;
   areas?: string;
   hours?: string;
   /** E.164 */
@@ -222,6 +231,8 @@ export interface Addon {
 
 export interface Service {
   id: string;
+  /** The company's photo of the service (null = the portal shows a default picture). */
+  imageUrl?: string | null;
   /** Arabic (main) name and description; the ...En ones may be empty. */
   name: string;
   description?: string;

@@ -96,6 +96,25 @@ public class Tenant extends BaseEntity {
     @Column(name = "page_about")
     private String pageAbout;
 
+    @Column(name = "page_headline_en")
+    private String pageHeadlineEn;
+
+    @Column(name = "page_about_en")
+    private String pageAboutEn;
+
+    @Column(name = "page_promises_en")
+    private String pagePromisesEn;
+
+    @Column(name = "page_areas_en")
+    private String pageAreasEn;
+
+    @Column(name = "page_hours_en")
+    private String pageHoursEn;
+
+    /** English address for the portal (invoices keep the Arabic {@link #address}). */
+    @Column(name = "address_en")
+    private String addressEn;
+
     @Column(name = "page_areas")
     private String pageAreas;
 
@@ -264,6 +283,19 @@ public class Tenant extends BaseEntity {
         this.pageFoundedYear = p.foundedYear() == null ? null : p.foundedYear().shortValue();
         this.pageTeamSize = p.teamSize();
         this.pagePromises = p.promises();
+        this.pageHeadlineEn = p.headlineEn();
+        this.pageAboutEn = p.aboutEn();
+        this.pagePromisesEn = p.promisesEn();
+        this.pageAreasEn = p.areasEn();
+        this.pageHoursEn = p.hoursEn();
+    }
+
+    public void setAddressEn(String addressEn) {
+        this.addressEn = addressEn;
+    }
+
+    public String getAddressEn() {
+        return addressEn;
     }
 
     /** How customers reach the company: mobile, WhatsApp and social accounts (shown on the portal). */
@@ -293,7 +325,8 @@ public class Tenant extends BaseEntity {
 
     public PublicPage getPublicPage() {
         return new PublicPage(pageHeadline, pageAbout, pageAreas, pageHours, whatsapp, instagram, xHandle, snapchat,
-                tiktok, pageFoundedYear == null ? null : pageFoundedYear.intValue(), pageTeamSize, pagePromises, facebook);
+                tiktok, pageFoundedYear == null ? null : pageFoundedYear.intValue(), pageTeamSize, pagePromises, facebook,
+                pageHeadlineEn, pageAboutEn, pagePromisesEn, pageAreasEn, pageHoursEn);
     }
 
     public boolean isAutoInvoice() {

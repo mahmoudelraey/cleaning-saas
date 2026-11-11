@@ -13,6 +13,8 @@ export interface TenantUpdate {
   phone?: string | null;
   vatNumber?: string | null;
   address?: string | null;
+  /** English address; empty clears it. */
+  addressEn?: string;
   commercialRegistration?: string | null;
   pricesIncludeVat?: boolean;
   autoInvoice?: boolean;

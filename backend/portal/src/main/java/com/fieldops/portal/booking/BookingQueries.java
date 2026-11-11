@@ -67,6 +67,15 @@ public class BookingQueries {
                          boolean canReview, Review review, String promoCode, long discountHalalas) {
     }
 
+    /**
+     * Upcoming = still open and still ahead: its end time hasn't passed. A visit the technician is on the way to or
+     * working on may run over, so it stays for up to 12 hours after its end time. Everything else is past, including
+     * an open visit whose time is long over (the company never closed it).
+     */
+    private static final String STILL_AHEAD = """
+            (b.status in (:open) and (b.scheduled_end > now()
+              or (b.status in ('ON_THE_WAY', 'IN_PROGRESS') and b.scheduled_end > now() - interval '12 hours')))""";
+
     public List<Summary> list(CurrentCustomer me, boolean upcoming) {
         return db.read(me.tenantId(), q -> {
             Map<String, Object> p = new HashMap<>(Map.of("t", me.tenantId(), "c", me.customerId(), "open", OPEN));
@@ -74,9 +83,9 @@ public class BookingQueries {
                     select b.id, b.number, b.status, b.scheduled_start, b.scheduled_end, b.subtotal_halalas,
                            %s as address_text, b.payment_method
                     from bookings b left join addresses ad on ad.id = b.address_id
-                    where b.tenant_id = :t and b.customer_id = :c and b.status %s (:open)
+                    where b.tenant_id = :t and b.customer_id = :c and %s %s
                     order by b.scheduled_start %s limit 100
-                    """.formatted(ADDRESS_TEXT, upcoming ? "in" : "not in", upcoming ? "asc" : "desc");
+                    """.formatted(ADDRESS_TEXT, upcoming ? "" : "not", STILL_AHEAD, upcoming ? "asc" : "desc");
             List<Summary> rows = q.query(sql, p, (rs, i) -> new Summary(rs.getObject("id", UUID.class), rs.getLong("number"),
                     rs.getString("status"), rs.getTimestamp("scheduled_start").toInstant(),
                     rs.getTimestamp("scheduled_end").toInstant(), rs.getLong("subtotal_halalas"), rs.getString("address_text"),

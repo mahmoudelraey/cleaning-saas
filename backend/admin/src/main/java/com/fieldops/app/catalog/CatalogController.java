@@ -11,6 +11,9 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,9 +32,27 @@ import org.springframework.web.bind.annotation.RestController;
 public class CatalogController {
 
     private final CatalogService service;
+    private final ServiceImageService images;
 
-    public CatalogController(CatalogService service) {
+    public CatalogController(CatalogService service, ServiceImageService images) {
         this.service = service;
+        this.images = images;
+    }
+
+    /** The service's photo for the public page (JPEG, PNG or WebP, up to 3 MB); replaces the previous one. */
+    @PostMapping(path = "/{id}/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('OWNER')")
+    public ServiceDto uploadImage(@PathVariable UUID id, @RequestPart("file") MultipartFile file) {
+        images.upload(id, file);
+        return ServiceDto.of(service.get(id)); // re-read with its add-ons (the upload's entity is detached by now)
+    }
+
+    /** Back to the default picture. */
+    @DeleteMapping("/{id}/image")
+    @PreAuthorize("hasRole('OWNER')")
+    public ServiceDto removeImage(@PathVariable UUID id) {
+        images.remove(id);
+        return ServiceDto.of(service.get(id));
     }
 
     @GetMapping
@@ -120,12 +141,12 @@ public class CatalogController {
 
     public record ServiceDto(UUID id, String name, String description, String nameEn, String descriptionEn,
                              PricingType pricingType, long basePriceHalalas, int durationMin, boolean active,
-                             List<AddonDto> addons) {
+                             List<AddonDto> addons, String imageUrl) {
         static ServiceDto of(ServiceOffering s) {
             return new ServiceDto(s.getId(), s.getName(), s.getDescription(), s.getNameEn(), s.getDescriptionEn(),
                     s.getPricingType(),
                     s.getBasePriceHalalas(), s.getDurationMin(), s.isActive(),
-                    s.getAddons().stream().map(AddonDto::of).toList());
+                    s.getAddons().stream().map(AddonDto::of).toList(), s.getImageUrl());
         }
     }
 }

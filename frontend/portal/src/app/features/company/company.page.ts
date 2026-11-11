@@ -1,28 +1,28 @@
 import { Component, DOCUMENT, ElementRef, HostListener, OnDestroy, OnInit, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
-import { Subject, catchError, debounceTime, of, switchMap } from 'rxjs';
 
-import { PublicReviews, PublicStats, Service } from '../../core/api.types';
+import { PublicReviews, Service } from '../../core/api.types';
 import { CompanyStore } from '../../core/company.store';
-import { LocalDatePipe, SarPipe } from '../../core/format';
+import { LocalDatePipe } from '../../core/format';
 import { LanguageService } from '../../core/language.service';
 import { PortalApi } from '../../core/portal.api';
-import { ServiceTextPipe } from '../../core/service-names';
 import { socialLinks } from '../../core/socials';
+import { AboutSection } from './about-section';
 import { ContactSection } from './contact-section';
 import { GoogleReviews } from './google-reviews';
+import { ServiceCard } from './service-card';
 import { Stars } from './stars';
 
 /**
- * The company's public page at {portal}/{slug}: a hero with a live cost estimator, the service cards with their
+ * The company's public page at {portal}/{slug}: a hero, the service cards with their
  * prices, how booking works, real reviews and contact us, all on one page (the header links scroll to
  * #services, #how, #reviews and #contact). Everything shown comes from the company's own data:
  * no made-up numbers, offers or testimonials.
  */
 @Component({
   selector: 'pt-company',
-  imports: [RouterLink, TranslatePipe, SarPipe, LocalDatePipe, Stars, GoogleReviews, ServiceTextPipe, ContactSection],
+  imports: [RouterLink, TranslatePipe, LocalDatePipe, Stars, GoogleReviews, AboutSection, ContactSection, ServiceCard],
   styleUrl: './company.page.scss',
   templateUrl: './company.page.html',
 })
@@ -39,69 +39,14 @@ export class CompanyPage implements OnInit, OnDestroy {
   protected readonly page = computed(() => this.company()?.page ?? {});
   protected readonly services = signal<Service[] | null>(null);
   protected readonly reviews = signal<PublicReviews | null>(null);
-  protected readonly stats = signal<PublicStats | null>(null);
 
-  /**
-   * The three promises under the hero: the owner's own "what to expect" lines (Settings → public page), each as
-   * "title - subtitle"; the standard three fill in when there are fewer.
-   */
-  protected readonly promiseTiles = computed(() => {
-    this.lang.current(); // re-read the standard texts after a language switch
-    const icons = ['pi-shield', 'pi-history', 'pi-user-plus'];
-    const own = (this.page().promises ?? '')
-      .split('\n')
-      .map((l) => l.replace(/^[-•*]\s*/, '').trim())
-      .filter(Boolean)
-      .map((l) => {
-        const [title, ...rest] = l.split(/\s+[-–|]\s+/);
-        return { title, sub: rest.join(' - ') };
-      });
-    const defaults = [1, 2, 3].map((n) => ({
-      title: this.translate.instant(`company.trust${n}`),
-      sub: this.translate.instant(`company.trust${n}Sub`),
-    }));
-    return [0, 1, 2].map((i) => ({ icon: icons[i], ...(own[i] ?? defaults[i]) }));
-  });
 
-  /**
-   * The stats band: only real numbers, and only the ones worth showing (a new company with two visits shows
-   * no visit count). Hidden when fewer than two are left.
-   */
-  protected readonly statTiles = computed(() => {
-    const s = this.stats();
-    this.lang.current();
-    if (!s) return [];
-    const out: { value: string; label: string }[] = [];
-    const n = (v: number) => new Intl.NumberFormat('en-US').format(v);
-    if (s.completedVisits >= 10) {
-      out.push({ value: `+${n(s.completedVisits)}`, label: this.translate.instant('company.statVisits') });
-    }
-    if (s.satisfactionPercent !== null && s.ratingCount >= 5) {
-      out.push({ value: `${s.satisfactionPercent}%`, label: this.translate.instant('company.statSatisfaction') });
-    }
-    if (s.technicians > 0) {
-      out.push({ value: n(s.technicians), label: this.translate.instant('company.statTechnicians') });
-    }
-    const founded = this.page().foundedYear;
-    const years = founded ? new Date().getFullYear() - founded : 0;
-    if (years >= 1) {
-      out.push({ value: `+${years}`, label: this.translate.instant('company.statYears') });
-    } else if (this.reviews()?.count) {
-      out.push({ value: `${this.reviews()!.average}/5`, label: this.translate.instant('company.statRating') });
-    }
-    return out.length >= 2 ? out : [];
-  });
-
-  /** Service cards shown before "View all". */
-  protected readonly cardsShown = 6;
-  protected readonly allServices = signal(false);
-  protected readonly shownServices = computed(() => {
-    const s = this.services() ?? [];
-    return this.allServices() ? s : s.slice(0, this.cardsShown);
-  });
+  /** Service cards shown here; "View all services" opens the services page with search and pages. */
+  protected readonly cardsShown = 3;
+  protected readonly shownServices = computed(() => (this.services() ?? []).slice(0, this.cardsShown));
 
   protected readonly areas = computed(() =>
-    (this.page().areas ?? '')
+    this.store.areas()
       .split(/[,،\n]+/)
       .map((a) => a.trim())
       .filter(Boolean),
@@ -114,21 +59,8 @@ export class CompanyPage implements OnInit, OnDestroy {
     return `https://wa.me/${n}?text=${encodeURIComponent(text)}`;
   });
   protected readonly hasContact = computed(
-    () => !!(this.company()?.phone || this.whatsappUrl() || this.company()?.address || this.page().hours || this.socials().length),
+    () => !!(this.company()?.phone || this.whatsappUrl() || this.store.address() || this.store.hours() || this.socials().length),
   );
-
-  // --- Cost estimator: one service at a time, with its quantity and add-ons ---
-  protected readonly estId = signal<string | null>(null);
-  protected readonly estService = computed(() => {
-    const list = this.services() ?? [];
-    return list.find((s) => s.id === this.estId()) ?? list[0] ?? null;
-  });
-  protected readonly estQty = signal(1);
-  protected readonly estAddons = signal<string[]>([]);
-  /** Price from the server's quote when it answers; until then (or if it can't), worked out here. */
-  private readonly serverTotal = signal<number | null>(null);
-  protected readonly estTotal = computed(() => this.serverTotal() ?? this.localTotal());
-  private readonly quote$ = new Subject<void>();
 
   /** The #section in the address (from the header, the footer or an old /about or /contact link). */
   private scrolledToFragment = false;
@@ -141,15 +73,6 @@ export class CompanyPage implements OnInit, OnDestroy {
       this.scrolledToFragment = true;
       const id = this.route.snapshot.fragment;
       if (id) setTimeout(() => this.document.getElementById(id)?.scrollIntoView({ block: 'start' }));
-    });
-
-    // Whenever the estimate changes, ask the server for the exact price (VAT and rounding as the booking will be).
-    effect(() => {
-      this.estService();
-      this.estQty();
-      this.estAddons();
-      this.serverTotal.set(null);
-      this.quote$.next();
     });
   }
 
@@ -166,18 +89,6 @@ export class CompanyPage implements OnInit, OnDestroy {
       error: () => this.reviews.set(null),
     });
     this.startAutoplay();
-    this.api.stats(slug).subscribe({ next: (s) => this.stats.set(s), error: () => this.stats.set(null) });
-    this.quote$
-      .pipe(
-        debounceTime(250),
-        switchMap(() => {
-          const s = this.estService();
-          if (!s) return of(null);
-          const item = { serviceId: s.id, quantity: s.pricingType === 'FIXED' ? null : this.estQty(), addonIds: this.estAddons() };
-          return this.api.quote(slug, [item]).pipe(catchError(() => of(null)));
-        }),
-      )
-      .subscribe((q) => this.serverTotal.set(q ? q.subtotalHalalas : null));
   }
 
   // --- Reviews swiper ---------------------------------------------------------------------------
@@ -238,59 +149,6 @@ export class CompanyPage implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     clearInterval(this.autoplay);
     this.document.documentElement.style.scrollBehavior = '';
-    this.quote$.complete();
-  }
-
-  protected pickEstimate(s: Service): void {
-    this.estId.set(s.id);
-    this.estQty.set(this.defaultQty(s));
-    this.estAddons.set([]);
-  }
-
-  protected changeQty(dir: 1 | -1): void {
-    const s = this.estService();
-    if (!s) return;
-    const step = s.pricingType === 'PER_SQM' ? 10 : 1;
-    const max = s.pricingType === 'PER_SQM' ? 5000 : 24;
-    this.estQty.update((q) => Math.max(step, Math.min(max, q + dir * step)));
-  }
-
-  protected toggleAddon(id: string): void {
-    this.estAddons.update((l) => (l.includes(id) ? l.filter((x) => x !== id) : [...l, id]));
-  }
-
-  /** Query params that carry the estimate into the booking page. */
-  protected readonly estParams = computed(() => {
-    const s = this.estService();
-    if (!s) return {};
-    return {
-      service: s.id,
-      qty: s.pricingType === 'FIXED' ? undefined : this.estQty(),
-      addons: this.estAddons().length ? this.estAddons().join(',') : undefined,
-    };
-  });
-
-  private localTotal(): number {
-    const s = this.estService();
-    if (!s) return 0;
-    const qty = s.pricingType === 'FIXED' ? 1 : this.estQty();
-    const addons = s.addons.filter((a) => this.estAddons().includes(a.id)).reduce((sum, a) => sum + a.priceHalalas, 0);
-    return s.basePriceHalalas * qty + addons;
-  }
-
-  private defaultQty(s: Service): number {
-    return s.pricingType === 'HOURLY' ? 3 : s.pricingType === 'PER_SQM' ? 100 : 1;
-  }
-
-  protected addonName(a: { name: string; nameEn?: string }): string {
-    return this.lang.current() === 'en' && a.nameEn ? a.nameEn : a.name;
-  }
-
-  protected duration(min: number): string {
-    const h = Math.floor(min / 60);
-    const m = min % 60;
-    if (!h) return this.translate.instant('company.minutes', { m });
-    return m ? this.translate.instant('company.hoursMinutes', { h, m }) : this.translate.instant('company.hours', { h });
   }
 
   /** Two letters for a reviewer's avatar. */
@@ -298,20 +156,5 @@ export class CompanyPage implements OnInit, OnDestroy {
     const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
     if (!parts.length) return '★';
     return parts.length === 1 ? parts[0].slice(0, 2) : `${parts[0][0]}.${parts[1][0]}`;
-  }
-
-  /** A fitting icon from the service's name (Arabic or English); a sparkle when nothing matches. */
-  protected serviceIcon(s: Service): string {
-    const n = `${s.name} ${s.nameEn ?? ''}`.toLowerCase();
-    const rules: [RegExp, string][] = [
-      [/سيار|car|auto/, 'pi-car'],
-      [/مكتب|office|شرك|محل|shop|store/, 'pi-building'],
-      [/كنب|سجاد|موكيت|مفروش|sofa|carpet|rug|ستائر|curtain/, 'pi-th-large'],
-      [/مكيف|تكييف|ac\b|air ?con/, 'pi-sun'],
-      [/خزان|tank|water|مياه/, 'pi-filter'],
-      [/حشر|pest|مبيد|تعقيم|disinfect|steril/, 'pi-shield'],
-      [/شق|بيت|منزل|فيلا|فلل|home|house|apartment|villa|flat/, 'pi-home'],
-    ];
-    return rules.find(([re]) => re.test(n))?.[1] ?? 'pi-sparkles';
   }
 }

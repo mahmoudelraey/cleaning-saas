@@ -187,7 +187,12 @@
     "englishHint": "Customers who use the portal in English see the English name and description. Leave them empty to show the Arabic.",
     "addonNameAr": "Add-on (Arabic)",
     "addonNameEn": "Add-on (English)",
-    "noEnglish": "No English name yet"
+    "noEnglish": "No English name yet",
+    "photo": "Service photo",
+    "choosePhoto": "Choose a photo",
+    "useDefaultPhoto": "Use the default picture",
+    "defaultPhoto": "Default picture based on the service name",
+    "photoHint": "Shown on the service card of your company page. JPG, PNG or WebP up to 3 MB; a landscape photo works best."
   },
   "technicians": {
     "title": "Technicians",
@@ -304,7 +309,10 @@
       "teamSize": "Team size (people)",
       "promises": "What customers can expect",
       "promisesPlaceholder": "Same team every visit\nOwn equipment and materials\nArrive within the booked hour",
-      "promisesHint": "One per line. Shown on the About us page."
+      "promisesHint": "One per line. Shown on the About us page.",
+      "ar": "Arabic",
+      "en": "English",
+      "enHint": "Visitors browsing in English see the English text; if it is empty they see the Arabic one."
     },
     "google": {
       "title": "Google Maps reviews",
@@ -337,7 +345,8 @@
     "onlineBookingOn": "Online booking is on",
     "onlineBookingOff": "Online booking is off",
     "companyNameAr": "Company name (Arabic)",
-    "companyNameEn": "Company name (English)"
+    "companyNameEn": "Company name (English)",
+    "addressEnHint": "Shown to visitors browsing in English; invoices keep the Arabic address."
   },
   "days": {
     "SATURDAY": "Saturday",

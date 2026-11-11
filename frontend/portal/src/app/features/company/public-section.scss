@@ -17,7 +17,7 @@
 }
 
 .band {
-  padding: 56px 0;
+  padding: 36px 0;
   background: #fff;
 }
 
@@ -26,7 +26,7 @@
 }
 
 .wrap {
-  max-width: 1200px;
+  max-width: 1600px;
   margin: 0 auto;
   padding: 0 20px;
 }
@@ -37,35 +37,45 @@ h3 {
   color: #0f172a;
 }
 
+// Section titles: same look as "Our services and transparent prices" — a small label with a line before it,
+// a big title and a short line under it, all centred.
 .sec-head {
   max-width: 46rem;
-  margin: 0 auto 32px;
+  margin: 0 auto 22px;
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
 
   h2 {
-    font-size: clamp(1.7rem, 3.4vw, 2.3rem);
+    font-size: clamp(1.6rem, 3vw, 2.2rem);
     font-weight: 900;
+    margin: 6px 0 8px;
   }
 
   p {
-    margin: 0;
+    margin: 0 auto;
+    max-width: 36rem;
     color: #475569;
-    font-weight: 500;
     line-height: 1.8;
   }
 }
 
 .kicker {
-  padding: 6px 16px;
-  border-radius: 999px;
-  background: var(--b100);
-  color: var(--b600);
-  font-size: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #0d5c46;
   font-weight: 800;
+  font-size: 0.85rem;
+
+  &::before {
+    content: '';
+    width: 26px;
+    height: 4px;
+    border-radius: 2px;
+    background: #149b74;
+  }
 }
 
 .panel {
@@ -172,7 +182,7 @@ h3 {
 
 @media (max-width: 759px) {
   .band {
-    padding: 40px 0;
+    padding: 28px 0;
   }
 
   .panel {

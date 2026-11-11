@@ -64,7 +64,7 @@ import { socialLinks } from '../../core/socials';
             <span class="mark"><img [src]="company()?.logoUrl || 'brand/logo.svg'" alt="" /></span>
             <strong>{{ companyName() }}</strong>
           </a>
-          <p class="about">{{ page().headline || ('company.defaultHeadline' | translate) }}</p>
+          <p class="about">{{ store.headline() || ('company.defaultHeadline' | translate) }}</p>
           @if (socials().length) {
             <div class="socials">
               @for (s of socials(); track s.key) {
@@ -82,11 +82,11 @@ import { socialLinks } from '../../core/socials';
             <li><a [routerLink]="['/', slug()]" fragment="services">{{ 'company.services' | translate }}</a></li>
             <li><a [routerLink]="['/', slug()]" fragment="reviews">{{ 'company.reviews' | translate }}</a></li>
             <li><a [routerLink]="['/', slug()]" fragment="contact">{{ 'company.contact' | translate }}</a></li>
+            <li><a [routerLink]="['/', slug()]" fragment="about">{{ 'company.aboutUs' | translate }}</a></li>
             @if (company()?.bookingOpen) {
               <li><a [routerLink]="['/', slug(), 'book']">{{ 'company.book' | translate }}</a></li>
             }
             @if (signedIn()) {
-              <li><a [routerLink]="['/', slug(), 'home']">{{ 'company.myPage' | translate }}</a></li>
               <li><a [routerLink]="['/', slug(), 'bookings']">{{ 'shell.bookings' | translate }}</a></li>
             } @else {
               <li><a [routerLink]="['/', slug(), 'register']">{{ 'register.title' | translate }}</a></li>
@@ -104,11 +104,11 @@ import { socialLinks } from '../../core/socials';
             @if (company()?.phone) {
               <li><i class="pi pi-phone"></i><a [href]="'tel:' + company()!.phone">{{ company()!.phone | phone }}</a></li>
             }
-            @if (company()?.address) {
-              <li><i class="pi pi-map-marker"></i><span>{{ company()!.address }}</span></li>
+            @if (store.address()) {
+              <li><i class="pi pi-map-marker"></i><span>{{ store.address() }}</span></li>
             }
-            @if (page().hours) {
-              <li><i class="pi pi-clock"></i><span>{{ page().hours }}</span></li>
+            @if (store.hours()) {
+              <li><i class="pi pi-clock"></i><span>{{ store.hours() }}</span></li>
             }
           </ul>
         </div>
@@ -127,7 +127,7 @@ import { socialLinks } from '../../core/socials';
   `,
 })
 export class PublicFooter {
-  private readonly store = inject(CompanyStore);
+  protected readonly store = inject(CompanyStore);
   private readonly sessions = inject(SessionService);
 
   protected readonly slug = this.store.slug;
@@ -139,6 +139,6 @@ export class PublicFooter {
 
   protected readonly socials = computed(() => socialLinks(this.page()));
   protected readonly hasContact = computed(
-    () => !!(this.page().whatsapp || this.company()?.phone || this.company()?.address || this.page().hours),
+    () => !!(this.page().whatsapp || this.company()?.phone || this.store.address() || this.store.hours()),
   );
 }

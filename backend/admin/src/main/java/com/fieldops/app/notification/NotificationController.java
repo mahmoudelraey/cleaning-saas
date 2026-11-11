@@ -12,7 +12,9 @@ import jakarta.validation.constraints.Size;
 import com.fieldops.app.common.web.PageResponse;
 import com.fieldops.app.notification.channel.ChannelType;
 import com.fieldops.app.notification.channel.MessageChannel;
+import com.fieldops.app.common.web.ApiException;
 import com.fieldops.app.tenant.Tenant;
+import com.fieldops.app.tenant.TenantRepository;
 import com.fieldops.app.tenant.TenantService;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
@@ -33,12 +35,14 @@ public class NotificationController {
     private final NotificationService notifications;
     private final TenantService tenants;
     private final java.util.List<MessageChannel> channels;
+    private final TenantRepository tenantRepo;
 
     public NotificationController(NotificationService notifications, TenantService tenants,
-                                  java.util.List<MessageChannel> channels) {
+                                  java.util.List<MessageChannel> channels, TenantRepository tenantRepo) {
         this.notifications = notifications;
         this.tenants = tenants;
         this.channels = channels;
+        this.tenantRepo = tenantRepo;
     }
 
     /** Send log (whole company or one booking). */
@@ -67,14 +71,28 @@ public class NotificationController {
         return SettingsDto.of(tenants.current(), channels);
     }
 
-    @PutMapping("/api/v1/tenant/notification-settings")
-    @PreAuthorize("hasRole('OWNER')")
+    // Which customer messages a company sends is decided by the platform admin only (Platform → Companies);
+    // company owners can no longer change it.
+
+    @GetMapping("/api/platform/companies/{id}/customer-messages")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    @Transactional(readOnly = true)
+    public SettingsDto companySettings(@PathVariable UUID id) {
+        return SettingsDto.of(company(id), channels);
+    }
+
+    @PutMapping("/api/platform/companies/{id}/customer-messages")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     @Transactional
-    public SettingsDto update(@Valid @RequestBody SettingsRequest req) {
-        Tenant t = tenants.current();
+    public SettingsDto updateCompanySettings(@PathVariable UUID id, @Valid @RequestBody SettingsRequest req) {
+        Tenant t = company(id);
         t.updateNotificationSettings(req.confirmation(), req.reminder(), req.onTheWay(), req.completed(),
                 req.cancelled(), req.reminderHours());
         return SettingsDto.of(t, channels);
+    }
+
+    private Tenant company(UUID id) {
+        return tenantRepo.findById(id).filter(t -> !t.isPlatform()).orElseThrow(() -> ApiException.notFound("tenant"));
     }
 
     public record SettingsRequest(boolean confirmation, boolean reminder, boolean onTheWay, boolean completed,

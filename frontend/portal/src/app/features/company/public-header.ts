@@ -10,29 +10,34 @@ import { InboxBell } from './inbox-bell';
 
 /**
  * Top bar of the portal: brand, the company page's sections, language, account and "Book a visit now".
- * Wide screens show everything in one row. Below 1100px the sections move into a menu that opens under the bar
+ * Wide screens show everything in one row. Below 1240px the sections move into a menu that opens under the bar
  * (with booking, the customer's own pages and the language), so nothing is ever cut off or scrolled away.
- * A signed-in customer's own pages live in the account menu (and the bottom tabs on phones), not in the row.
+ * The menu: the company page's sections, with the customer's own pages (my visits, invoices) after "Services".
  */
 @Component({
   selector: 'pt-public-header',
   imports: [RouterLink, RouterLinkActive, TranslatePipe, InboxBell],
   styles: `
     :host { display: block; position: sticky; top: 0; z-index: 20; }
-    .bar { position: relative; background: rgba(255, 255, 255, .88); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-           border-bottom: 1px solid rgba(226, 232, 240, .8); box-shadow: 0 1px 3px rgba(15, 23, 42, .05); }
-    .row { position: relative; z-index: 2; max-width: 1200px; margin: 0 auto; display: flex; align-items: center; gap: 16px;
-           padding: 12px 20px; min-height: 72px; }
+    /* Two floating white cards (brand + menu, and the actions) over a soft mint strip, as in the design. */
+    .bar { position: relative; background: linear-gradient(180deg, #f3faf8 0%, rgba(243, 250, 248, .82) 100%);
+           backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+    .row { position: relative; z-index: 2; max-width: 1600px; margin: 0 auto; display: flex; align-items: stretch; gap: 14px;
+           padding: 12px 20px; }
+    .nav-card, .actions { background: #fff; border-radius: 18px; border: 1px solid rgba(226, 232, 240, .7);
+                          box-shadow: 0 10px 30px -18px rgba(15, 42, 61, .35); }
+    .nav-card { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 18px; padding: 12px 24px; min-height: 80px; }
 
     .brand { flex: 0 1 auto; min-width: 0; display: flex; align-items: center; gap: 10px; text-decoration: none; }
-    .mark { width: 44px; height: 44px; border-radius: 14px; background: #f0fdf8; box-shadow: 0 4px 10px -4px rgba(13, 92, 70, .35);
+    .mark { width: 52px; height: 52px; border-radius: 14px; background: #f0fdf8; box-shadow: 0 4px 10px -4px rgba(13, 92, 70, .35);
             display: grid; place-items: center; overflow: hidden; flex: none; }
     .mark img { width: 100%; height: 100%; object-fit: contain; }
-    .name { font-weight: 900; font-size: 1.1rem; color: #0d5c46; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-            max-width: 22ch; }
+    /* The name may shrink (with "…") but never runs over the logo or the links. */
+    .name { min-width: 0; flex: 0 1 auto; font-weight: 900; font-size: 1.1rem; color: #0d5c46; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            max-width: 18ch; }
 
-    nav.links { flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px; }
-    nav.links a { position: relative; padding: 8px 12px; color: #334155; text-decoration: none; font-weight: 600; font-size: .95rem;
+    nav.links { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; justify-content: flex-start; gap: 2px; }
+    nav.links a { position: relative; padding: 10px 12px; color: #334155; text-decoration: none; font-weight: 600; font-size: 1rem;
                   white-space: nowrap; }
     nav.links a:hover { color: #149b74; }
     nav.links a::after { content: ''; position: absolute; inset-inline: 12px; bottom: 2px; height: 2px; border-radius: 2px;
@@ -40,11 +45,12 @@ import { InboxBell } from './inbox-bell';
     nav.links a:hover::after, nav.links a.on::after { transform: scaleX(1); }
     nav.links a.on { color: #0d5c46; }
 
-    .actions { margin-inline-start: auto; display: flex; align-items: center; gap: 8px; flex: none; }
+
+    .actions { display: flex; align-items: center; gap: 10px; flex: none; padding: 10px 12px; }
     .pill { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 12px;
-            font: inherit; font-size: .88rem; font-weight: 700; padding: 10px 16px; cursor: pointer; text-decoration: none;
+            font: inherit; font-size: .92rem; font-weight: 700; padding: 12px 20px; cursor: pointer; text-decoration: none;
             white-space: nowrap; }
-    .lang { background: none; color: #475569; border: 1px solid #e2e8f0; padding: 9px 12px; }
+    .lang { background: none; color: #334155; border: 1px solid #e2e8f0; padding: 9px 14px; border-radius: 999px; }
     .lang:hover { background: #f1f5f9; }
     .soft { background: #f0fdf8; color: #0d5c46; }
     .soft:hover { background: #ddf7ed; }
@@ -62,7 +68,7 @@ import { InboxBell } from './inbox-bell';
     .me { display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px 4px 4px; border: 1px solid #e2e8f0; border-radius: 999px;
           background: #fff; color: #1e293b; font: inherit; cursor: pointer; }
     :host-context([dir='rtl']) .me { padding: 4px 4px 4px 12px; }
-    .me-avatar { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; flex: none;
+    .me-avatar { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; flex: none;
                  background: linear-gradient(160deg, #149b74, #0d5c46); color: #fff; }
     .who { font-weight: 700; font-size: .9rem; max-width: 10ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .caret { font-size: .7rem; opacity: .7; }
@@ -81,9 +87,9 @@ import { InboxBell } from './inbox-bell';
 
     /* Drawer under the bar (below 1100px) */
     .burger { display: none; }
-    .drawer { position: relative; z-index: 1; border-top: 1px solid #e2e8f0; background: rgba(255, 255, 255, .97);
+    .drawer { position: relative; z-index: 1; margin: 0 20px 12px; border-radius: 18px; border: 1px solid #e2e8f0; background: #fff;
               box-shadow: 0 20px 30px -20px rgba(15, 23, 42, .3); }
-    .drawer-in { max-width: 1200px; margin: 0 auto; padding: 12px 20px 18px; display: flex; flex-direction: column; gap: 4px; }
+    .drawer-in { max-width: 1560px; margin: 0 auto; padding: 12px 20px 18px; display: flex; flex-direction: column; gap: 4px; }
     .drawer a.item, .drawer button.item { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px;
                                           color: #1e293b; font: inherit; font-weight: 700; text-decoration: none; background: none;
                                           border: 0; cursor: pointer; text-align: start; }
@@ -94,7 +100,8 @@ import { InboxBell } from './inbox-bell';
     .drawer .drawer-cta .pill { padding: 13px; }
 
     /* Medium: the sections go into the drawer; the account shows only its avatar. */
-    @media (max-width: 1099px) {
+    /* English names and labels are longer, so the links move into the menu a bit earlier. */
+    @media (max-width: 1359px) {
       nav.links { display: none; }
       .burger { display: inline-flex; }
       .who, .me .caret { display: none; }
@@ -102,7 +109,9 @@ import { InboxBell } from './inbox-bell';
     }
     /* Phones: booking and the language move into the drawer too (the page has its own booking bar). */
     @media (max-width: 680px) {
-      .row { padding: 10px 14px; gap: 10px; min-height: 64px; }
+      .row { padding: 8px 10px; gap: 8px; }
+      .nav-card { padding: 8px 12px; min-height: 56px; }
+      .actions { padding: 6px; }
       .mark { width: 40px; height: 40px; }
       .name { font-size: 1rem; max-width: 14ch; }
       .hide-sm { display: none !important; }
@@ -115,6 +124,7 @@ import { InboxBell } from './inbox-bell';
   template: `
     <div class="bar">
       <div class="row">
+        <div class="nav-card">
         <a class="brand" [routerLink]="['/', slug()]">
           <span class="mark"><img [src]="store.company()?.logoUrl || 'brand/logo-mark.svg'" alt="" /></span>
           <span class="name">{{ store.name() }}</span>
@@ -124,13 +134,23 @@ import { InboxBell } from './inbox-bell';
           <!-- Every link is a section of the company page; the one in view is underlined. -->
           @for (l of links; track l.id) {
             <a [routerLink]="['/', slug()]" [fragment]="l.id" [class.on]="active() === l.id" (click)="jump(l.id)">{{ l.label | translate }}</a>
+            <!-- The customer's own pages sit right after "Services" (visitors are asked to sign in first). -->
+            @if (l.id === 'services') {
+              @for (m of myPages; track m.path) {
+                <a [routerLink]="['/', slug(), m.path]" routerLinkActive="on">{{ m.label | translate }}</a>
+              }
+            }
           }
         </nav>
+        </div>
 
         <div class="actions">
-          <button type="button" class="pill lang hide-sm" (click)="lang.toggle()" [attr.aria-label]="'company.switchLang' | translate">
-            <i class="pi pi-globe" aria-hidden="true"></i>{{ lang.current() === 'ar' ? 'English' : 'العربية' }}
-          </button>
+          <!-- A signed-in customer switches the language from the avatar menu. -->
+          @if (!signedIn()) {
+            <button type="button" class="pill lang hide-sm" (click)="lang.toggle()" [attr.aria-label]="'company.switchLang' | translate">
+              <i class="pi pi-globe" aria-hidden="true"></i>{{ lang.current() === 'ar' ? 'English' : 'العربية' }}
+            </button>
+          }
 
           @if (signedIn()) {
             <pt-inbox-bell [slug]="slug()" />
@@ -144,10 +164,8 @@ import { InboxBell } from './inbox-bell';
               @if (menuOpen()) {
                 <div class="menu-backdrop" (click)="menuOpen.set(false)"></div>
                 <ul class="menu" id="account-menu" (click)="menuOpen.set(false)">
-                  <li><a [routerLink]="['/', slug(), 'home']" routerLinkActive="on"><i class="pi pi-home"></i>{{ 'company.myPage' | translate }}</a></li>
-                  <li><a [routerLink]="['/', slug(), 'bookings']" routerLinkActive="on"><i class="pi pi-calendar"></i>{{ 'shell.bookings' | translate }}</a></li>
-                  <li><a [routerLink]="['/', slug(), 'invoices']" routerLinkActive="on"><i class="pi pi-receipt"></i>{{ 'shell.invoices' | translate }}</a></li>
                   <li><a [routerLink]="['/', slug(), 'profile']" routerLinkActive="on"><i class="pi pi-user"></i>{{ 'shell.profile' | translate }}</a></li>
+                  <li><button type="button" (click)="lang.toggle()"><i class="pi pi-globe"></i>{{ lang.current() === 'ar' ? 'English' : 'العربية' }}</button></li>
                   <li class="sep"><button type="button" (click)="signOut()"><i class="pi pi-sign-out"></i>{{ 'profile.signOut' | translate }}</button></li>
                 </ul>
               }
@@ -178,12 +196,11 @@ import { InboxBell } from './inbox-bell';
               <a class="item" [routerLink]="['/', slug()]" [fragment]="l.id" [class.on]="active() === l.id" (click)="jump(l.id)">
                 <i class="pi" [class]="l.icon" aria-hidden="true"></i>{{ l.label | translate }}
               </a>
-            }
-            @if (signedIn()) {
-              <hr />
-              <a class="item" [routerLink]="['/', slug(), 'home']" routerLinkActive="on"><i class="pi pi-home"></i>{{ 'company.myPage' | translate }}</a>
-              <a class="item" [routerLink]="['/', slug(), 'bookings']" routerLinkActive="on"><i class="pi pi-calendar"></i>{{ 'shell.bookings' | translate }}</a>
-              <a class="item" [routerLink]="['/', slug(), 'invoices']" routerLinkActive="on"><i class="pi pi-receipt"></i>{{ 'shell.invoices' | translate }}</a>
+              @if (l.id === 'services') {
+                @for (m of myPages; track m.path) {
+                  <a class="item" [routerLink]="['/', slug(), m.path]" routerLinkActive="on"><i class="pi" [class]="m.icon"></i>{{ m.label | translate }}</a>
+                }
+              }
             }
             <hr />
             <button type="button" class="item" (click)="lang.toggle()">
@@ -215,6 +232,11 @@ export class PublicHeader {
   protected readonly firstName = computed(() => (this.sessions.get(this.slug())?.name ?? '').trim().split(/\s+/)[0]);
   protected readonly menuOpen = signal(false);
   protected readonly drawerOpen = signal(false);
+  /** The customer's own pages, in the menu after "Services" (a visitor who isn't signed in is asked to sign in first). */
+  protected readonly myPages = [
+    { path: 'bookings', label: 'shell.bookings', icon: 'pi-calendar' },
+    { path: 'invoices', label: 'shell.invoices', icon: 'pi-receipt' },
+  ];
   private readonly router = inject(Router);
   private readonly document = inject(DOCUMENT);
 
@@ -224,6 +246,7 @@ export class PublicHeader {
     { id: 'how', label: 'company.instructions', icon: 'pi-list-check' },
     { id: 'reviews', label: 'company.reviews', icon: 'pi-star' },
     { id: 'contact', label: 'company.contact', icon: 'pi-phone' },
+    { id: 'about', label: 'company.aboutUs', icon: 'pi-info-circle' },
   ];
   /** The section under the header right now (only on the company page). */
   protected readonly active = signal<string | null>(null);

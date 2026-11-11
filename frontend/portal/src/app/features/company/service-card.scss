@@ -1,0 +1,159 @@
+// One service as a photo card: the company's photo (or a default picture), the icon, name, description,
+// "starting from" price and a round button to book it. Used on the company page and the all-services page.
+
+:host {
+  --b50: #f0fdf8;
+  --b500: #149b74;
+  --b600: #0d5c46;
+  --slate-5: #64748b;
+  --lift: 0 20px 40px -15px rgba(13, 92, 70, 0.15);
+  display: block;
+  height: 100%;
+}
+
+h3 {
+  margin: 0;
+  color: #0f172a;
+}
+
+.svc-card {
+  height: 100%;
+  color: inherit;
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 4px 10px -4px rgba(15, 23, 42, 0.08);
+  transition:
+    box-shadow 0.3s,
+    transform 0.3s;
+
+  &:hover {
+    box-shadow: var(--lift);
+    transform: translateY(-3px);
+
+    .svc-media img {
+      transform: scale(1.04);
+    }
+  }
+}
+
+.svc-media {
+  position: relative;
+  height: 230px;
+  background: #eef6f4;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.4s;
+  }
+}
+
+// The round icon that sits on the photo's lower edge.
+.svc-ico {
+  position: absolute;
+  inset-inline-start: 20px;
+  bottom: -30px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  color: var(--b600);
+  font-size: 1.35rem;
+  box-shadow: 0 6px 16px -6px rgba(15, 23, 42, 0.3);
+}
+
+.svc-body {
+  flex: 1;
+  padding: 40px 22px 10px;
+
+  h3 {
+    font-size: 1.25rem;
+    font-weight: 900;
+    margin-bottom: 6px;
+  }
+}
+
+.svc-desc {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.75;
+  color: var(--slate-5);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.svc-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 22px 20px;
+
+  .from {
+    font-size: 0.84rem;
+    color: #475569;
+
+    strong {
+      font-size: 1.15rem;
+      font-weight: 900;
+      color: var(--b600);
+      margin-inline-start: 2px;
+    }
+
+    em {
+      font-style: normal;
+      font-size: 0.75rem;
+      color: var(--slate-5);
+    }
+  }
+}
+
+.svc-card.clickable {
+  cursor: pointer;
+
+  &:hover .svc-go {
+    background: var(--b600);
+    color: #fff;
+  }
+
+  &:focus-visible {
+    outline: 3px solid rgba(20, 155, 116, 0.35);
+    outline-offset: 3px;
+  }
+}
+
+.svc-go {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--b50);
+  color: var(--b600);
+  text-decoration: none;
+  transition:
+    background 0.2s,
+    color 0.2s;
+
+  &:hover {
+    background: var(--b600);
+    color: #fff;
+  }
+
+  i {
+    font-size: 0.8rem;
+  }
+}
+

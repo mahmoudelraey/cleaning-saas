@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnChanges, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { MessageService } from 'primeng/api';
@@ -11,9 +11,10 @@ import { ToggleSwitch } from 'primeng/toggleswitch';
 import { NotificationSettings } from '../../core/api.types';
 import { errorMessage } from '../../core/http/api-error';
 
-const URL = '/api/v1/tenant/notification-settings';
-
-/** Which customer messages the company sends, and when the reminder goes out. */
+/**
+ * Which customer messages a company sends, and when the reminder goes out. Only the platform admin changes this,
+ * from Platform → Companies → a company (the panel is given that company's id).
+ */
 @Component({
   selector: 'app-notification-settings',
   imports: [FormsModule, TranslatePipe, Button, InputNumber, Message, ToggleSwitch],
@@ -62,7 +63,10 @@ const URL = '/api/v1/tenant/notification-settings';
     }
   `,
 })
-export class NotificationSettingsPanel implements OnInit {
+export class NotificationSettingsPanel implements OnChanges {
+  /** The company whose messages are shown and changed. */
+  readonly companyId = input.required<string>();
+
   private readonly http = inject(HttpClient);
   private readonly messages = inject(MessageService);
   private readonly translate = inject(TranslateService);
@@ -72,14 +76,19 @@ export class NotificationSettingsPanel implements OnInit {
   protected readonly s = signal<NotificationSettings | null>(null);
   protected readonly saving = signal(false);
 
-  ngOnInit(): void {
-    this.http.get<NotificationSettings>(URL).subscribe((v) => this.s.set(v));
+  private url(): string {
+    return `/api/platform/companies/${this.companyId()}/customer-messages`;
+  }
+
+  ngOnChanges(): void {
+    this.s.set(null);
+    this.http.get<NotificationSettings>(this.url()).subscribe((v) => this.s.set(v));
   }
 
   save(v: NotificationSettings): void {
     this.saving.set(true);
     const { whatsappConfigured, smsConfigured, ...body } = v;
-    this.http.put<NotificationSettings>(URL, body).subscribe({
+    this.http.put<NotificationSettings>(this.url(), body).subscribe({
       next: (res) => {
         this.s.set(res);
         this.saving.set(false);

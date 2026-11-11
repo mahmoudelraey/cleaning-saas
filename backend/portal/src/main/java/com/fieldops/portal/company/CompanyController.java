@@ -59,7 +59,7 @@ public class CompanyController {
         return new CompanyDto(t.getId(), t.getName(), t.getNameEn(), t.getSlug(), logo, t.getPhone(), t.getTimezone(),
                 portal.bookingOpen(t), t.isVatRegistered(), t.isPricesIncludeVat(), CustomerPortalService.MAX_DAYS_AHEAD,
                 (int) CalendarService.PUBLIC_LEAD_TIME.toHours(), (int) CustomerPortalService.CANCEL_NOTICE.toHours(),
-                t.getPublicPage(), t.getAddress(), google.configured() && t.getGooglePlaceId() != null,
+                t.getPublicPage(), t.getAddress(), t.getAddressEn(), google.configured() && t.getGooglePlaceId() != null,
                 portal.announcement(t).map(AnnouncementDto::of).orElse(null));
     }
 
@@ -92,7 +92,7 @@ public class CompanyController {
 
     @GetMapping("/services")
     public List<ServiceDto> services(@PathVariable String slug) {
-        return portal.services(slug).stream().map(ServiceDto::of).toList();
+        return portal.services(slug).stream().map(s -> ServiceDto.of(s, adminPublicUrl)).toList();
     }
 
     /**
@@ -138,7 +138,7 @@ public class CompanyController {
     /** {@code name} is Arabic; {@code nameEn} English (may be empty). */
     public record CompanyDto(UUID tenantId, String name, String nameEn, String slug, String logoUrl, String phone, String timezone,
                              boolean bookingOpen, boolean vatRegistered, boolean pricesIncludeVat, int maxDaysAhead,
-                             int leadTimeHours, int cancelNoticeHours, PublicPage page, String address,
+                             int leadTimeHours, int cancelNoticeHours, PublicPage page, String address, String addressEn,
                              boolean googleReviews, AnnouncementDto announcement) {
     }
 
@@ -154,14 +154,19 @@ public class CompanyController {
     public record AddonDto(UUID id, String name, String nameEn, long priceHalalas) {
     }
 
-    /** {@code name}/{@code description} are Arabic; the {@code ...En} ones are English (may be empty). */
+    /**
+     * {@code name}/{@code description} are Arabic; the {@code ...En} ones are English (may be empty).
+     * {@code imageUrl}: the service's photo on the admin backend, or null (the portal then shows a default picture).
+     */
     public record ServiceDto(UUID id, String name, String description, String nameEn, String descriptionEn,
-                             PricingType pricingType, long basePriceHalalas, int durationMin, List<AddonDto> addons) {
-        static ServiceDto of(ServiceOffering s) {
+                             PricingType pricingType, long basePriceHalalas, int durationMin, List<AddonDto> addons,
+                             String imageUrl) {
+        static ServiceDto of(ServiceOffering s, String adminPublicUrl) {
             return new ServiceDto(s.getId(), s.getName(), s.getDescription(), s.getNameEn(), s.getDescriptionEn(),
                     s.getPricingType(), s.getBasePriceHalalas(), s.getDurationMin(),
                     s.getAddons().stream().filter(a -> a.isActive())
-                            .map(a -> new AddonDto(a.getId(), a.getName(), a.getNameEn(), a.getPriceHalalas())).toList());
+                            .map(a -> new AddonDto(a.getId(), a.getName(), a.getNameEn(), a.getPriceHalalas())).toList(),
+                    s.getImageUrl() == null ? null : adminPublicUrl + s.getImageUrl());
         }
     }
 

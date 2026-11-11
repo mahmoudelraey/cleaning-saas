@@ -6,6 +6,7 @@ import { ConfirmationService, MessageService } from 'primeng/api';
 import { Button } from 'primeng/button';
 import { DatePicker } from 'primeng/datepicker';
 import { Drawer } from 'primeng/drawer';
+import { NotificationSettingsPanel } from '../settings/notification-settings.panel';
 import { InputNumber } from 'primeng/inputnumber';
 import { InputText } from 'primeng/inputtext';
 import { Select } from 'primeng/select';
@@ -25,7 +26,7 @@ import { BillingCycle, CompanyDetail, CompanyFilter, CompanyRow, PlanRow, Platfo
 /** All companies on FieldOps; open one to change its plan, trial or paid period, or to suspend it. */
 @Component({
   selector: 'app-platform-companies',
-  imports: [FormsModule, TranslatePipe, TableModule, Tag, Button, Drawer, Select, SelectButton, DatePicker, InputNumber, InputText, PhonePipe, LocalDatePipe],
+  imports: [FormsModule, TranslatePipe, TableModule, Tag, Button, Drawer, Select, SelectButton, DatePicker, InputNumber, InputText, PhonePipe, LocalDatePipe, NotificationSettingsPanel],
   styles: `
     .filters { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; padding: 1rem 1.25rem; border-bottom: 1px solid var(--fo-border); }
     .filters input { min-width: 240px; }
@@ -167,6 +168,11 @@ import { BillingCycle, CompanyDetail, CompanyFilter, CompanyRow, PlanRow, Platfo
             }
           </div>
           <p class="hint">{{ 'platform.actions.accessHint' | translate }}</p>
+        </section>
+
+        <!-- Which messages this company's customers get: set here only, never by the company itself. -->
+        <section class="box">
+          <app-notification-settings [companyId]="c.id" />
         </section>
 
         <section class="box">
