@@ -312,7 +312,9 @@
       "promisesHint": "One per line. Shown on the About us page.",
       "ar": "Arabic",
       "en": "English",
-      "enHint": "Visitors browsing in English see the English text; if it is empty they see the Arabic one."
+      "enHint": "Visitors browsing in English see the English text; if it is empty they see the Arabic one.",
+      "heroTitle": "Big title at the top of the page",
+      "heroTitleHint": "Write it on two lines: the second line shows in green. Leave it empty to use the default title."
     },
     "google": {
       "title": "Google Maps reviews",

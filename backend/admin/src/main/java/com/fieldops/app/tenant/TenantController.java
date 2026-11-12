@@ -90,7 +90,8 @@ public class TenantController {
     public TenantDto updatePublicPage(@Valid @RequestBody PublicPageRequest req) {
         Tenant t = service.updatePublicPage(new PublicPage(req.headline(), req.about(), req.areas(), req.hours(),
                 null, null, null, null, null, req.foundedYear(), req.teamSize(), req.promises(), null,
-                req.headlineEn(), req.aboutEn(), req.promisesEn(), req.areasEn(), req.hoursEn()));
+                req.headlineEn(), req.aboutEn(), req.promisesEn(), req.areasEn(), req.hoursEn(), req.heroTitle(),
+                req.heroTitleEn()));
         return dto(t);
     }
 
@@ -144,7 +145,8 @@ public class TenantController {
                                     @Min(1950) @Max(2100) Integer foundedYear, @Min(1) @Max(10000) Integer teamSize,
                                     @Size(max = 1000) String promises, @Size(max = 120) String headlineEn,
                                     @Size(max = 2000) String aboutEn, @Size(max = 1000) String promisesEn,
-                                    @Size(max = 300) String areasEn, @Size(max = 150) String hoursEn) {
+                                    @Size(max = 300) String areasEn, @Size(max = 150) String hoursEn,
+                                    @Size(max = 120) String heroTitle, @Size(max = 120) String heroTitleEn) {
     }
 
     @PutMapping("/tenant/booking-page")

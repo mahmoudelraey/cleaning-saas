@@ -111,6 +111,12 @@ public class Tenant extends BaseEntity {
     @Column(name = "page_hours_en")
     private String pageHoursEn;
 
+    @Column(name = "page_hero_title")
+    private String pageHeroTitle;
+
+    @Column(name = "page_hero_title_en")
+    private String pageHeroTitleEn;
+
     /** English address for the portal (invoices keep the Arabic {@link #address}). */
     @Column(name = "address_en")
     private String addressEn;
@@ -288,6 +294,8 @@ public class Tenant extends BaseEntity {
         this.pagePromisesEn = p.promisesEn();
         this.pageAreasEn = p.areasEn();
         this.pageHoursEn = p.hoursEn();
+        this.pageHeroTitle = p.heroTitle();
+        this.pageHeroTitleEn = p.heroTitleEn();
     }
 
     public void setAddressEn(String addressEn) {
@@ -326,7 +334,7 @@ public class Tenant extends BaseEntity {
     public PublicPage getPublicPage() {
         return new PublicPage(pageHeadline, pageAbout, pageAreas, pageHours, whatsapp, instagram, xHandle, snapchat,
                 tiktok, pageFoundedYear == null ? null : pageFoundedYear.intValue(), pageTeamSize, pagePromises, facebook,
-                pageHeadlineEn, pageAboutEn, pagePromisesEn, pageAreasEn, pageHoursEn);
+                pageHeadlineEn, pageAboutEn, pagePromisesEn, pageAreasEn, pageHoursEn, pageHeroTitle, pageHeroTitleEn);
     }
 
     public boolean isAutoInvoice() {

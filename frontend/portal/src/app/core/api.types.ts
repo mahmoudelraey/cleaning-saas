@@ -81,6 +81,9 @@ export interface PublicPage {
   promisesEn?: string;
   areasEn?: string;
   hoursEn?: string;
+  /** The owner's big title for the top of the page; a line break splits it into two lines. */
+  heroTitle?: string;
+  heroTitleEn?: string;
   areas?: string;
   hours?: string;
   /** E.164 */

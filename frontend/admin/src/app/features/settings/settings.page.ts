@@ -267,6 +267,16 @@ import { UpgradeService } from '../../core/upgrade.service';
           <p class="hint">{{ 'settings.publicPageHint' | translate }}</p>
           <div class="pp-grid">
             <div class="field">
+              <label for="pp-hero">{{ 'settings.pp.heroTitle' | translate }} <span class="hint">({{ 'settings.pp.ar' | translate }})</span></label>
+              <textarea pTextarea id="pp-hero" dir="rtl" [(ngModel)]="pp.heroTitle" rows="2" maxlength="120" placeholder="منزل أنظف.&#10;حياة أفضل."></textarea>
+              <small class="hint">{{ 'settings.pp.heroTitleHint' | translate }}</small>
+            </div>
+            <div class="field">
+              <label for="pp-hero-en">{{ 'settings.pp.heroTitle' | translate }} <span class="hint">({{ 'settings.pp.en' | translate }})</span></label>
+              <textarea pTextarea id="pp-hero-en" dir="ltr" [(ngModel)]="pp.heroTitleEn" rows="2" maxlength="120" placeholder="A cleaner home.&#10;A better life."></textarea>
+              <small class="hint">{{ 'settings.pp.heroTitleHint' | translate }}</small>
+            </div>
+            <div class="field">
               <label for="pp-headline">{{ 'settings.pp.headline' | translate }} <span class="hint">({{ 'settings.pp.ar' | translate }})</span></label>
               <input pInputText id="pp-headline" dir="rtl" [(ngModel)]="pp.headline" maxlength="120" [placeholder]="'settings.pp.headlinePlaceholder' | translate" />
             </div>
@@ -523,6 +533,8 @@ export class SettingsPage implements OnInit {
         promisesEn: blank(p.promisesEn) ?? undefined,
         areasEn: blank(p.areasEn) ?? undefined,
         hoursEn: blank(p.hoursEn) ?? undefined,
+        heroTitle: blank(p.heroTitle) ?? undefined,
+        heroTitleEn: blank(p.heroTitleEn) ?? undefined,
       })
       .subscribe({
         next: () => {

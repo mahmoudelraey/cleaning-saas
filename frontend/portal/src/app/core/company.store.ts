@@ -37,6 +37,17 @@ export class CompanyStore {
     const p = this.company()?.page;
     return (this.lang.current() === 'en' && p?.hoursEn) || p?.hours || '';
   });
+  /**
+   * The owner's big title in the visitor's language, as [first line, second line]; null when the owner hasn't
+   * written one for this language (the page then shows its default title).
+   */
+  readonly heroLines = computed<[string, string] | null>(() => {
+    const p = this.company()?.page;
+    const t = (this.lang.current() === 'en' ? p?.heroTitleEn : p?.heroTitle)?.trim();
+    if (!t) return null;
+    const [first, ...rest] = t.split(/\r?\n/);
+    return [first.trim(), rest.join(' ').trim()];
+  });
   readonly address = computed(() => {
     const c = this.company();
     return (this.lang.current() === 'en' && c?.addressEn) || c?.address || '';

@@ -18,8 +18,13 @@
         }
 
         <h1>
-          <span class="l1">{{ 'company.heroLine1' | translate }}</span>
-          <span class="l2">{{ 'company.heroLine2' | translate }}</span>
+          @if (store.heroLines(); as h) {
+            <span class="l1">{{ h[0] }}</span>
+            @if (h[1]) { <span class="l2">{{ h[1] }}</span> }
+          } @else {
+            <span class="l1">{{ 'company.heroLine1' | translate }}</span>
+            <span class="l2">{{ 'company.heroLine2' | translate }}</span>
+          }
         </h1>
         <p class="lead">{{ store.headline() || ('company.defaultHeadline' | translate) }}</p>
 

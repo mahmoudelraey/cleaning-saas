@@ -124,8 +124,18 @@ public class TenantService {
         t.updatePublicPage(new PublicPage(clean(p.headline()), clean(p.about()), clean(p.areas()), clean(p.hours()),
                 null, null, null, null, null, p.foundedYear(), p.teamSize(), clean(p.promises()), null,
                 clean(p.headlineEn()), clean(p.aboutEn()), clean(p.promisesEn()), clean(p.areasEn()),
-                clean(p.hoursEn())));
+                clean(p.hoursEn()), cleanTitle(p.heroTitle()), cleanTitle(p.heroTitleEn())));
         return t;
+    }
+
+    /** The hero title: trimmed, at most two lines (the first line break splits it), empty → null. */
+    private static String cleanTitle(String s) {
+        if (s == null) return null;
+        String[] lines = s.strip().split("\\R+", 3);
+        String first = lines[0].strip();
+        String second = lines.length > 1 ? String.join(" ", java.util.Arrays.copyOfRange(lines, 1, lines.length)).strip() : "";
+        String out = second.isEmpty() ? first : first + "\n" + second;
+        return out.isEmpty() ? null : out;
     }
 
     public record ContactDetails(String phone, String whatsapp, String facebook, String instagram, String tiktok,
