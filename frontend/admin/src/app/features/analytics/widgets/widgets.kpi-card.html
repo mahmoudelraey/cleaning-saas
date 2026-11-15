@@ -1,0 +1,20 @@
+<div class="panel kpi" [class.clickable]="clickable()" [attr.tabindex]="clickable() ? 0 : null"
+     [attr.role]="clickable() ? 'button' : null" (click)="clickable() && pick.emit()" (keydown.enter)="clickable() && pick.emit()">
+  <span class="label">@if (icon()) {<i [class]="icon()"></i>}{{ label() }}</span>
+  @if (value() !== null) {
+    <strong class="value" [class.neg]="negative()"><span class="ltr">{{ value() }}</span></strong>
+  } @else {
+    <strong class="value">—</strong>
+  }
+  <span class="meta">
+    @if (delta() !== null) {
+      <span class="delta" [class]="tone()" [attr.aria-label]="'analytics.vsPrevious' | translate">
+        <i class="pi" [class.pi-arrow-up]="(delta() ?? 0) > 0" [class.pi-arrow-down]="(delta() ?? 0) < 0" [class.pi-minus]="delta() === 0" style="font-size: .65rem"></i>
+        {{ deltaText() }}
+      </span>
+    }
+    @if (hint()) {
+      <span>{{ hint() }}</span>
+    }
+  </span>
+</div>

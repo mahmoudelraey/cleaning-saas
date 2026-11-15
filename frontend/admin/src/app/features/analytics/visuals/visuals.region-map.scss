@@ -1,0 +1,22 @@
+.map {
+  display: grid; gap: 4px; direction: ltr;
+  grid-template-columns: repeat(5, minmax(0, 1fr)); grid-auto-rows: minmax(58px, auto);
+  grid-template-areas:
+    "TB GO SH SH SQ"
+    "MN HA QA QA SQ"
+    "MN HA RD RD SQ"
+    "MQ MQ RD RD SQ"
+    "BA AS NG NG SQ"
+    "GA AS . . .";
+}
+button.tile {
+  all: unset; box-sizing: border-box; border-radius: 8px; padding: .4rem .5rem; cursor: pointer; display: flex; flex-direction: column;
+  justify-content: space-between; gap: .2rem; min-width: 0; transition: transform .1s; border: 2px solid transparent;
+}
+button.tile:hover { transform: translateY(-1px); }
+button.tile:focus-visible { outline: 2px solid var(--p-primary-700); outline-offset: 2px; }
+button.tile.selected { border-color: var(--p-primary-800); }
+.name { font-size: .74rem; font-weight: 600; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; }
+.val { font-size: .8rem; font-variant-numeric: tabular-nums; direction: ltr; text-align: end; }
+.scale { display: flex; align-items: center; gap: .4rem; font-size: .75rem; color: var(--fo-muted); margin-top: .6rem; }
+.scale span.sw { width: 18px; height: 10px; border-radius: 2px; display: inline-block; }

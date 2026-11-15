@@ -1,0 +1,74 @@
+<div class="page-header">
+  <div>
+    <h1>{{ 'dashboard.hello' | translate: { name: auth.user()?.name } }}</h1>
+    <p>{{ 'dashboard.subtitle' | translate }}</p>
+  </div>
+</div>
+
+@if (auth.hasRole('TECHNICIAN')) {
+  <div class="panel empty">
+    <i class="pi pi-calendar"></i>
+    {{ 'dashboard.technicianSoon' | translate }}
+  </div>
+} @else {
+  @if (month(); as m) {
+    <div class="grid">
+      <a class="panel stat" routerLink="/reports">
+        <i class="pi pi-wallet"></i>
+        <div><strong class="ltr">{{ m.revenue.collectedHalalas | sar }}</strong><span class="muted">{{ 'dashboard.collectedMonth' | translate }}</span></div>
+      </a>
+      <a class="panel stat" routerLink="/invoices">
+        <i class="pi pi-file"></i>
+        <div><strong class="ltr">{{ m.revenue.outstandingHalalas | sar }}</strong><span class="muted">{{ 'reports.outstanding' | translate }}</span></div>
+      </a>
+      <a class="panel stat" routerLink="/bookings">
+        <i class="pi pi-check-circle"></i>
+        <div><strong>{{ m.bookings.completed }}</strong><span class="muted">{{ 'dashboard.completedMonth' | translate }}</span></div>
+      </a>
+    </div>
+  }
+  <div class="grid">
+    <div class="panel stat">
+      <i class="pi pi-users"></i>
+      <div><strong>{{ customers() }}</strong><span class="muted">{{ 'nav.customers' | translate }}</span></div>
+    </div>
+    <div class="panel stat">
+      <i class="pi pi-list-check"></i>
+      <div><strong>{{ services() }}</strong><span class="muted">{{ 'nav.services' | translate }}</span></div>
+    </div>
+    <div class="panel stat">
+      <i class="pi pi-wrench"></i>
+      <div>
+        <strong>{{ technicians() }}<small class="muted"> / {{ tenants.tenant()?.plan?.maxTechnicians }}</small></strong>
+        <span class="muted">{{ 'nav.technicians' | translate }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="two">
+    <div class="panel">
+      <h2>{{ 'dashboard.setupTitle' | translate }}</h2>
+      <ul class="steps">
+        @for (s of steps(); track s.key) {
+          <li [class.done]="s.done">
+            <i [class]="s.done ? 'pi pi-check-circle' : 'pi pi-circle'"></i>
+            <span>{{ 'dashboard.steps.' + s.key | translate }}</span>
+            @if (!s.done) {
+              <a [routerLink]="s.link"><p-button size="small" [text]="true" [label]="'common.start' | translate" /></a>
+            }
+          </li>
+        }
+      </ul>
+    </div>
+
+    <div class="panel">
+      <h2>{{ 'dashboard.bookingLink' | translate }}</h2>
+      <p class="muted">{{ 'dashboard.bookingLinkHint' | translate }}</p>
+      <div class="link-box">
+        <code>{{ tenants.portalUrl() }}</code>
+        <p-button icon="pi pi-copy" [text]="true" (onClick)="copyLink()" [ariaLabel]="'common.copy' | translate" />
+        <a [href]="tenants.portalUrl()" target="_blank" rel="noopener"><p-button icon="pi pi-external-link" [text]="true" [ariaLabel]="'common.open' | translate" /></a>
+      </div>
+    </div>
+  </div>
+}

@@ -1,0 +1,12 @@
+.shift { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr) auto; gap: .5rem; align-items: center; }
+.shift > * { min-width: 0; width: 100%; }
+.shift p-button { width: auto; }
+.shift + .shift { margin-top: .5rem; }
+/* Phones: the day on its own row, start / end / remove under it. */
+@media (max-width: 560px) { .shift { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; } .shift > :first-child { grid-column: 1 / -1; } }
+.shift input { direction: ltr; text-align: center; }
+h3 { margin: .5rem 0; font-size: 1rem; }
+.skills { display: flex; gap: .35rem; flex-wrap: wrap; }
+.rating { display: inline-flex; align-items: center; gap: .4rem; white-space: nowrap; }
+.stars { display: inline-flex; gap: 1px; color: var(--warning-50); font-size: .85rem; }
+.stars .pi-star { color: var(--p-surface-300); }

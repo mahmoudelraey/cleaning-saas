@@ -1,0 +1,45 @@
+<div class="wrap">
+  @if (company(); as c) {
+    <div class="bar">
+      <div class="company">
+        @if (c.logoUrl) { <img [src]="c.logoUrl" alt="" /> }
+        <span>{{ c.name }}</span>
+      </div>
+      <div class="tools">
+        <p-button [label]="lang.current() === 'ar' ? 'English' : 'العربية'" [text]="true" size="small" (onClick)="lang.toggle()" />
+        <a [href]="pdfUrl()" target="_blank" rel="noopener"><p-button icon="pi pi-download" [label]="'doc.pdf' | translate" [outlined]="true" size="small" /></a>
+        <p-button icon="pi pi-print" [label]="'doc.print' | translate" [outlined]="true" size="small" (onClick)="print()" />
+        <a [href]="portalLink(c.slug)" target="_blank" rel="noopener"><p-button icon="pi pi-calendar" [label]="'doc.myBookings' | translate" [outlined]="true" size="small" /></a>
+        @if (c.phone) {
+          <a [href]="'https://wa.me/' + c.phone.replace('+', '')" target="_blank" rel="noopener">
+            <p-button icon="pi pi-whatsapp" [label]="'doc.contact' | translate" severity="success" size="small" />
+          </a>
+        }
+      </div>
+    </div>
+  }
+
+  @if (view(); as v) {
+    <app-document-view [doc]="v" />
+    @if (quote(); as q) {
+      @if ((q.quote.status === 'DRAFT' || q.quote.status === 'SENT') && !q.quote.expired) {
+        <div class="respond">
+          <p>{{ 'publicDoc.quoteQuestion' | translate }}</p>
+          <p-button icon="pi pi-check" [label]="'publicDoc.accept' | translate" severity="success" [loading]="busy()" (onClick)="respond(true)" />
+          <p-button icon="pi pi-times" [label]="'publicDoc.reject' | translate" severity="danger" [outlined]="true" [disabled]="busy()" (onClick)="respond(false)" />
+        </div>
+      } @else if (q.quote.expired) {
+        <div class="respond"><p>{{ 'publicDoc.expired' | translate }}</p></div>
+      } @else if (q.quote.status === 'ACCEPTED') {
+        <div class="respond"><p><i class="pi pi-check-circle" style="color: var(--p-green-600)"></i> {{ 'publicDoc.accepted' | translate }}</p></div>
+      } @else if (q.quote.status === 'REJECTED') {
+        <div class="respond"><p>{{ 'publicDoc.rejected' | translate }}</p></div>
+      }
+    }
+    <p class="powered">FieldOps</p>
+  } @else if (error()) {
+    <div class="state"><i class="pi pi-exclamation-circle"></i>{{ error() }}</div>
+  } @else {
+    <div class="state"><i class="pi pi-spin pi-spinner"></i></div>
+  }
+</div>

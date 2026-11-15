@@ -45,7 +45,7 @@ public class BookingQueries {
     }
 
     /**
-     * {@code description} (Arabic) and {@code descriptionEn} are read from the service and add-on names;
+     * {@code description} (Arabic) and {@code descriptionEn} are read from the service, option and add-on names;
      * {@code descriptionEn} is null when there is no English name.
      */
     public record Item(String description, String descriptionEn, java.math.BigDecimal quantity, long totalHalalas,
@@ -119,14 +119,20 @@ public class BookingQueries {
             }
             Summary b = withServicesAndTechnicians(q, me.tenantId(), rows).get(0);
             List<Item> items = q.query("""
-                    select case when bi.addon_id is null then s.name else s.name || ' — ' || a.name end as description,
+                    select case when bi.addon_id is not null then s.name || ' — ' || a.name
+                                when o.id is not null then s.name || ' (' || o.name || ')'
+                                else s.name end as description,
                            bi.quantity, bi.total_halalas, bi.addon_id is not null as addon,
-                           case when bi.addon_id is null then s.name_en
-                                when s.name_en is not null and a.name_en is not null then s.name_en || ' — ' || a.name_en
+                           case when bi.addon_id is not null then
+                                    case when s.name_en is not null and a.name_en is not null then s.name_en || ' — ' || a.name_en end
+                                when o.id is not null then
+                                    case when s.name_en is not null and o.name_en is not null then s.name_en || ' (' || o.name_en || ')' end
+                                else s.name_en
                            end as description_en
                     from booking_items bi
                     left join services s on s.id = bi.service_id
                     left join service_addons a on a.id = bi.addon_id
+                    left join service_options o on o.id = bi.option_id
                     where bi.tenant_id = :t and bi.booking_id = :b order by bi.position
                     """, p, (rs, i) -> new Item(rs.getString("description"), rs.getString("description_en"),
                     rs.getBigDecimal("quantity"), rs.getLong("total_halalas"), rs.getBoolean("addon")));
@@ -167,8 +173,14 @@ public class BookingQueries {
         // Same order as `services`; an entry is null when that service has no English name.
         Map<UUID, List<String>> servicesEn = new LinkedHashMap<>();
         q.query("""
-                select bi.booking_id, s.name as description, s.name_en from booking_items bi
+                select bi.booking_id,
+                       case when o.id is null then s.name else s.name || ' (' || o.name || ')' end as description,
+                       case when o.id is null then s.name_en
+                            when s.name_en is not null and o.name_en is not null then s.name_en || ' (' || o.name_en || ')'
+                       end as name_en
+                from booking_items bi
                 left join services s on s.id = bi.service_id
+                left join service_options o on o.id = bi.option_id
                 where bi.tenant_id = :t and bi.booking_id in (:ids) and bi.addon_id is null order by bi.position
                 """, p, rs -> {
             UUID id = rs.getObject("booking_id", UUID.class);

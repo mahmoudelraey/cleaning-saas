@@ -1,0 +1,16 @@
+<div class="map" role="list" [attr.aria-label]="'analytics.regionMap' | translate">
+  @for (r of tiles(); track r.code) {
+    <button type="button" class="tile" role="listitem" [style.grid-area]="r.code" [style.background]="r.bg" [style.color]="r.fg"
+            [class.selected]="r.regionId === selected()" [attr.title]="r.title" [attr.aria-label]="r.title" (click)="pick.emit(r.regionId)">
+      <span class="name" [attr.dir]="en() ? 'ltr' : 'rtl'">{{ r.name }}</span>
+      <span class="val">{{ r.text }}</span>
+    </button>
+  }
+</div>
+<div class="scale">
+  <span>{{ 'analytics.fewer' | translate }}</span>
+  @for (a of [0.08, 0.3, 0.55, 0.8, 1]; track a) {
+    <span class="sw" [style.background]="'rgba(13, 148, 136, ' + a + ')'"></span>
+  }
+  <span>{{ 'analytics.more' | translate }}</span>
+</div>

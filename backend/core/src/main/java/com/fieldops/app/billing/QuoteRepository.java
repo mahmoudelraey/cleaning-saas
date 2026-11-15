@@ -19,4 +19,7 @@ public interface QuoteRepository extends JpaRepository<Quote, UUID> {
     Page<Quote> findByStatusOrderByCreatedAtDesc(Quote.Status status, Pageable pageable);
 
     Page<Quote> findByCustomerIdOrderByCreatedAtDesc(UUID customerId, Pageable pageable);
+
+    /** The latest quote the customer accepted for a booking. */
+    Optional<Quote> findFirstByBookingIdAndStatusOrderByRespondedAtDesc(UUID bookingId, Quote.Status status);
 }

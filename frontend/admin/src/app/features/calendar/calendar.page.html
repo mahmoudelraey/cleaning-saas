@@ -1,0 +1,69 @@
+<div class="page-header">
+  <div>
+    <h1>{{ 'calendar.title' | translate }}</h1>
+    <p>{{ 'calendar.subtitle' | translate }}</p>
+  </div>
+  <a routerLink="/bookings/new"><p-button icon="pi pi-plus" [label]="'bookings.new' | translate" /></a>
+</div>
+
+<div class="toolbar">
+  <p-button icon="pi pi-chevron-right rtl-flip" [text]="true" [rounded]="true" (onClick)="shift(-1)" />
+  <p-button [label]="'calendar.today' | translate" [outlined]="true" size="small" (onClick)="goToday()" />
+  <p-button icon="pi pi-chevron-left rtl-flip" [text]="true" [rounded]="true" (onClick)="shift(1)" />
+  <span class="title">
+    @if (view() === 'day') {
+      {{ anchor() | ldate: 'fullDate' }}
+    } @else {
+      {{ weekStart() | ldate: 'dayMonth' }} – {{ weekEnd() | ldate: 'dayMonthYear' }}
+    }
+  </span>
+  <p-datepicker [ngModel]="anchor()" (ngModelChange)="setAnchor($event)" [showIcon]="true" [readonlyInput]="true" dateFormat="yy-mm-dd" styleClass="cal-picker" />
+  <span class="spacer"></span>
+  <p-selectbutton [options]="viewOptions()" [ngModel]="view()" (ngModelChange)="setView($event)" optionLabel="label" optionValue="value" [allowEmpty]="false" />
+</div>
+
+<div class="grid" [style.grid-template-columns]="gridTemplate()">
+  <div class="hours">
+    <div class="head"></div>
+    @for (h of hours(); track h) {
+      <div class="hour-label">{{ hourLabel(h) }}</div>
+    }
+  </div>
+  @for (col of columns(); track col.key) {
+    <div class="col">
+      <div class="head">
+        {{ col.title }} @if (col.subtitle) { <small>{{ col.subtitle }}</small> }
+      </div>
+      <div style="position: relative">
+        @for (h of hours(); track h) { <div class="slot"></div> }
+        @if (nowTop() !== null && isTodayColumn(col.key)) {
+          <div class="now" [style.top.px]="nowTop()"></div>
+        }
+        @for (bl of col.blocks; track bl.booking.id) {
+          <a
+            class="block"
+            [class.cancelled]="bl.booking.status === 'CANCELLED' || bl.booking.status === 'NO_SHOW'"
+            [routerLink]="['/bookings', bl.booking.id]"
+            [style.top.px]="bl.top"
+            [style.height.px]="bl.height"
+            [style.inset-inline-start.%]="bl.left"
+            [style.width.%]="bl.width"
+            [style.background]="bl.color"
+            [title]="bl.booking.customerName"
+          >
+            <strong>#{{ bl.booking.number }} · {{ bl.booking.customerName }}</strong>
+            <span class="t">{{ bl.booking.start | ltimeRange: bl.booking.end }}</span>
+            @if (bl.height > 50 && bl.booking.addressText) { <div>{{ bl.booking.addressText }}</div> }
+          </a>
+        }
+      </div>
+    </div>
+  }
+</div>
+
+<div class="legend">
+  <span><span class="color-dot" [style.background]="statusColor.NEW"></span>{{ 'bookingStatus.NEW' | translate }}</span>
+  <span><span class="color-dot" [style.background]="statusColor.CONFIRMED"></span>{{ 'calendar.unassigned' | translate }}</span>
+  <span><span class="color-dot" [style.background]="statusColor.COMPLETED"></span>{{ 'bookingStatus.COMPLETED' | translate }}</span>
+  <span>{{ 'calendar.legendTech' | translate }}</span>
+</div>

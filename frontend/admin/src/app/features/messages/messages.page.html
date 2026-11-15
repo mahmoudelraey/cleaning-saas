@@ -1,0 +1,75 @@
+@if (compact()) {
+  <div class="list">
+    @for (n of visible(); track n.id) {
+      <div class="msg">
+        <div class="txt">
+          <div class="top">
+            <strong>{{ 'templates.' + n.template | translate }}</strong>
+            <p-tag [value]="'notificationStatus.' + n.status | translate" [severity]="severity[$any(n.status)]" />
+          </div>
+          <time>{{ n.createdAt | ldate: 'medium' }}</time>
+          <div class="preview" dir="auto" [title]="n.body">{{ n.body }}</div>
+          @if (n.error && n.status === 'FAILED') { <div class="err">{{ n.error }}</div> }
+        </div>
+        <i class="ch" [class]="channelIcon(n.channel)" [title]="n.channel ? ('channels.' + n.channel | translate) : ''"></i>
+      </div>
+    } @empty {
+      <div class="compact-empty">
+        @if (loading()) { <i class="pi pi-spin pi-spinner"></i> } @else { <i class="pi pi-comments"></i>{{ 'messages.empty' | translate }} }
+      </div>
+    }
+    @if (rows().length > compactLimit) {
+      <button type="button" class="more" (click)="expanded.set(!expanded())">
+        {{ (expanded() ? 'messages.showLess' : 'messages.showAll') | translate: { n: rows().length } }}
+      </button>
+    }
+  </div>
+} @else {
+@if (!bookingId()) {
+  <div class="page-header">
+    <div>
+      <h1>{{ 'messages.title' | translate }}</h1>
+      <p>{{ 'messages.subtitle' | translate }}</p>
+    </div>
+  </div>
+}
+<div [class.panel-flush]="!bookingId()">
+  <p-table
+    [value]="rows()"
+    [lazy]="true"
+    (onLazyLoad)="load($event)"
+    [paginator]="!bookingId()"
+    [rows]="30"
+    [totalRecords]="total()"
+    [loading]="loading()"
+    dataKey="id"
+  >
+    <ng-template #header>
+      <tr>
+        <th>{{ 'messages.when' | translate }}</th>
+        <th>{{ 'messages.message' | translate }}</th>
+        @if (!bookingId()) { <th>{{ 'messages.to' | translate }}</th> }
+        <th>{{ 'messages.channel' | translate }}</th>
+        <th>{{ 'common.status' | translate }}</th>
+      </tr>
+    </ng-template>
+    <ng-template #body let-n>
+      <tr>
+        <td class="muted">{{ n.createdAt | ldate: 'short' }}</td>
+        <td class="body">
+          <strong>{{ 'templates.' + n.template | translate }}</strong>
+          <div class="muted" dir="auto">{{ n.body }}</div>
+          @if (n.error && n.status === 'FAILED') { <div class="err">{{ n.error }}</div> }
+          @if (!bookingId() && n.bookingId) { <a [routerLink]="['/bookings', n.bookingId]">{{ 'messages.openBooking' | translate }}</a> }
+        </td>
+        @if (!bookingId()) { <td><span class="ltr">{{ n.toPhone | phone }}</span></td> }
+        <td>{{ n.channel ? ('channels.' + n.channel | translate) : '—' }}</td>
+        <td><p-tag [value]="'notificationStatus.' + n.status | translate" [severity]="severity[$any(n.status)]" /></td>
+      </tr>
+    </ng-template>
+    <ng-template #emptymessage>
+      <tr><td colspan="5"><div class="empty"><i class="pi pi-comments"></i>{{ 'messages.empty' | translate }}</div></td></tr>
+    </ng-template>
+  </p-table>
+</div>
+}

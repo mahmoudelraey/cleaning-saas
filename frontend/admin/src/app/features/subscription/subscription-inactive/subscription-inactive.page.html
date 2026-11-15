@@ -1,0 +1,23 @@
+<div class="panel card">
+  <i class="pi pi-lock icon"></i>
+  <h1>{{ 'subscription.title' | translate }}</h1>
+  <p class="muted">{{ 'subscription.body' | translate: { company: tenants.tenant()?.name ?? '' } }}</p>
+
+  @if (tenants.tenant(); as t) {
+    <dl>
+      <dt>{{ 'subscription.status' | translate }}</dt>
+      <dd><p-tag severity="warn" [value]="'settings.status.' + t.status | translate" /></dd>
+      @if (t.trialEndsAt) {
+        <dt>{{ 'subscription.endedAt' | translate }}</dt>
+        <dd>{{ t.trialEndsAt | ldate: 'medium' }}</dd>
+      }
+    </dl>
+  }
+
+  <p>{{ 'subscription.next' | translate }}</p>
+
+  <div class="actions">
+    <p-button icon="pi pi-refresh" [label]="'subscription.retry' | translate" [outlined]="true" (onClick)="retry()" />
+    <p-button icon="pi pi-sign-out" [label]="'subscription.logout' | translate" severity="secondary" [text]="true" (onClick)="auth.logout()" />
+  </div>
+</div>

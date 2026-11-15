@@ -1,0 +1,35 @@
+:host { display: block; }
+.paper { position: relative; background: var(--white); color: var(--slate-17); border: 1px solid var(--fo-border); border-radius: 14px;
+  padding: 2rem; overflow: hidden; box-shadow: 0 1px 2px rgba(var(--slate-11-rgb), .04); }
+.head { display: flex; justify-content: space-between; gap: 1.5rem; align-items: flex-start; flex-wrap: wrap;
+  padding-bottom: 1.25rem; border-bottom: 2px solid var(--brand-26-4); }
+.seller { display: grid; gap: .2rem; min-width: 0; justify-items: start; }
+.seller img { max-height: 56px; max-width: 160px; object-fit: contain; margin-bottom: .5rem; }
+.seller strong { font-size: 1.15rem; }
+.small { font-size: .82rem; color: var(--gray-46); }
+.title { text-align: end; display: grid; gap: .25rem; justify-items: end; }
+.title h2 { margin: 0; color: var(--brand-26-4); font-size: 1.5rem; }
+.title .no { font-weight: 700; }
+.party { margin: 1.25rem 0; padding: .875rem 1rem; border: 1px solid var(--slate-91-3); border-radius: 10px; display: grid; gap: .2rem; justify-items: start; }
+.party .label { color: var(--brand-26-4); font-size: .8rem; font-weight: 600; }
+table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+th { background: var(--brand-97); text-align: start; font-weight: 600; padding: .55rem .5rem; border-bottom: 1px solid var(--brand-26-4); }
+td { padding: .55rem .5rem; border-bottom: 1px solid var(--slate-91-3); vertical-align: top; }
+.num { text-align: end; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.idx { color: var(--gray-65); width: 2rem; }
+.foot { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 320px); gap: 1.5rem; margin-top: 1.25rem; align-items: start; }
+@media (max-width: 640px) { .unit { display: none; } table { font-size: .85rem; } .foot { grid-template-columns: 1fr; } .paper { padding: 1.25rem; } .title { text-align: start; justify-items: start; } }
+.totals { display: grid; gap: .35rem; }
+.totals .row { display: flex; justify-content: space-between; gap: 1rem; }
+.totals .row span:first-child { color: var(--gray-46); }
+.totals .grand { border-top: 1.5px solid var(--slate-17); padding-top: .6rem; margin-top: .25rem; font-weight: 700; font-size: 1.1rem; }
+.totals .grand span:last-child { color: var(--brand-26-4); }
+.qr { margin-top: 1rem; display: flex; justify-content: flex-end; }
+.qr svg { width: 120px; height: 120px; }
+.notes h4 { margin: 0 0 .35rem; color: var(--brand-26-4); font-size: .85rem; }
+.notes p { margin: 0; white-space: pre-line; }
+.stamp { position: absolute; inset-inline-start: 50%; top: 45%; transform: translate(-50%, -50%) rotate(-28deg);
+  font-size: 4.5rem; font-weight: 800; opacity: .1; pointer-events: none; white-space: nowrap; letter-spacing: .05em; }
+:host-context([dir='rtl']) .stamp { transform: translate(50%, -50%) rotate(28deg); }
+.stamp.danger { color: var(--danger-51); }
+.stamp.success { color: var(--brand-26-4); }

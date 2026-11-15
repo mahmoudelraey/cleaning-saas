@@ -1,0 +1,60 @@
+@if (company() && hasContent()) {
+  <section class="band" aria-labelledby="h-about">
+    <div class="wrap">
+      <header class="sec-head">
+        <span class="kicker">{{ 'company.aboutUs' | translate }}</span>
+        <h2 id="h-about">{{ 'company.about' | translate: { name: store.name() } }}</h2>
+        @if (store.headline()) { <p>{{ store.headline() }}</p> }
+      </header>
+
+      <div class="about-grid">
+        <div class="panel">
+          <div class="panel-head">
+            <span class="p-ico"><i class="pi pi-book" aria-hidden="true"></i></span>
+            <h3>{{ 'about.story' | translate }}</h3>
+          </div>
+          @if (store.about()) {
+            <p class="story">{{ store.about() }}</p>
+          } @else {
+            <p class="story empty">{{ 'about.noStory' | translate: { name: store.name() } }}</p>
+          }
+          @if (promises().length) {
+            <div class="promises">
+              <h4>{{ 'about.expect' | translate }}</h4>
+              <ul>
+                @for (p of promises(); track p) {
+                  <li><i class="pi pi-check-circle" aria-hidden="true"></i><span>{{ p }}</span></li>
+                }
+              </ul>
+            </div>
+          }
+        </div>
+
+        <div class="side">
+          @if (facts().length) {
+            <dl class="facts">
+              @for (f of facts(); track f.label) {
+                <div class="fact">
+                  <i class="pi" [class]="f.icon" aria-hidden="true"></i>
+                  <dd class="tnum">{{ f.value }}</dd>
+                  <dt>{{ f.label }}</dt>
+                </div>
+              }
+            </dl>
+          }
+          @if (areas().length || store.hours()) {
+            <div class="panel where">
+              <h4>{{ 'about.where' | translate }}</h4>
+              @if (areas().length) {
+                <ul class="tags">@for (a of areas(); track a) { <li>{{ a }}</li> }</ul>
+              }
+              @if (store.hours()) {
+                <p class="hours"><i class="pi pi-clock" aria-hidden="true"></i>{{ store.hours() }}</p>
+              }
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+  </section>
+}

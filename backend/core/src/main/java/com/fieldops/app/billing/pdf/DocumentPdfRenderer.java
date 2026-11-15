@@ -27,25 +27,37 @@ import com.lowagie.text.pdf.ColumnText;
 import com.lowagie.text.pdf.PdfContentByte;
 import com.lowagie.text.pdf.PdfGState;
 import com.lowagie.text.pdf.PdfPCell;
+import com.lowagie.text.pdf.PdfPCellEvent;
 import com.lowagie.text.pdf.PdfPTable;
+import com.lowagie.text.pdf.PdfPTableEvent;
 import com.lowagie.text.pdf.PdfPageEventHelper;
 import com.lowagie.text.pdf.PdfTemplate;
 import com.lowagie.text.pdf.PdfWriter;
 
 /**
- * Renders an Arabic-first (RTL) A4 invoice or quote with OpenPDF. The IBM Plex Sans Arabic font is
- * embedded (OFL licence, see resources/fonts/OFL.txt) so the PDF looks the same everywhere; OpenPDF
- * shapes Arabic letters itself when the run direction is RTL. The ZATCA QR is drawn as vector squares.
+ * Renders an Arabic-first (RTL) A4 invoice or quote with OpenPDF, in the bilingual teal design: company on the right,
+ * the document title, number pill and dates on the left, a tinted "bill to" card, a table with a dark teal header,
+ * a totals card with the grand total highlighted, and a thank-you line over soft waves at the bottom.
+ *
+ * <p>The IBM Plex Sans Arabic font is embedded (OFL licence, see resources/fonts/OFL.txt) so the PDF looks the same
+ * everywhere; OpenPDF shapes Arabic letters itself when the run direction is RTL. Icons and the ZATCA QR are drawn
+ * as vector shapes (no image files, crisp at any zoom).
  *
  * <p>Thread-safe: fonts are created per document from cached bytes.
  */
 public class DocumentPdfRenderer {
 
-    private static final Color INK = new Color(0x1F, 0x29, 0x37);
+    private static final Color NAVY = new Color(0x16, 0x23, 0x3A);
+    private static final Color INK = new Color(0x2A, 0x33, 0x45);
     private static final Color MUTED = new Color(0x6B, 0x72, 0x80);
-    private static final Color ACCENT = new Color(0x0F, 0x76, 0x6E);
-    private static final Color RULE = new Color(0xE5, 0xE7, 0xEB);
-    private static final Color HEAD_BG = new Color(0xF0, 0xFD, 0xFA);
+    private static final Color TEAL = new Color(0x0B, 0x7A, 0x6A);
+    private static final Color TEAL_TEXT = new Color(0x0E, 0x8C, 0x78);
+    private static final Color TEAL_LINE = new Color(0x3A, 0x98, 0x8B);
+    private static final Color MINT = new Color(0xDF, 0xF4, 0xF0);
+    private static final Color MINT_SOFT = new Color(0xEC, 0xF8, 0xF5);
+    private static final Color BOX = new Color(0xF7, 0xF9, 0xFA);
+    private static final Color RULE = new Color(0xE1, 0xE7, 0xEC);
+    private static final Color EN_TEXT = new Color(0x34, 0x50, 0x8F);
 
     /** Left-to-right embedding … pop: keeps phone numbers, VAT numbers and amounts in visual order. */
     public static final char LRE = '‪';
@@ -58,6 +70,8 @@ public class DocumentPdfRenderer {
      */
     private static final int RIGHT = Element.ALIGN_LEFT;
     private static final int LEFT = Element.ALIGN_RIGHT;
+
+    private static final float RADIUS = 9f;
 
     private final byte[] regular;
     private final byte[] bold;
@@ -77,19 +91,21 @@ public class DocumentPdfRenderer {
                     BaseFont.createFont("IBMPlexSansArabic-Regular.ttf", BaseFont.IDENTITY_H, BaseFont.EMBEDDED, true, regular, null),
                     BaseFont.createFont("IBMPlexSansArabic-Bold.ttf", BaseFont.IDENTITY_H, BaseFont.EMBEDDED, true, bold, null));
             ByteArrayOutputStream out = new ByteArrayOutputStream();
-            Document doc = new Document(PageSize.A4, 36, 36, 36, 48);
+            // Large bottom margin: the thank-you line and the waves live there.
+            Document doc = new Document(PageSize.A4, 36, 36, 34, 118);
             PdfWriter writer = PdfWriter.getInstance(doc, out);
-            writer.setPageEvent(new Decorations(f, m.stamp(), m.footer()));
+            writer.setPageEvent(new Decorations(f, m.stamp()));
             doc.addTitle(m.titleEn() + " " + m.number());
             doc.addCreator("FieldOps");
             doc.open();
+            Icons icons = new Icons(writer.getDirectContent());
 
-            doc.add(header(m, f));
-            doc.add(spacer(10));
+            doc.add(header(m, f, icons));
+            doc.add(spacer(14));
             doc.add(parties(m, f));
-            doc.add(spacer(12));
+            doc.add(spacer(16));
             doc.add(lines(m, f));
-            doc.add(spacer(10));
+            doc.add(spacer(16));
             doc.add(summary(m, f, writer));
             doc.close();
             return out.toByteArray();
@@ -110,15 +126,15 @@ public class DocumentPdfRenderer {
         }
     }
 
-    private PdfPTable header(PdfModel m, Fonts f) throws IOException {
-        PdfPTable t = rtlTable(2, new float[] {55, 45});
+    private PdfPTable header(PdfModel m, Fonts f, Icons icons) throws IOException {
+        PdfPTable t = rtlTable(2, new float[] {56, 44});
 
-        // Right: company
+        // Right: company name, address and phone.
         PdfPTable company = rtlTable(1, new float[] {100});
         if (m.logo() != null) {
             try {
                 Image logo = Image.getInstance(m.logo());
-                logo.scaleToFit(120, 56);
+                logo.scaleToFit(110, 50);
                 PdfPCell c = new PdfPCell(logo, false);
                 plain(c);
                 c.setHorizontalAlignment(RIGHT);
@@ -128,110 +144,162 @@ public class DocumentPdfRenderer {
                 // A broken logo must never stop an invoice from being produced.
             }
         }
-        company.addCell(text(m.seller().name(), f.b(14, INK), RIGHT, 0));
+        company.addCell(text(m.seller().name(), f.b(20, NAVY), RIGHT, 6));
         for (PdfModel.Field d : m.seller().details()) {
-            company.addCell(text(d.label() + ": " + d.value(), f.r(8.5f, MUTED), RIGHT, 1));
+            Phrase p = new Phrase();
+            Image icon = d.label().contains("Address") ? icons.pin(TEAL_TEXT)
+                    : d.label().contains("Phone") ? icons.phone(TEAL_TEXT) : null;
+            if (icon != null) {
+                p.add(new Chunk(icon, 0, -1.5f, true));
+                p.add(new Chunk("  ", f.r(10, MUTED)));
+            }
+            p.add(new Chunk(d.label() + ": " + d.value(), f.r(10, MUTED)));
+            PdfPCell c = cell(p, RIGHT, 3);
+            company.addCell(c);
         }
-        PdfPCell left = new PdfPCell(company);
-        plain(left);
-        t.addCell(left);
-
-        // Left: document title and meta
-        PdfPTable meta = rtlTable(1, new float[] {100});
-        meta.addCell(text(m.titleAr(), f.b(17, ACCENT), LEFT, 0));
-        meta.addCell(text(m.titleEn(), f.r(9, MUTED), LEFT, 2));
-        meta.addCell(text("رقم / No.: " + ltr(m.number()), f.b(10, INK), LEFT, 2));
-        for (PdfModel.Field d : m.meta()) {
-            meta.addCell(text(d.label() + ": " + d.value(), f.r(9, INK), LEFT, 1));
-        }
-        PdfPCell right = new PdfPCell(meta);
+        PdfPCell right = new PdfPCell(company);
         plain(right);
         t.addCell(right);
+
+        // Left: document title, number pill and dates.
+        PdfPTable meta = rtlTable(1, new float[] {100});
+        meta.addCell(text(m.titleAr(), f.b(26, TEAL_TEXT), LEFT, 0));
+        // English title in the same teal bold as the Arabic; smaller when long ("Simplified Tax Invoice").
+        float enSize = m.titleEn().length() > 12 ? 18 : 24;
+        PdfPCell en = text(ltr(m.titleEn()), f.b(enSize, TEAL_TEXT), LEFT, 8);
+        meta.addCell(en);
+
+        String number = "رقم / No.: " + ltr(m.number());
+        Font numberFont = f.b(12, NAVY);
+        PdfPCell pill = text(number, numberFont, LEFT, 7);
+        pill.setPaddingTop(5);
+        pill.setPaddingLeft(14);
+        float pillWidth = numberFont.getBaseFont().getWidthPoint(number, 12) + 34;
+        pill.setCellEvent(new Pill(MINT, pillWidth));
+        meta.addCell(pill);
+        meta.addCell(text(" ", f.r(4, INK), LEFT, 0));
+
+        for (PdfModel.Field d : m.meta()) {
+            Phrase p = new Phrase();
+            p.add(new Chunk(d.label() + ": " + d.value(), f.r(10, INK)));
+            p.add(new Chunk("  ", f.r(10, INK)));
+            p.add(new Chunk(icons.calendar(TEAL_TEXT), 0, -1.5f, true));
+            meta.addCell(cell(p, LEFT, 3));
+        }
+        PdfPCell left = new PdfPCell(meta);
+        plain(left);
+        t.addCell(left);
 
         PdfPCell rule = new PdfPCell(new Phrase(" "));
         plain(rule);
         rule.setColspan(2);
-        rule.setFixedHeight(8);
+        rule.setFixedHeight(10);
         rule.setBorder(Rectangle.BOTTOM);
-        rule.setBorderColor(ACCENT);
-        rule.setBorderWidth(1.2f);
+        rule.setBorderColor(TEAL);
+        rule.setBorderWidth(1.6f);
         t.addCell(rule);
         return t;
     }
 
+    /** The customer in a tinted card on the right. */
     private PdfPTable parties(PdfModel m, Fonts f) {
-        PdfPTable t = rtlTable(1, new float[] {100});
+        PdfPTable t = rtlTable(2, new float[] {48, 52});
         PdfPTable box = rtlTable(1, new float[] {100});
-        box.addCell(text(m.customer().heading(), f.b(9, ACCENT), RIGHT, 2));
-        box.addCell(text(m.customer().name(), f.b(11, INK), RIGHT, 2));
+        box.addCell(text(m.customer().heading(), f.b(11, TEAL_TEXT), RIGHT, 3));
+        box.addCell(text(m.customer().name(), f.b(14, NAVY), RIGHT, 4));
         for (PdfModel.Field d : m.customer().details()) {
-            box.addCell(text(d.label() + ": " + d.value(), f.r(9, INK), RIGHT, 1));
+            box.addCell(text(d.label() + ": " + d.value(), f.r(10, INK), RIGHT, 2));
         }
         PdfPCell c = new PdfPCell(box);
-        c.setBorderColor(RULE);
-        c.setPadding(8);
-        c.setRunDirection(PdfWriter.RUN_DIRECTION_RTL);
+        plain(c);
+        c.setPadding(12);
+        c.setPaddingBottom(14);
+        c.setCellEvent(new RoundFill(MINT_SOFT, null, true, true));
         t.addCell(c);
+        PdfPCell empty = new PdfPCell(new Phrase(" "));
+        plain(empty);
+        t.addCell(empty);
         return t;
     }
 
     private PdfPTable lines(PdfModel m, Fonts f) {
-        PdfPTable t = rtlTable(5, new float[] {6, 48, 12, 17, 17});
+        PdfPTable t = rtlTable(5, new float[] {7, 45, 12, 18, 18});
         t.setHeaderRows(1);
-        for (String h : new String[] {"#", "الوصف\nDescription", "الكمية\nQty", "سعر الوحدة\nUnit price", "الإجمالي\nAmount"}) {
-            PdfPCell c = text(h, f.b(8.5f, INK), Element.ALIGN_CENTER, 5);
-            c.setPaddingTop(4);
-            c.setPaddingLeft(3);
-            c.setPaddingRight(3);
-            c.setBackgroundColor(HEAD_BG);
-            c.setBorder(Rectangle.BOTTOM);
-            c.setBorderColor(ACCENT);
+        t.setTableEvent(new LinesFrame());
+        String[] heads = {"#", "الوصف\nDescription", "الكمية\nQty", "سعر الوحدة\nUnit price", "الإجمالي\nAmount"};
+        for (int i = 0; i < heads.length; i++) {
+            PdfPCell c = text(heads[i], f.b(10, Color.WHITE), Element.ALIGN_CENTER, 8);
+            c.setPaddingTop(6);
+            c.setPaddingLeft(4);
+            c.setPaddingRight(4);
+            c.setVerticalAlignment(Element.ALIGN_MIDDLE);
+            separator(c, i < heads.length - 1, TEAL_LINE);
             t.addCell(c);
         }
         int i = 1;
+        int last = m.lines().size();
         for (PdfModel.Line l : m.lines()) {
-            t.addCell(row(ltr(String.valueOf(i++)), f.r(9, MUTED), Element.ALIGN_CENTER));
-            t.addCell(description(l, f));
-            t.addCell(row(ltr(l.quantity()), f.r(9.5f, INK), Element.ALIGN_CENTER));
-            t.addCell(row(ltr(l.unitPrice()), f.r(9.5f, INK), Element.ALIGN_CENTER));
-            t.addCell(row(ltr(l.total()), f.r(9.5f, INK), Element.ALIGN_CENTER));
+            boolean bottom = i < last;
+            t.addCell(row(ltr(String.valueOf(i++)), f.b(11, NAVY), Element.ALIGN_CENTER, bottom, true));
+            t.addCell(description(l, f, bottom));
+            t.addCell(row(ltr(l.quantity()), f.b(11, NAVY), Element.ALIGN_CENTER, bottom, true));
+            t.addCell(row(ltr(l.unitPrice()), f.b(11, NAVY), Element.ALIGN_CENTER, bottom, true));
+            t.addCell(row(ltr(l.total()), f.b(11, NAVY), Element.ALIGN_CENTER, bottom, false));
         }
         return t;
     }
 
+    /** Notes and QR on the right; the totals card on the left. */
     private PdfPTable summary(PdfModel m, Fonts f, PdfWriter writer) throws DocumentException {
-        PdfPTable t = rtlTable(2, new float[] {50, 50});
+        PdfPTable t = rtlTable(2, new float[] {44, 56});
         t.setKeepTogether(true);
 
-        // Right: notes
-        PdfPTable notes = rtlTable(1, new float[] {100});
+        PdfPTable side = rtlTable(1, new float[] {100});
         if (m.notes() != null && !m.notes().isBlank()) {
-            notes.addCell(text("ملاحظات / Notes", f.b(9, ACCENT), RIGHT, 2));
-            notes.addCell(text(m.notes(), f.r(9, INK), RIGHT, 2));
+            side.addCell(text("ملاحظات / Notes", f.b(10, TEAL_TEXT), RIGHT, 3));
+            side.addCell(text(m.notes(), f.r(9.5f, INK), RIGHT, 8));
         }
-        PdfPCell nc = new PdfPCell(notes);
-        plain(nc);
-        nc.setPaddingLeft(12);
-        t.addCell(nc);
-
-        // Left: totals then QR
-        PdfPTable totals = rtlTable(2, new float[] {58, 42});
-        for (PdfModel.Field fld : m.totals()) {
-            totals.addCell(totalCell(fld.label(), f.r(9, MUTED), RIGHT, false));
-            totals.addCell(totalCell(ltr(fld.value()), f.r(9.5f, INK), LEFT, false));
-        }
-        totals.addCell(totalCell(m.grandTotal().label(), f.b(10.5f, INK), RIGHT, true));
-        totals.addCell(totalCell(ltr(m.grandTotal().value()), f.b(11, ACCENT), LEFT, true));
-
         if (m.qrPayload() != null) {
-            PdfPCell qr = new PdfPCell(qrImage(writer, m.qrPayload(), 96), false);
+            PdfPCell qr = new PdfPCell(qrImage(writer, m.qrPayload(), 92), false);
             plain(qr);
-            qr.setColspan(2);
-            qr.setHorizontalAlignment(LEFT);
-            qr.setPaddingTop(10);
-            totals.addCell(qr);
+            qr.setHorizontalAlignment(RIGHT);
+            qr.setPaddingTop(4);
+            side.addCell(qr);
         }
-        PdfPCell tc = new PdfPCell(totals);
+        PdfPCell sc = new PdfPCell(side);
+        plain(sc);
+        sc.setPaddingLeft(16);
+        t.addCell(sc);
+
+        // Totals card: plain rows on a light background, then the grand total on mint.
+        PdfPTable rows = rtlTable(2, new float[] {62, 38});
+        int n = m.totals().size();
+        for (int i = 0; i < n; i++) {
+            PdfModel.Field fld = m.totals().get(i);
+            boolean line = i < n - 1;
+            rows.addCell(totalCell(fld.label(), f.r(10.5f, INK), RIGHT, line));
+            rows.addCell(totalCell(ltr(fld.value()), f.b(12, NAVY), LEFT, line));
+        }
+        PdfPTable grand = rtlTable(2, new float[] {58, 42});
+        grand.addCell(grandCell(m.grandTotal().label(), f.b(13, NAVY), RIGHT));
+        grand.addCell(grandCell(ltr(m.grandTotal().value()), f.b(17, TEAL), LEFT));
+
+        PdfPTable card = rtlTable(1, new float[] {100});
+        PdfPCell top = new PdfPCell(rows);
+        plain(top);
+        top.setPaddingTop(4);
+        top.setPaddingBottom(4);
+        top.setCellEvent(new RoundFill(BOX, null, true, false));
+        card.addCell(top);
+        PdfPCell bottom = new PdfPCell(grand);
+        plain(bottom);
+        bottom.setBorder(Rectangle.TOP);
+        bottom.setBorderColor(TEAL);
+        bottom.setBorderWidth(1.6f);
+        bottom.setCellEvent(new RoundFill(MINT, null, false, true));
+        card.addCell(bottom);
+
+        PdfPCell tc = new PdfPCell(card);
         plain(tc);
         t.addCell(tc);
         return t;
@@ -284,7 +352,11 @@ public class DocumentPdfRenderer {
     }
 
     private static PdfPCell text(String s, Font font, int align, float padBottom) {
-        PdfPCell c = new PdfPCell(new Phrase(s == null ? "" : s, font));
+        return cell(new Phrase(s == null ? "" : s, font), align, padBottom);
+    }
+
+    private static PdfPCell cell(Phrase p, int align, float padBottom) {
+        PdfPCell c = new PdfPCell(p);
         plain(c);
         c.setHorizontalAlignment(align);
         c.setPaddingBottom(padBottom);
@@ -292,40 +364,75 @@ public class DocumentPdfRenderer {
         return c;
     }
 
-    private static PdfPCell row(String s, Font font, int align) {
-        PdfPCell c = text(s, font, align, 6);
-        c.setPaddingTop(5);
-        c.setPaddingLeft(3);
-        c.setPaddingRight(3);
+    /** A body cell of the lines table: line under it (except the last row), divider to its left (except Amount). */
+    private static PdfPCell row(String s, Font font, int align, boolean bottom, boolean divider) {
+        PdfPCell c = text(s, font, align, 11);
+        c.setPaddingTop(9);
+        c.setPaddingLeft(6);
+        c.setPaddingRight(6);
         c.setVerticalAlignment(Element.ALIGN_MIDDLE);
-        c.setBorder(Rectangle.BOTTOM);
-        c.setBorderColor(RULE);
+        separator(c, divider, RULE);
+        if (bottom) {
+            c.setBorder(c.getBorder() | Rectangle.BOTTOM);
+            c.setBorderColorBottom(RULE);
+            c.setBorderWidthBottom(0.8f);
+        }
         return c;
     }
 
-    /** Arabic description, and under it the English one in smaller grey type (when there is one). */
-    private static PdfPCell description(PdfModel.Line l, Fonts f) {
-        PdfPCell c = row(l.description(), f.r(9.5f, INK), RIGHT);
+    /** A thin vertical line on the cell's left edge (between this column and the next one in reading order). */
+    private static void separator(PdfPCell c, boolean on, Color color) {
+        c.setUseVariableBorders(true);
+        if (on) {
+            c.setBorder(Rectangle.LEFT);
+            c.setBorderColorLeft(color);
+            c.setBorderWidthLeft(0.8f);
+        } else {
+            c.setBorder(Rectangle.NO_BORDER);
+        }
+    }
+
+    /** Arabic description, and under it the English one (when there is one). */
+    private static PdfPCell description(PdfModel.Line l, Fonts f, boolean bottom) {
+        PdfPCell c = row(l.description(), f.r(11.5f, NAVY), RIGHT, bottom, true);
+        c.setPaddingRight(14);
         String en = l.descriptionEn();
         if (en != null && !en.isBlank() && !en.equals(l.description())) {
             Phrase p = new Phrase();
-            p.add(new Chunk(l.description(), f.r(9.5f, INK)));
+            p.add(new Chunk(l.description(), f.r(11.5f, NAVY)));
             p.add(Chunk.NEWLINE);
-            p.add(new Chunk(ltr(en), f.r(8, MUTED)));
+            p.add(new Chunk(ltr(en), f.r(9.5f, EN_TEXT)));
             c.setPhrase(p);
         }
         return c;
     }
 
-    private static PdfPCell totalCell(String s, Font font, int align, boolean grand) {
-        PdfPCell c = text(s, font, align, 5);
-        c.setPaddingTop(4);
-        if (grand) {
-            c.setBorder(Rectangle.TOP);
-            c.setBorderColor(INK);
-            c.setBorderWidth(1f);
-            c.setPaddingTop(6);
+    private static PdfPCell totalCell(String s, Font font, int align, boolean line) {
+        PdfPCell c = text(s, font, align, 8);
+        c.setPaddingTop(6);
+        if (align == RIGHT) {
+            c.setPaddingRight(14);
+        } else {
+            c.setPaddingLeft(14);
         }
+        c.setVerticalAlignment(Element.ALIGN_MIDDLE);
+        if (line) {
+            c.setBorder(Rectangle.BOTTOM);
+            c.setBorderColor(RULE);
+            c.setBorderWidth(0.8f);
+        }
+        return c;
+    }
+
+    private static PdfPCell grandCell(String s, Font font, int align) {
+        PdfPCell c = text(s, font, align, 11);
+        c.setPaddingTop(9);
+        if (align == RIGHT) {
+            c.setPaddingRight(14);
+        } else {
+            c.setPaddingLeft(14);
+        }
+        c.setVerticalAlignment(Element.ALIGN_MIDDLE);
         return c;
     }
 
@@ -356,45 +463,257 @@ public class DocumentPdfRenderer {
         }
     }
 
-    /** Footer (page x) and a diagonal "VOID"/"PAID" stamp. */
+    // --------------------------------------------------------------------------------- shapes
+
+    /** Rounded background and/or outline behind a cell; either end can be left square to join the next cell. */
+    private record RoundFill(Color fill, Color stroke, boolean roundTop, boolean roundBottom) implements PdfPCellEvent {
+        @Override
+        public void cellLayout(PdfPCell cell, Rectangle r, PdfContentByte[] canvases) {
+            float x = r.getLeft();
+            float y = r.getBottom();
+            float w = r.getWidth();
+            float h = r.getHeight();
+            if (fill != null) {
+                PdfContentByte cb = canvases[PdfPTable.BACKGROUNDCANVAS];
+                cb.saveState();
+                cb.setColorFill(fill);
+                cb.roundRectangle(x, y, w, h, RADIUS);
+                if (!roundTop) {
+                    cb.rectangle(x, y + h - RADIUS, w, RADIUS);
+                }
+                if (!roundBottom) {
+                    cb.rectangle(x, y, w, RADIUS);
+                }
+                cb.fill();
+                cb.restoreState();
+            }
+            if (stroke != null) {
+                PdfContentByte cb = canvases[PdfPTable.LINECANVAS];
+                cb.saveState();
+                cb.setColorStroke(stroke);
+                cb.setLineWidth(0.8f);
+                cb.roundRectangle(x, y, w, h, RADIUS);
+                cb.stroke();
+                cb.restoreState();
+            }
+        }
+    }
+
+    /** The number pill: a rounded tint only as wide as its text, at the cell's left edge. */
+    private record Pill(Color fill, float width) implements PdfPCellEvent {
+        @Override
+        public void cellLayout(PdfPCell cell, Rectangle r, PdfContentByte[] canvases) {
+            PdfContentByte cb = canvases[PdfPTable.BACKGROUNDCANVAS];
+            cb.saveState();
+            cb.setColorFill(fill);
+            cb.roundRectangle(r.getLeft(), r.getBottom(), Math.min(width, r.getWidth()), r.getHeight(), 8);
+            cb.fill();
+            cb.restoreState();
+        }
+    }
+
+    /** Lines table: dark teal header with rounded top corners and a rounded outline around the whole table. */
+    private static final class LinesFrame implements PdfPTableEvent {
+        @Override
+        public void tableLayout(PdfPTable table, float[][] widths, float[] heights, int headerRows, int rowStart,
+                                PdfContentByte[] canvases) {
+            float x0 = widths[0][0];
+            float x1 = widths[0][widths[0].length - 1];
+            float top = heights[0];
+            float bottom = heights[heights.length - 1];
+            PdfContentByte bg = canvases[PdfPTable.BACKGROUNDCANVAS];
+            bg.saveState();
+            if (headerRows > 0 && heights.length > 1) {
+                float headBottom = heights[1];
+                bg.setColorFill(TEAL);
+                bg.roundRectangle(x0, headBottom, x1 - x0, top - headBottom, RADIUS);
+                bg.rectangle(x0, headBottom, x1 - x0, Math.min(RADIUS, top - headBottom));
+                bg.fill();
+            }
+            bg.restoreState();
+            PdfContentByte line = canvases[PdfPTable.LINECANVAS];
+            line.saveState();
+            line.setColorStroke(RULE);
+            line.setLineWidth(0.9f);
+            line.roundRectangle(x0, bottom, x1 - x0, top - bottom, RADIUS);
+            line.stroke();
+            line.restoreState();
+        }
+    }
+
+    /** Small vector icons (phone, map pin, calendar), 10pt square, drawn once per document. */
+    private static final class Icons {
+        private final PdfContentByte cb;
+
+        Icons(PdfContentByte cb) {
+            this.cb = cb;
+        }
+
+        Image phone(Color c) {
+            PdfTemplate t = cb.createTemplate(10, 10);
+            t.setColorFill(c);
+            t.setColorStroke(c);
+            // Earpiece and mouthpiece joined by the curve of the handset.
+            t.roundRectangle(0.4f, 6.6f, 3.2f, 3.0f, 0.9f);
+            t.roundRectangle(6.6f, 0.4f, 3.0f, 3.2f, 0.9f);
+            t.fill();
+            t.setLineWidth(2.1f);
+            t.arc(1.6f, 1.6f, 15.4f, 15.4f, 180, 90);
+            t.stroke();
+            return image(t);
+        }
+
+        Image pin(Color c) {
+            PdfTemplate t = cb.createTemplate(10, 10);
+            t.setColorFill(c);
+            t.circle(5, 6.4f, 3.5f);
+            t.fill();
+            t.moveTo(1.9f, 5.2f);
+            t.lineTo(8.1f, 5.2f);
+            t.lineTo(5, 0.2f);
+            t.closePath();
+            t.fill();
+            t.setColorFill(Color.WHITE);
+            t.circle(5, 6.4f, 1.4f);
+            t.fill();
+            return image(t);
+        }
+
+        Image calendar(Color c) {
+            PdfTemplate t = cb.createTemplate(10, 10);
+            t.setColorStroke(c);
+            t.setColorFill(c);
+            t.setLineWidth(0.9f);
+            t.roundRectangle(0.8f, 0.6f, 8.4f, 8.0f, 1.2f);
+            t.stroke();
+            t.rectangle(0.8f, 6.2f, 8.4f, 2.4f);
+            t.fill();
+            t.rectangle(2.6f, 8.2f, 1.0f, 1.6f);
+            t.rectangle(6.4f, 8.2f, 1.0f, 1.6f);
+            for (int row = 0; row < 2; row++) {
+                for (int col = 0; col < 3; col++) {
+                    t.rectangle(2.1f + col * 2.3f, 1.9f + row * 2.0f, 1.2f, 1.1f);
+                }
+            }
+            t.fill();
+            return image(t);
+        }
+
+        private static Image image(PdfTemplate t) {
+            try {
+                return Image.getInstance(t);
+            } catch (DocumentException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+    }
+
+    /** Waves, leaves and the thank-you line at the bottom of every page, and the diagonal status stamp. */
     private static final class Decorations extends PdfPageEventHelper {
         private final Fonts f;
         private final String stamp;
-        private final String footer;
 
-        Decorations(Fonts f, String stamp, String footer) {
+        Decorations(Fonts f, String stamp) {
             this.f = f;
             this.stamp = stamp;
-            this.footer = footer;
         }
 
         @Override
         public void onEndPage(PdfWriter writer, Document document) {
-            PdfContentByte cb = writer.getDirectContent();
             Rectangle page = document.getPageSize();
-            String text = (footer == null ? "" : footer + "   ·   ") + ltr(String.valueOf(writer.getPageNumber()));
-            ColumnText.showTextAligned(cb, Element.ALIGN_CENTER, new Phrase(text, f.r(7.5f, MUTED)),
-                    page.getWidth() / 2, 24, 0, PdfWriter.RUN_DIRECTION_RTL, 0);
+            float w = page.getWidth();
+            PdfContentByte under = writer.getDirectContentUnder();
+            leaves(under, w);
+            waves(under, w);
+
+            PdfContentByte cb = writer.getDirectContent();
+            String thanks = "شكرًا لاختياركم خدماتنا";
+            Font big = f.b(15, NAVY);
+            float tw = big.getBaseFont().getWidthPoint(thanks, 15);
+            float cx = w / 2;
+            float y = 76;
+            ColumnText.showTextAligned(cb, Element.ALIGN_CENTER, new Phrase(thanks, big), cx, y, 0,
+                    PdfWriter.RUN_DIRECTION_RTL, 0);
+            cb.saveState();
+            cb.setColorStroke(TEAL);
+            cb.setLineWidth(1f);
+            float gap = tw / 2 + 14;
+            cb.moveTo(cx - gap, y + 5);
+            cb.lineTo(cx - gap - 120, y + 5);
+            cb.moveTo(cx + gap, y + 5);
+            cb.lineTo(cx + gap + 120, y + 5);
+            cb.stroke();
+            cb.restoreState();
+            ColumnText.showTextAligned(cb, Element.ALIGN_CENTER, new Phrase("Thank you for your business",
+                    f.r(10.5f, INK)), cx, y - 18, 0, PdfWriter.RUN_DIRECTION_NO_BIDI, 0);
+            if (writer.getPageNumber() > 1) {
+                ColumnText.showTextAligned(cb, Element.ALIGN_LEFT, new Phrase(ltr(String.valueOf(writer.getPageNumber())),
+                        f.r(8, Color.WHITE)), 36, 12, 0, PdfWriter.RUN_DIRECTION_NO_BIDI, 0);
+            }
 
             if (stamp != null) {
                 cb.saveState();
                 PdfGState gs = new PdfGState();
                 gs.setFillOpacity(0.12f);
                 cb.setGState(gs);
-                Color color = stamp.contains("VOID") ? Color.RED : ACCENT;
+                Color color = stamp.contains("VOID") || stamp.contains("REJECTED") ? Color.RED : TEAL;
                 // One line per language: OpenPDF drops part of a rotated mixed-direction line.
                 String[] parts = stamp.split("\\|");
-                float cx = page.getWidth() / 2;
-                float cy = page.getHeight() / 2;
+                float scx = page.getWidth() / 2;
+                float scy = page.getHeight() / 2;
                 for (int i = 0; i < parts.length; i++) {
                     double offset = (i - (parts.length - 1) / 2.0) * 82;
-                    float x = (float) (cx + offset * Math.sin(Math.toRadians(35)));
-                    float y = (float) (cy - offset * Math.cos(Math.toRadians(35)));
+                    float x = (float) (scx + offset * Math.sin(Math.toRadians(35)));
+                    float sy = (float) (scy - offset * Math.cos(Math.toRadians(35)));
                     ColumnText.showTextAligned(cb, Element.ALIGN_CENTER, new Phrase(parts[i].trim(), f.b(60, color)),
-                            x, y, 35, PdfWriter.RUN_DIRECTION_RTL, 0);
+                            x, sy, 35, PdfWriter.RUN_DIRECTION_RTL, 0);
                 }
                 cb.restoreState();
             }
+        }
+
+        /** Three layered teal waves along the bottom edge. */
+        private static void waves(PdfContentByte cb, float w) {
+            wave(cb, w, new Color(0x9F, 0xDD, 0xD2), 0.55f, 46, 18, 58);
+            wave(cb, w, new Color(0x4F, 0xBF, 0xAE), 0.75f, 30, 40, 12);
+            wave(cb, w, TEAL, 0.9f, 16, 6, 30);
+        }
+
+        private static void wave(PdfContentByte cb, float w, Color c, float opacity, float left, float mid, float right) {
+            cb.saveState();
+            PdfGState gs = new PdfGState();
+            gs.setFillOpacity(opacity);
+            cb.setGState(gs);
+            cb.setColorFill(c);
+            cb.moveTo(0, 0);
+            cb.lineTo(0, left);
+            cb.curveTo(w * 0.3f, left + 14, w * 0.45f, mid - 10, w * 0.62f, mid);
+            cb.curveTo(w * 0.8f, mid + 8, w * 0.92f, right - 6, w, right);
+            cb.lineTo(w, 0);
+            cb.closePath();
+            cb.fill();
+            cb.restoreState();
+        }
+
+        /** Soft translucent leaves in the bottom-right corner. */
+        private static void leaves(PdfContentByte cb, float w) {
+            cb.saveState();
+            PdfGState gs = new PdfGState();
+            gs.setFillOpacity(0.35f);
+            cb.setGState(gs);
+            cb.setColorFill(MINT_SOFT);
+            leaf(cb, w - 70, 30, w - 20, 240, 60);
+            leaf(cb, w - 150, 30, w - 95, 210, 52);
+            leaf(cb, w - 40, 30, w + 40, 170, 46);
+            cb.restoreState();
+        }
+
+        private static void leaf(PdfContentByte cb, float bx, float by, float tx, float ty, float bulge) {
+            cb.moveTo(bx, by);
+            cb.curveTo(bx - bulge, by + (ty - by) * 0.45f, tx - bulge * 0.6f, ty - 20, tx, ty);
+            cb.curveTo(tx + bulge * 0.4f, ty - (ty - by) * 0.4f, bx + bulge * 0.6f, by + 30, bx, by);
+            cb.closePath();
+            cb.fill();
         }
     }
 }

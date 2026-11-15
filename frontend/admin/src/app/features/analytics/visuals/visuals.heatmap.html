@@ -1,0 +1,23 @@
+<div class="wrap">
+  <div class="grid" [style.grid-template-columns]="'auto repeat(' + hours().length + ', minmax(18px, 1fr))'" role="grid" [attr.aria-label]="'analytics.heatmap' | translate">
+    <span></span>
+    @for (h of hours(); track h) {
+      <span class="hour">{{ h % 3 === 0 ? hourLabel(h) : '' }}</span>
+    }
+    @for (d of days; track d) {
+      <span class="day">{{ 'analytics.dow.' + d | translate }}</span>
+      @for (h of hours(); track h) {
+        @let v = value(d, h);
+        <button type="button" class="cell" [class.zero]="!v" [style.background]="color(v)" [attr.title]="tip(d, h, v)" [attr.aria-label]="tip(d, h, v)"
+                (click)="v && pick.emit({ dow: d, hour: h })"></button>
+      }
+    }
+  </div>
+</div>
+<div class="scale">
+  <span>{{ 'analytics.fewer' | translate }}</span>
+  @for (a of [0.12, 0.35, 0.6, 0.85, 1]; track a) {
+    <span class="sw" [style.background]="'rgba(13, 148, 136, ' + a + ')'"></span>
+  }
+  <span>{{ 'analytics.more' | translate }}</span>
+</div>

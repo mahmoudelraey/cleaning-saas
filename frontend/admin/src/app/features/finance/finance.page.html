@@ -1,0 +1,211 @@
+<div class="page-header">
+  <div>
+    <h1>{{ 'finance.title' | translate }}</h1>
+    <p>{{ 'finance.subtitle' | translate }}</p>
+  </div>
+  @if (tab() === 'expenses') {
+    <p-button icon="pi pi-plus" [label]="'finance.exp.new' | translate" (onClick)="openExpense(null)" />
+  }
+</div>
+
+@if (isOwner) {
+  <p-tabs class="tabs" [value]="tab()" (valueChange)="tab.set($any($event))">
+    <p-tablist>
+      <p-tab value="pnl"><i class="pi pi-chart-bar"></i> {{ 'finance.tab.pnl' | translate }}</p-tab>
+      <p-tab value="expenses"><i class="pi pi-receipt"></i> {{ 'finance.tab.expenses' | translate }}</p-tab>
+    </p-tablist>
+  </p-tabs>
+}
+
+@if (tab() === 'pnl' && isOwner) {
+  @let v = summary.value();
+  <div class="panel block" style="display: flex; justify-content: space-between; align-items: center; gap: .5rem; flex-wrap: wrap">
+    <span class="year">
+      <p-button [icon]="rtl() ? 'pi pi-chevron-right' : 'pi pi-chevron-left'" [text]="true" [rounded]="true" (onClick)="year.set(year() - 1)" [ariaLabel]="'finance.prevYear' | translate" />
+      <span class="ltr">{{ year() }}</span>
+      <p-button [icon]="rtl() ? 'pi pi-chevron-left' : 'pi pi-chevron-right'" [text]="true" [rounded]="true" (onClick)="year.set(year() + 1)" [disabled]="year() >= thisYear" [ariaLabel]="'finance.nextYear' | translate" />
+    </span>
+    <span class="muted">{{ 'finance.vsYear' | translate: { y: year() - 1 } }}</span>
+  </div>
+  @if (v.state === 'error') {
+    <div class="panel"><app-state kind="error" [message]="v.error" (retry)="summary.reload()" /></div>
+  } @else if (!v.data) {
+    <div class="panel"><app-state kind="loading" /></div>
+  } @else {
+    @let d = v.data;
+    <div class="kpis" [style.opacity]="v.state === 'loading' ? .6 : 1">
+      <app-kpi icon="pi pi-wallet" [label]="'analytics.kpi.revenue' | translate" [value]="money(d.totals.revenueHalalas)" [delta]="g(d.totals.revenueHalalas, d.previousTotals.revenueHalalas)" [hint]="'finance.excludingVat' | translate" />
+      <app-kpi icon="pi pi-arrow-circle-up" [label]="'analytics.kpi.expenses' | translate" [value]="money(d.totals.totalCostHalalas)" [delta]="g(d.totals.totalCostHalalas, d.previousTotals.totalCostHalalas)" [invert]="true"
+               [hint]="'finance.costSplit' | translate: { s: money(d.totals.salaryCostHalalas), e: money(d.totals.expensesHalalas) }" />
+      <app-kpi icon="pi pi-chart-line" [label]="'analytics.kpi.netProfit' | translate" [value]="money(d.totals.netProfitHalalas)" [negative]="d.totals.netProfitHalalas < 0"
+               [delta]="g(d.totals.netProfitHalalas, d.previousTotals.netProfitHalalas)" [hint]="'analytics.kpi.margin' | translate: { m: pct(d.totals.profitMargin) }" />
+      <app-kpi icon="pi pi-money-bill" [label]="'analytics.kpi.collected' | translate" [value]="money(d.totals.collectedHalalas)" [delta]="g(d.totals.collectedHalalas, d.previousTotals.collectedHalalas)"
+               [hint]="'finance.outstanding' | translate: { v: money(d.outstandingHalalas) }" />
+      <app-kpi icon="pi pi-users" [label]="'finance.salariesPaid' | translate" [value]="money(d.salariesPaidHalalas)" [hint]="'finance.salariesDue' | translate: { v: money(d.salariesDueHalalas) }" />
+    </div>
+
+    <div class="grid">
+      <div class="panel">
+        <h2>{{ 'finance.monthly' | translate }}</h2>
+        <p class="sub">{{ 'finance.monthlyHint' | translate }}</p>
+        <p-chart type="bar" [data]="pnlChart()" [options]="pnlOptions()" height="320px" />
+      </div>
+      <div class="panel">
+        <h2>{{ 'finance.breakdown' | translate }}</h2>
+        <p class="sub">{{ 'finance.breakdownHint' | translate }}</p>
+        @if (d.totals.totalCostHalalas > 0) {
+          <p-chart type="doughnut" [data]="breakdownChart()" [options]="donutOptions()" height="320px" />
+        } @else {
+          <app-state kind="empty" [message]="'finance.noCosts' | translate" />
+        }
+      </div>
+    </div>
+
+    <div class="panel block">
+      <h2>{{ 'finance.profitTrend' | translate }}</h2>
+      <p class="sub">{{ 'finance.profitTrendHint' | translate }}</p>
+      <p-chart type="line" [data]="profitChart()" [options]="moneyOptions()" height="260px" />
+    </div>
+
+    <div class="panel block">
+      <h2>{{ 'finance.statement' | translate }}</h2>
+      <p class="sub">{{ 'finance.statementHint' | translate }}</p>
+      <div class="table-wrap">
+        <table class="pnl">
+          <thead>
+            <tr>
+              <th>{{ 'finance.month' | translate }}</th>
+              <th class="num">{{ 'analytics.kpi.revenue' | translate }}</th>
+              <th class="num">{{ 'finance.salaries' | translate }}</th>
+              <th class="num">{{ 'finance.otherExpenses' | translate }}</th>
+              <th class="num">{{ 'analytics.kpi.netProfit' | translate }}</th>
+              <th class="num">{{ 'analytics.margin' | translate }}</th>
+              <th class="num">{{ 'finance.profitLastYear' | translate }}</th>
+              <th class="num">{{ 'analytics.kpi.collected' | translate }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (m of d.months; track m.month; let i = $index) {
+              @let pm = d.previousMonths[i];
+              <tr>
+                <td>{{ mn(m.month) }}</td>
+                <td class="num"><span class="ltr">{{ money(m.revenueHalalas) }}</span></td>
+                <td class="num"><span class="ltr">{{ money(m.salaryCostHalalas) }}</span></td>
+                <td class="num"><span class="ltr">{{ money(m.expensesHalalas) }}</span></td>
+                <td class="num" [class.up]="m.netProfitHalalas > 0" [class.down]="m.netProfitHalalas < 0"><span class="ltr">{{ money(m.netProfitHalalas) }}</span></td>
+                <td class="num">{{ m.revenueHalalas ? pct(m.netProfitHalalas / m.revenueHalalas) : '—' }}</td>
+                <td class="num muted"><span class="ltr">{{ money(pm.netProfitHalalas) }}</span></td>
+                <td class="num"><span class="ltr">{{ money(m.collectedHalalas) }}</span></td>
+              </tr>
+            }
+          </tbody>
+          <tfoot>
+            <tr>
+              <td>{{ 'finance.total' | translate }}</td>
+              <td class="num"><span class="ltr">{{ money(d.totals.revenueHalalas) }}</span></td>
+              <td class="num"><span class="ltr">{{ money(d.totals.salaryCostHalalas) }}</span></td>
+              <td class="num"><span class="ltr">{{ money(d.totals.expensesHalalas) }}</span></td>
+              <td class="num" [class.up]="d.totals.netProfitHalalas > 0" [class.down]="d.totals.netProfitHalalas < 0"><span class="ltr">{{ money(d.totals.netProfitHalalas) }}</span></td>
+              <td class="num">{{ pct(d.totals.profitMargin) }}</td>
+              <td class="num muted"><span class="ltr">{{ money(d.previousTotals.netProfitHalalas) }}</span></td>
+              <td class="num"><span class="ltr">{{ money(d.totals.collectedHalalas) }}</span></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  }
+} @else {
+  <div class="panel-flush">
+    <div class="filters">
+      <p-datepicker [(ngModel)]="expRange" (ngModelChange)="onExpRange()" selectionMode="range" [readonlyInput]="true" [showIcon]="true" dateFormat="yy-mm-dd"
+                    [ariaLabel]="'analytics.period' | translate" appendTo="body" />
+      <p-select [options]="categoryOptions()" [ngModel]="expCategory()" (ngModelChange)="expCategory.set($event); loadExpenses(0)" optionLabel="label" optionValue="value"
+                [showClear]="true" [placeholder]="'finance.exp.allCategories' | translate" appendTo="body" />
+      @if (expenses(); as e) {
+        <span class="total">{{ 'finance.exp.total' | translate }}: <strong class="ltr">{{ e.totalCostHalalas | sar }}</strong> · {{ 'finance.exp.count' | translate: { n: e.total } }}</span>
+      }
+    </div>
+    <p-table [value]="expenses()?.items ?? []" [lazy]="true" (onLazyLoad)="onExpLazy($event)" [paginator]="true" [rows]="pageSize" [first]="expFirst()"
+             [totalRecords]="expenses()?.total ?? 0" [loading]="expLoading()" dataKey="id" [rowHover]="true">
+      <ng-template #header>
+        <tr>
+          <th>{{ 'finance.exp.date' | translate }}</th>
+          <th>{{ 'finance.exp.category' | translate }}</th>
+          <th>{{ 'finance.exp.description' | translate }}</th>
+          <th style="text-align: end">{{ 'finance.exp.amount' | translate }}</th>
+          <th style="text-align: end">{{ 'finance.exp.vat' | translate }}</th>
+          <th></th>
+        </tr>
+      </ng-template>
+      <ng-template #body let-x>
+        <tr>
+          <td>{{ x.spentOn | ldate: 'mediumDate' }}</td>
+          <td><p-tag [value]="'expenseCategory.' + x.category | translate" severity="secondary" /></td>
+          <td>
+            {{ x.description }}
+            @if (x.vendor || x.serviceId) {
+              <div><small class="muted">{{ x.vendor }}@if (x.vendor && x.serviceId) { · }@if (x.serviceId) {<i class="pi pi-tag" style="font-size: .7rem"></i> {{ svcName(x.serviceId) }}}</small></div>
+            }
+          </td>
+          <td style="text-align: end"><span class="ltr">{{ x.amountHalalas | sar }}</span></td>
+          <td style="text-align: end" class="muted"><span class="ltr">{{ x.vatHalalas | sar }}</span></td>
+          <td class="row-actions">
+            <p-button icon="pi pi-pencil" [text]="true" severity="secondary" (onClick)="openExpense(x)" [ariaLabel]="'common.edit' | translate" />
+            <p-button icon="pi pi-trash" [text]="true" severity="danger" (onClick)="deleteExpense(x)" [ariaLabel]="'common.delete' | translate" />
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template #emptymessage>
+        <tr><td colspan="6"><div class="empty"><i class="pi pi-receipt"></i>{{ 'finance.exp.empty' | translate }}</div></td></tr>
+      </ng-template>
+    </p-table>
+  </div>
+}
+
+<p-dialog [header]="(editing() ? 'finance.exp.edit' : 'finance.exp.new') | translate" [(visible)]="dialogOpen" [modal]="true"
+          [style]="{ width: '620px', maxWidth: '95vw' }" [draggable]="false">
+  <form [formGroup]="form" (ngSubmit)="saveExpense()" class="form-grid">
+    <div class="field">
+      <label for="e-cat">{{ 'finance.exp.category' | translate }}</label>
+      <p-select inputId="e-cat" formControlName="category" [options]="categoryOptions()" optionLabel="label" optionValue="value" appendTo="body" />
+    </div>
+    <div class="field">
+      <label for="e-date">{{ 'finance.exp.date' | translate }}</label>
+      <p-datepicker inputId="e-date" formControlName="spentOn" dateFormat="yy-mm-dd" [showIcon]="true" [maxDate]="today" appendTo="body" />
+    </div>
+    <div class="field full">
+      <label for="e-desc">{{ 'finance.exp.description' | translate }}</label>
+      <input pInputText id="e-desc" formControlName="description" maxlength="300" />
+    </div>
+    <div class="field">
+      <label for="e-amount">{{ 'finance.exp.amountIncl' | translate }}</label>
+      <p-inputnumber inputId="e-amount" formControlName="amount" mode="decimal" [minFractionDigits]="2" [maxFractionDigits]="2" [min]="0" suffix=" SAR" />
+    </div>
+    <div class="field">
+      <label for="e-vat">{{ 'finance.exp.vat' | translate }}</label>
+      <div class="vat">
+        <p-inputnumber inputId="e-vat" formControlName="vat" mode="decimal" [minFractionDigits]="2" [maxFractionDigits]="2" [min]="0" suffix=" SAR" />
+        <p-button size="small" [outlined]="true" label="15%" (onClick)="fillVat()" [pTooltip]="'finance.exp.vatHint' | translate" />
+      </div>
+    </div>
+    <div class="field">
+      <label for="e-vendor">{{ 'finance.exp.vendor' | translate }}</label>
+      <input pInputText id="e-vendor" formControlName="vendor" maxlength="150" />
+    </div>
+    <div class="field">
+      <label for="e-ref">{{ 'finance.exp.reference' | translate }}</label>
+      <input pInputText id="e-ref" formControlName="reference" maxlength="100" dir="ltr" />
+    </div>
+    <div class="field full">
+      <label for="e-svc">{{ 'finance.exp.service' | translate }}</label>
+      <p-select inputId="e-svc" formControlName="serviceId" [options]="serviceOptions()" optionLabel="label" optionValue="value" [showClear]="true"
+                [placeholder]="'finance.exp.serviceNone' | translate" appendTo="body" />
+      <small class="hint">{{ 'finance.exp.serviceHint' | translate }}</small>
+    </div>
+    <div class="dialog-actions full">
+      <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="dialogOpen.set(false)" />
+      <p-button type="submit" [label]="'common.save' | translate" [loading]="saving()" [disabled]="form.invalid" />
+    </div>
+  </form>
+</p-dialog>

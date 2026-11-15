@@ -1,0 +1,5 @@
+.filters p-multiselect, .filters p-datepicker { min-width: 220px; }
+.techs { display: flex; gap: .35rem; flex-wrap: wrap; }
+.tech { display: inline-flex; align-items: center; gap: .3rem; font-size: .85rem; }
+.num { font-variant-numeric: tabular-nums; color: var(--fo-muted); }
+.ref { font-size: .78rem; color: var(--fo-muted); font-variant-numeric: tabular-nums; margin-inline-start: .35rem; }

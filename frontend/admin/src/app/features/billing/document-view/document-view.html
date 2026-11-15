@@ -1,0 +1,87 @@
+@let d = doc();
+<article class="paper">
+  @if (d.stampKey) {
+    <div class="stamp" [class]="d.stampTone">{{ d.stampKey | translate }}</div>
+  }
+  <header class="head">
+    <div class="seller">
+      @if (d.seller.logoUrl) { <img [src]="d.seller.logoUrl" alt="" /> }
+      <strong>{{ d.seller.name }}</strong>
+      @if (d.seller.vatNumber) { <span class="small">{{ 'doc.vatNumber' | translate }}: <span class="ltr">{{ d.seller.vatNumber }}</span></span> }
+      @if (d.seller.cr) { <span class="small">{{ 'doc.cr' | translate }}: <span class="ltr">{{ d.seller.cr }}</span></span> }
+      @if (d.seller.address) { <span class="small">{{ d.seller.address }}</span> }
+      @if (d.seller.phone) { <span class="small ltr">{{ d.seller.phone | phone }}</span> }
+    </div>
+    <div class="title">
+      <h2>{{ d.titleKey | translate }}</h2>
+      <span class="no ltr">{{ d.number }}</span>
+      @for (dt of d.dates; track dt.labelKey) {
+        <span class="small">{{ dt.labelKey | translate }}: {{ dt.value | ldate: (dt.dateOnly ? 'dayMonthYear' : 'medium') }}</span>
+      }
+    </div>
+  </header>
+
+  <section class="party">
+    <span class="label">{{ 'doc.billTo' | translate }}</span>
+    <strong>{{ d.customer.name }}</strong>
+    <span class="small ltr">{{ d.customer.phone | phone }}</span>
+    @if (d.customer.vatNumber) { <span class="small">{{ 'doc.vatNumber' | translate }}: <span class="ltr">{{ d.customer.vatNumber }}</span></span> }
+  </section>
+
+  <table>
+    <thead>
+      <tr>
+        <th class="idx">#</th>
+        <th>{{ 'doc.description' | translate }}</th>
+        <th class="num">{{ 'doc.qty' | translate }}</th>
+        <th class="num unit">{{ 'doc.unitPrice' | translate }}</th>
+        <th class="num">{{ 'doc.amount' | translate }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (l of d.lines; track $index) {
+        <tr>
+          <td class="idx">{{ $index + 1 }}</td>
+          <td>{{ l.description }}</td>
+          <td class="num">{{ l.quantity }}</td>
+          <td class="num unit"><span class="ltr">{{ l.unitPriceHalalas | sar }}</span></td>
+          <td class="num"><span class="ltr">{{ l.totalHalalas | sar }}</span></td>
+        </tr>
+      }
+    </tbody>
+  </table>
+
+  <div class="foot">
+    <div class="notes">
+      @if (d.notes) {
+        <h4>{{ 'doc.notes' | translate }}</h4>
+        <p>{{ d.notes }}</p>
+      }
+    </div>
+    <div>
+      <div class="totals">
+        <div class="row"><span>{{ 'doc.subtotal' | translate }}</span><span class="ltr">{{ d.linesTotalHalalas | sar }}</span></div>
+        @if (d.discountHalalas) {
+          <div class="row"><span>{{ 'doc.discount' | translate }}</span><span class="ltr">{{ -d.discountHalalas | sar }}</span></div>
+        }
+        @if (d.vatDocument) {
+          <div class="row"><span>{{ 'doc.taxable' | translate }}</span><span class="ltr">{{ d.taxableHalalas | sar }}</span></div>
+          <div class="row"><span>{{ 'doc.vat' | translate: { rate: vatPercent() } }}</span><span class="ltr">{{ d.vatHalalas | sar }}</span></div>
+        }
+        <div class="row grand"><span>{{ 'doc.total' | translate }}</span><span class="ltr">{{ d.totalHalalas | sar }}</span></div>
+        @if (d.paidHalalas !== undefined) {
+          <div class="row"><span>{{ 'doc.paid' | translate }}</span><span class="ltr">{{ d.paidHalalas | sar }}</span></div>
+          <div class="row"><span>{{ 'doc.balance' | translate }}</span><strong class="ltr">{{ d.balanceHalalas | sar }}</strong></div>
+        }
+      </div>
+      @if (d.qr; as qr) {
+        <div class="qr" [attr.aria-label]="'doc.zatcaQr' | translate">
+          <svg [attr.viewBox]="'-2 -2 ' + (qr.size + 4) + ' ' + (qr.size + 4)" shape-rendering="crispEdges">
+            <rect x="-2" y="-2" [attr.width]="qr.size + 4" [attr.height]="qr.size + 4" fill="#fff" />
+            <path [attr.d]="qr.d" fill="#000" />
+          </svg>
+        </div>
+      }
+    </div>
+  </div>
+</article>

@@ -1,0 +1,44 @@
+@let v = data.value();
+@if (v.state === 'error') {
+  <div class="panel"><app-state kind="error" [message]="v.error" (retry)="data.reload()" /></div>
+} @else if (!v.data) {
+  <div class="panel"><app-state kind="loading" /></div>
+} @else {
+  <div class="kpis" [style.opacity]="v.state === 'loading' ? .6 : 1">
+    <app-kpi icon="pi pi-calendar" [label]="'analytics.time.peakDay' | translate" [value]="peaks().day" [hint]="peaks().dayHint" />
+    <app-kpi icon="pi pi-clock" [label]="'analytics.time.peakHour' | translate" [value]="peaks().hour" [hint]="peaks().hourHint" />
+    <app-kpi icon="pi pi-sun" [label]="'analytics.time.peakMonth' | translate" [value]="peaks().month" [hint]="peaks().monthHint" />
+    <app-kpi icon="pi pi-chart-bar" [label]="'analytics.time.busiestPeriod' | translate" [value]="peaks().bucket" [hint]="peaks().bucketHint" />
+  </div>
+
+  <div class="panel block">
+    <h2>
+      {{ 'analytics.time.performance' | translate }}
+      <p-selectbutton [options]="grans()" [ngModel]="granularity() ?? v.data.granularity" (ngModelChange)="granularity.set($event)" optionLabel="label" optionValue="value" [allowEmpty]="false" size="small" />
+    </h2>
+    <p class="sub">{{ 'analytics.clickToDrill' | translate }}</p>
+    <p-chart type="bar" [data]="seriesChart()" [options]="seriesOptions()" height="300px" (onDataSelect)="onSeries($event)" />
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>{{ 'analytics.time.heatmap' | translate }}</h2>
+      <p class="sub">{{ 'analytics.time.heatmapHint' | translate }}</p>
+      <app-heatmap [cells]="v.data.heatmap" (pick)="onHeat($event)" />
+    </div>
+    <div class="panel">
+      <h2>{{ 'analytics.time.byWeekday' | translate }}</h2>
+      <p class="sub">{{ 'analytics.time.byWeekdayHint' | translate }}</p>
+      <p-chart type="bar" [data]="weekdayChart()" [options]="countOptions()" height="260px" (onDataSelect)="onWeekday($event)" />
+    </div>
+  </div>
+
+  <div class="panel block">
+    <h2>
+      {{ 'analytics.time.seasonal' | translate }}
+      <p-selectbutton [options]="seasonMetrics()" [(ngModel)]="seasonMetric" optionLabel="label" optionValue="value" [allowEmpty]="false" size="small" />
+    </h2>
+    <p class="sub">{{ 'analytics.time.seasonalHint' | translate }}</p>
+    <p-chart type="line" [data]="seasonChart()" [options]="seasonOptions()" height="280px" (onDataSelect)="onSeason($event)" />
+  </div>
+}

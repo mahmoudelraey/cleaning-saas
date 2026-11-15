@@ -1,0 +1,130 @@
+<div class="inv-page">
+  <div class="bar">
+    <a class="back" [routerLink]="['/', store.slug(), 'invoices']">
+      <i class="pi pi-arrow-right rtl-flip" aria-hidden="true"></i>{{ 'invoiceDoc.back' | translate }}
+    </a>
+    @if (inv()) {
+      <div class="tools">
+        <button type="button" class="btn btn-quiet" (click)="print()">
+          <i class="pi pi-print" aria-hidden="true"></i>{{ 'invoiceDoc.print' | translate }}
+        </button>
+        <button type="button" class="btn btn-primary" [disabled]="downloading()" (click)="downloadPdf()">
+          <i class="pi" [class]="downloading() ? 'pi-spin pi-spinner' : 'pi-download'" aria-hidden="true"></i>{{ 'invoiceDoc.pdf' | translate }}
+        </button>
+      </div>
+    }
+  </div>
+
+  @if (loading()) {
+    <div class="spinner"><i class="pi pi-spin pi-spinner"></i></div>
+  } @else if (failed() || !inv()) {
+    <div class="sheet empty"><i class="pi pi-receipt"></i><p>{{ 'invoiceDoc.notFound' | translate }}</p></div>
+  } @else {
+    @let i = inv()!;
+    @let c = store.company();
+    <article class="doc" [class.void]="i.status === 'VOID'">
+      <!-- Header: company on the right, title / number / dates on the left (as on the PDF). -->
+      <header class="head">
+        <div class="seller">
+          @if (c?.logoUrl) { <img class="logo" [src]="c!.logoUrl" alt="" /> }
+          <h1>{{ i.sellerName }}</h1>
+          @if (i.sellerAddress) {
+            <p><i class="pi pi-map-marker" aria-hidden="true"></i>{{ 'invoiceDoc.address' | translate }}: {{ i.sellerAddress }}</p>
+          }
+          @if (c?.phone) {
+            <p><i class="pi pi-phone" aria-hidden="true"></i>{{ 'invoiceDoc.phone' | translate }}: <span class="ltr">{{ c!.phone | phone }}</span></p>
+          }
+          @if (i.sellerVatNumber) { <p>{{ 'invoiceDoc.vatNo' | translate }}: <span class="ltr">{{ i.sellerVatNumber }}</span></p> }
+          @if (i.sellerCr) { <p>{{ 'invoiceDoc.cr' | translate }}: <span class="ltr">{{ i.sellerCr }}</span></p> }
+        </div>
+        <div class="title">
+          <h2>{{ 'invoiceDoc.kind.' + kind() + '.ar' | translate }}</h2>
+          <span class="en">{{ 'invoiceDoc.kind.' + kind() + '.en' | translate }}</span>
+          <span class="pill">{{ 'invoiceDoc.no' | translate }} <span class="ltr">INV-{{ i.number }}</span></span>
+          <p class="date"><i class="pi pi-calendar" aria-hidden="true"></i>{{ 'invoiceDoc.issued' | translate }}: <span class="ltr">{{ i.issuedAt | ldate: 'dateTime' }}</span></p>
+          @if (i.dueDate) {
+            <p class="date"><i class="pi pi-calendar" aria-hidden="true"></i>{{ 'invoiceDoc.due' | translate }}: <span class="ltr">{{ i.dueDate | ldate: 'dayShort' }}</span></p>
+          }
+          <span class="state" [class]="'state st-' + i.status">{{ 'invoiceStatus.' + i.status | translate }}</span>
+        </div>
+      </header>
+
+      <section class="bill-to">
+        <b class="lbl">{{ 'invoiceDoc.billTo' | translate }}</b>
+        <strong>{{ i.customerName }}</strong>
+        <p>{{ 'invoiceDoc.mobile' | translate }}: <span class="ltr">{{ i.customerPhone | phone }}</span></p>
+        @if (i.customerVatNumber) { <p>{{ 'invoiceDoc.vatNo' | translate }}: <span class="ltr">{{ i.customerVatNumber }}</span></p> }
+      </section>
+
+      <div class="table-wrap">
+        <table class="lines">
+          <thead>
+            <tr>
+              <th class="n">#</th>
+              <th class="desc">{{ 'invoiceDoc.cols.desc' | translate }}</th>
+              <th>{{ 'invoiceDoc.cols.qty' | translate }}</th>
+              <th>{{ 'invoiceDoc.cols.unit' | translate }}</th>
+              <th>{{ 'invoiceDoc.cols.amount' | translate }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (l of i.lines; track $index) {
+              <tr>
+                <td class="n">{{ $index + 1 }}</td>
+                <td class="desc">{{ l.description }}</td>
+                <!-- Numbers isolated inside the cell: an inline-block .ltr on the <td> itself breaks the table. -->
+                <td><span class="ltr">{{ l.quantity }}</span></td>
+                <td><span class="ltr">{{ l.unitPriceHalalas | sar }}</span></td>
+                <td class="strong"><span class="ltr">{{ l.totalHalalas | sar }}</span></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="foot">
+        <div class="side">
+          @if (i.voidReason) {
+            <p class="note void-note"><b>{{ 'invoiceDoc.voidReason' | translate }}</b> {{ i.voidReason }}</p>
+          }
+          @if (i.notes) {
+            <p class="note"><b>{{ 'invoiceDoc.notes' | translate }}</b> {{ i.notes }}</p>
+          }
+          @if (i.zatcaQrPath; as qr) {
+            <svg class="qr" [attr.viewBox]="'0 0 ' + qr.size + ' ' + qr.size" role="img" [attr.aria-label]="'invoiceDoc.qr' | translate"
+                 shape-rendering="crispEdges"><path [attr.d]="qr.d" /></svg>
+          }
+        </div>
+        <div class="totals">
+          <div class="rows">
+            <div><span>{{ 'invoiceDoc.subtotal' | translate }}</span><b class="ltr">{{ i.linesTotalHalalas | sar }}</b></div>
+            @if (i.discountHalalas) {
+              <div><span>{{ 'invoiceDoc.discount' | translate }}</span><b class="ltr">−{{ i.discountHalalas | sar }}</b></div>
+            }
+            @if (i.vatInvoice) {
+              <div><span>{{ 'invoiceDoc.taxable' | translate }}</span><b class="ltr">{{ i.taxableHalalas | sar }}</b></div>
+              <div><span>{{ 'invoiceDoc.vat' | translate: { r: i.vatRateBp / 100 } }}</span><b class="ltr">{{ i.vatHalalas | sar }}</b></div>
+            }
+            @if (i.paidHalalas > 0 && i.status !== 'VOID') {
+              <div><span>{{ 'invoiceDoc.paid' | translate }}</span><b class="ltr">{{ i.paidHalalas | sar }}</b></div>
+              <div><span>{{ 'invoiceDoc.balance' | translate }}</span><b class="ltr">{{ i.balanceHalalas | sar }}</b></div>
+            }
+          </div>
+          <div class="grand"><span>{{ 'invoiceDoc.total' | translate }}</span><b class="ltr">{{ i.totalHalalas | sar }}</b></div>
+        </div>
+      </div>
+
+      <footer class="thanks">
+        <div class="line-text"><span></span><b>شكرًا لاختياركم خدماتنا</b><span></span></div>
+        <p>Thank you for your business</p>
+      </footer>
+      <div class="waves" aria-hidden="true"></div>
+    </article>
+
+    @if (i.bookingId) {
+      <a class="btn btn-quiet btn-block to-visit" [routerLink]="['/', store.slug(), 'bookings', i.bookingId]">
+        <i class="pi pi-calendar" aria-hidden="true"></i>{{ 'invoiceDoc.viewVisit' | translate }}
+      </a>
+    }
+  }
+</div>

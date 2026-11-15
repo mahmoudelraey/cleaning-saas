@@ -1,0 +1,178 @@
+<div class="page-header">
+  <div>
+    <h1>{{ 'promos.title' | translate }}</h1>
+    <p>{{ 'promos.subtitle' | translate }}</p>
+  </div>
+  @if (isOwner) {
+    <p-button icon="pi pi-plus" [label]="'promos.new' | translate" (onClick)="open(null)" />
+  }
+</div>
+
+<div class="panel-flush">
+  <p-table [value]="promos()" [loading]="loading()" [rowHover]="true" dataKey="id" [paginator]="promos().length > 20" [rows]="20">
+    <ng-template #header>
+      <tr>
+        <th>{{ 'promos.code' | translate }}</th>
+        <th>{{ 'promos.titleCol' | translate }}</th>
+        <th>{{ 'promos.discount' | translate }}</th>
+        <th>{{ 'promos.validity' | translate }}</th>
+        <th>{{ 'promos.usage' | translate }}</th>
+        <th>{{ 'common.status' | translate }}</th>
+        @if (isOwner) {
+          <th></th>
+        }
+      </tr>
+    </ng-template>
+    <ng-template #body let-p>
+      <tr>
+        <td>
+          <span class="code ltr">
+            {{ p.code }}
+            <button type="button" (click)="copy(p.code)" [attr.aria-label]="'common.copy' | translate"><i class="pi pi-copy"></i></button>
+          </span>
+        </td>
+        <td class="title-cell">
+          <strong>{{ label(p.title, p.titleEn) }}</strong>
+          @if (p.announce) {
+            <span class="announce"><i class="pi pi-megaphone"></i>{{ 'promos.announced' | translate }}</span>
+          }
+        </td>
+        <td>
+          <div class="discount ltr">{{ p.discountType === 'PERCENT' ? p.discountValue + '%' : (p.discountValue | sar) }}</div>
+          @if (p.discountType === 'PERCENT' && p.maxDiscountHalalas) {
+            <div class="sub">{{ 'promos.upTo' | translate: { v: (p.maxDiscountHalalas | sar) } }}</div>
+          }
+          @if (p.minSubtotalHalalas) {
+            <div class="sub">{{ 'promos.minOrder' | translate: { v: (p.minSubtotalHalalas | sar) } }}</div>
+          }
+        </td>
+        <td>
+          @if (p.startsAt || p.endsAt) {
+            <div>{{ p.startsAt ? (p.startsAt | ldate: 'dayMonthYear') : '—' }} → {{ p.endsAt ? (p.endsAt | ldate: 'dayMonthYear') : ('promos.noEnd' | translate) }}</div>
+          } @else {
+            <span class="sub">{{ 'promos.always' | translate }}</span>
+          }
+          @if (p.firstBookingOnly) {
+            <div class="sub"><i class="pi pi-user-plus"></i> {{ 'promos.firstOnly' | translate }}</div>
+          }
+        </td>
+        <td class="usage">
+          <span class="tnum">{{ p.usedCount }}@if (p.usageLimit) { / {{ p.usageLimit }} }</span>
+          @if (p.usageLimit) {
+            <div class="bar"><span [style.width.%]="usedPercent(p)"></span></div>
+          }
+        </td>
+        <td>
+          <p-tag [value]="'promos.state.' + state(p) | translate" [severity]="severity(p)" />
+        </td>
+        @if (isOwner) {
+          <td class="row-actions">
+            <p-button icon="pi pi-pencil" [text]="true" severity="secondary" (onClick)="open(p)" />
+            <p-button icon="pi pi-trash" [text]="true" severity="danger" (onClick)="remove(p)" />
+          </td>
+        }
+      </tr>
+    </ng-template>
+    <ng-template #emptymessage>
+      <tr>
+        <td colspan="7"><div class="empty"><i class="pi pi-ticket"></i>{{ 'promos.empty' | translate }}</div></td>
+      </tr>
+    </ng-template>
+  </p-table>
+</div>
+
+<p-dialog
+  [header]="(editing() ? 'promos.edit' : 'promos.new') | translate"
+  [(visible)]="dialogOpen"
+  [modal]="true"
+  [style]="{ width: '720px', maxWidth: '95vw' }"
+  [draggable]="false"
+>
+  <form [formGroup]="form" (ngSubmit)="save()" class="form-grid">
+    <div class="field">
+      <label for="p-code">{{ 'promos.code' | translate }}</label>
+      <input pInputText id="p-code" dir="ltr" formControlName="code" placeholder="WELCOME20" (input)="upperCode()" maxlength="30" />
+      <small class="hint">{{ 'promos.codeHint' | translate }}</small>
+    </div>
+    <div class="field">
+      <label for="p-type">{{ 'promos.discountType' | translate }}</label>
+      <p-selectbutton inputId="p-type" formControlName="discountType" [options]="typeOptions()" optionLabel="label" optionValue="value" [allowEmpty]="false" />
+    </div>
+    <div class="field">
+      <label for="p-title">{{ 'promos.titleAr' | translate }}</label>
+      <input pInputText id="p-title" dir="rtl" formControlName="title" maxlength="150" placeholder="خصم 20% على حجزك الأول" />
+    </div>
+    <div class="field">
+      <label for="p-title-en">{{ 'promos.titleEn' | translate }}</label>
+      <input pInputText id="p-title-en" dir="ltr" formControlName="titleEn" maxlength="150" placeholder="20% off your first booking" />
+    </div>
+
+    <div class="field">
+      <label for="p-value">{{ (isPercent() ? 'promos.percent' : 'promos.amountSar') | translate }}</label>
+      <p-inputnumber inputId="p-value" formControlName="value" mode="decimal" [min]="0" [max]="isPercent() ? 100 : 1000000"
+                     [maxFractionDigits]="isPercent() ? 0 : 2" [suffix]="isPercent() ? '%' : ''" />
+    </div>
+    @if (isPercent()) {
+      <div class="field">
+        <label for="p-max">{{ 'promos.maxSar' | translate }}</label>
+        <p-inputnumber inputId="p-max" formControlName="maxDiscount" mode="decimal" [min]="0" [maxFractionDigits]="2" [placeholder]="'promos.noLimit' | translate" />
+      </div>
+    } @else {
+      <div></div>
+    }
+    <div class="field">
+      <label for="p-min">{{ 'promos.minSar' | translate }}</label>
+      <p-inputnumber inputId="p-min" formControlName="minSubtotal" mode="decimal" [min]="0" [maxFractionDigits]="2" [placeholder]="'promos.noMin' | translate" />
+    </div>
+    <div></div>
+
+    <h3 class="full">{{ 'promos.when' | translate }}</h3>
+    <div class="field">
+      <label for="p-start">{{ 'promos.startsAt' | translate }}</label>
+      <p-datepicker inputId="p-start" formControlName="startsAt" [showIcon]="true" [showClear]="true" dateFormat="yy-mm-dd" appendTo="body"
+                    [placeholder]="'promos.fromNow' | translate" />
+    </div>
+    <div class="field">
+      <label for="p-end">{{ 'promos.endsAt' | translate }}</label>
+      <p-datepicker inputId="p-end" formControlName="endsAt" [showIcon]="true" [showClear]="true" dateFormat="yy-mm-dd" appendTo="body"
+                    [minDate]="form.controls.startsAt.value ?? today" [placeholder]="'promos.noEnd' | translate" />
+    </div>
+
+    <h3 class="full">{{ 'promos.limits' | translate }}</h3>
+    <div class="field">
+      <label for="p-limit">{{ 'promos.usageLimit' | translate }}</label>
+      <p-inputnumber inputId="p-limit" formControlName="usageLimit" [min]="1" [placeholder]="'promos.noLimit' | translate" />
+    </div>
+    <div class="field">
+      <label for="p-per">{{ 'promos.perCustomer' | translate }}</label>
+      <p-inputnumber inputId="p-per" formControlName="perCustomerLimit" [min]="1" [placeholder]="'promos.noLimit' | translate" />
+    </div>
+    <div class="check full">
+      <p-checkbox inputId="p-first" formControlName="firstBookingOnly" [binary]="true" />
+      <label for="p-first">{{ 'promos.firstOnlyLong' | translate }}</label>
+    </div>
+
+    <h3 class="full">{{ 'promos.visibility' | translate }}</h3>
+    <div class="field">
+      <label for="p-active">{{ 'common.active' | translate }}</label>
+      <p-toggleswitch inputId="p-active" formControlName="active" />
+    </div>
+    <div class="field">
+      <label for="p-announce">{{ 'promos.announce' | translate }}</label>
+      <p-toggleswitch inputId="p-announce" formControlName="announce" />
+      <small class="hint">{{ 'promos.announceHint' | translate }}</small>
+    </div>
+    @if (form.controls.announce.value) {
+      <div class="full preview" aria-hidden="true">
+        <span class="pill">{{ 'promos.previewTag' | translate }}</span>
+        <span>{{ form.controls.title.value || ('promos.titleAr' | translate) }}</span>
+        <code class="ltr">{{ form.controls.code.value || 'CODE' }}</code>
+      </div>
+    }
+
+    <div class="dialog-actions full">
+      <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="dialogOpen.set(false)" />
+      <p-button type="submit" [label]="'common.save' | translate" [loading]="saving()" [disabled]="form.invalid" />
+    </div>
+  </form>
+</p-dialog>

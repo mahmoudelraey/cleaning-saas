@@ -1,0 +1,14 @@
+.stars { display: flex; gap: 6px; direction: ltr; justify-content: flex-start; margin: 4px 0 12px; }
+:host-context([dir='rtl']) .stars { justify-content: flex-end; }
+.star { border: 0; background: none; padding: 4px; cursor: pointer; color: var(--line); font-size: 2rem; line-height: 1;
+        border-radius: 10px; transition: transform .1s; }
+.star.on { color: var(--sun); }
+.star:active { transform: scale(.92); }
+.star:focus-visible { outline: 3px solid color-mix(in srgb, var(--tide) 45%, transparent); }
+.word { color: var(--ink-2); font-size: .9rem; min-height: 1.4em; margin: -6px 0 10px; }
+textarea { width: 100%; min-height: 84px; resize: vertical; }
+.done { display: flex; align-items: flex-start; gap: 12px; }
+.done .shown { color: var(--sun); font-size: 1.1rem; direction: ltr; white-space: nowrap; }
+.done p { margin: 4px 0 0; }
+.note { color: var(--ink-3); font-size: .84rem; margin: 8px 0 0; }
+.actions { display: flex; gap: 10px; margin-top: 12px; }

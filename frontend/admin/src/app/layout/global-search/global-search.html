@@ -1,0 +1,45 @@
+<div class="box">
+  <i class="pi pi-search"></i>
+  <input
+    #input
+    type="search"
+    [value]="query()"
+    (input)="onInput($any($event.target).value)"
+    (focus)="open.set(true)"
+    (keydown)="onKey($event)"
+    [placeholder]="'search.placeholder' | translate"
+    [attr.aria-label]="'search.placeholder' | translate"
+    autocomplete="off"
+  />
+  @if (loading()) { <i class="pi pi-spin pi-spinner"></i> } @else { <kbd>Ctrl K</kbd> }
+</div>
+
+@if (open() && query().trim().length >= 2 && !loading()) {
+  <div class="panel" role="listbox">
+    @if (hits().length) {
+      @if (bookingHits().length) { <div class="group">{{ 'nav.bookings' | translate }}</div> }
+      @for (h of bookingHits(); track h.id) {
+        <button type="button" class="hit" [class.on]="active() === indexOf(h)" (mouseenter)="active.set(indexOf(h))" (click)="go(h)">
+          <span class="ic"><i class="pi pi-inbox"></i></span>
+          <span class="txt">
+            <strong>#{{ h.booking!.number }} · {{ h.booking!.customerName }}</strong>
+            <small>{{ h.booking!.scheduledStart | ldate: 'medium' }}</small>
+          </span>
+          <span class="chip" [style.--c]="color(h.booking!.status)">{{ 'bookingStatus.' + h.booking!.status | translate }}</span>
+        </button>
+      }
+      @if (customerHits().length) { <div class="group">{{ 'nav.customers' | translate }}</div> }
+      @for (h of customerHits(); track h.id) {
+        <button type="button" class="hit" [class.on]="active() === indexOf(h)" (mouseenter)="active.set(indexOf(h))" (click)="go(h)">
+          <span class="ic"><i class="pi pi-user"></i></span>
+          <span class="txt">
+            <strong>{{ h.customer!.name }}</strong>
+            <small class="ltr">{{ h.customer!.phone | phone }}</small>
+          </span>
+        </button>
+      }
+    } @else {
+      <div class="empty">{{ 'search.none' | translate }}</div>
+    }
+  </div>
+}

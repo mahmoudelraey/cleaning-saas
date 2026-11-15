@@ -1,0 +1,42 @@
+<div class="page-header">
+  <div>
+    <h1>{{ 'invoices.title' | translate }}</h1>
+    <p>{{ 'invoices.subtitle' | translate }}</p>
+  </div>
+  <a routerLink="/invoices/new"><p-button icon="pi pi-plus" [label]="'invoices.new' | translate" /></a>
+</div>
+
+<div class="panel-flush">
+  <div class="toolbar-row">
+    <p-selectbutton [options]="filters()" [(ngModel)]="status" (onChange)="reload()" optionLabel="label" optionValue="value" [allowEmpty]="false" />
+  </div>
+  <p-table [value]="rows()" [lazy]="true" (onLazyLoad)="load($event)" [paginator]="true" [rows]="pageSize"
+           [totalRecords]="total()" [loading]="loading()" [rowHover]="true" dataKey="id">
+    <ng-template #header>
+      <tr>
+        <th>{{ 'invoices.number' | translate }}</th>
+        <th>{{ 'invoices.issuedAt' | translate }}</th>
+        <th>{{ 'bookings.customer' | translate }}</th>
+        <th>{{ 'doc.total' | translate }}</th>
+        <th>{{ 'doc.balance' | translate }}</th>
+        <th>{{ 'common.status' | translate }}</th>
+      </tr>
+    </ng-template>
+    <ng-template #body let-i>
+      <tr (click)="open(i)" style="cursor: pointer">
+        <td class="num ltr">INV-{{ i.number }}</td>
+        <td>
+          {{ i.issuedAt | ldate: 'mediumDate' }}
+          @if (isOverdue(i)) { <div class="overdue">{{ 'invoices.overdue' | translate }}</div> }
+        </td>
+        <td>{{ i.customerName }}</td>
+        <td><span class="ltr">{{ i.totalHalalas | sar }}</span></td>
+        <td><span class="ltr">{{ (i.status === 'VOID' ? 0 : i.totalHalalas - i.paidHalalas) | sar }}</span></td>
+        <td><app-invoice-status [status]="i.status" /></td>
+      </tr>
+    </ng-template>
+    <ng-template #emptymessage>
+      <tr><td colspan="6"><div class="empty"><i class="pi pi-file"></i>{{ 'invoices.empty' | translate }}</div></td></tr>
+    </ng-template>
+  </p-table>
+</div>

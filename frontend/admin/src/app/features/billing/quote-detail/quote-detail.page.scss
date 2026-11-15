@@ -1,0 +1,7 @@
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 1rem; align-items: start; }
+@media (max-width: 1100px) { .layout { grid-template-columns: 1fr; } }
+.actions { display: flex; gap: .5rem; flex-wrap: wrap; }
+.back { color: var(--fo-muted); text-decoration: none; display: inline-flex; gap: .35rem; align-items: center; margin-block-end: .75rem; }
+h2 { font-size: 1rem; margin: 0 0 .75rem; }
+.panel + .panel { margin-top: 1rem; }
+.stack { display: grid; gap: .5rem; }

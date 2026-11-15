@@ -1,0 +1,420 @@
+<div class="page-header">
+  <div>
+    <h1>{{ 'services.title' | translate }}</h1>
+    <p>{{ 'services.subtitle' | translate }}</p>
+  </div>
+  @if (isOwner) {
+    <p-button icon="pi pi-plus" [label]="'services.new' | translate" (onClick)="open(null)" />
+  }
+</div>
+
+<div class="panel-flush">
+  <p-table [value]="services()" [loading]="loading()" [rowHover]="true" dataKey="id">
+    <ng-template #header>
+      <tr>
+        <th>{{ 'services.name' | translate }}</th>
+        <th>{{ 'services.pricing' | translate }}</th>
+        <th>{{ 'services.price' | translate }}</th>
+        <th>{{ 'services.duration' | translate }}</th>
+        <th>{{ 'common.status' | translate }}</th>
+        <th></th>
+      </tr>
+    </ng-template>
+    <ng-template #body let-s>
+      <tr>
+        <td>
+          <div class="name-cell">
+            <div>
+              <button type="button" class="name-link" (click)="view(s)">{{ label(s.name, s.nameEn) }}</button>
+              @if (!s.nameEn) {
+                <div class="missing-en"><i class="pi pi-language"></i> {{ 'services.noEnglish' | translate }}</div>
+              }
+            </div>
+          </div>
+        </td>
+        <td>{{ 'services.pricingTypes.' + s.pricingType | translate }}</td>
+        <td>
+          @if (activeOptions(s).length) {
+            <span class="muted">{{ 'services.from' | translate }}</span>
+            <span class="ltr">{{ fromPrice(s) | sar }}</span>
+            <div class="muted small">{{ 'services.optionsCount' | translate: { n: activeOptions(s).length } }}</div>
+          } @else {
+            <span class="ltr">{{ s.basePriceHalalas | sar }}</span>
+          }
+        </td>
+        <td>{{ 'services.minutes' | translate: { n: s.durationMin } }}</td>
+        <td>
+          <p-tag
+            [value]="(s.active ? 'common.active' : 'common.inactive') | translate"
+            [severity]="s.active ? 'success' : 'secondary'"
+          />
+        </td>
+        <td class="row-actions">
+          <p-button icon="pi pi-eye" [text]="true" severity="secondary" (onClick)="view(s)" [ariaLabel]="'services.viewDetails' | translate" />
+          @if (isOwner) {
+            <p-button icon="pi pi-pencil" [text]="true" severity="secondary" (onClick)="open(s)" [ariaLabel]="'common.edit' | translate" />
+            <p-button
+              [icon]="s.active ? 'pi pi-ban' : 'pi pi-check-circle'"
+              [text]="true"
+              [severity]="s.active ? 'danger' : 'success'"
+              (onClick)="toggleActive(s)"
+              [ariaLabel]="(s.active ? 'services.deactivate' : 'services.activate') | translate"
+              [pTooltip]="(s.active ? 'services.deactivate' : 'services.activate') | translate"
+              tooltipPosition="top"
+            />
+          }
+        </td>
+      </tr>
+    </ng-template>
+    <ng-template #emptymessage>
+      <tr>
+        <td colspan="6"><div class="empty"><i class="pi pi-list-check"></i>{{ 'services.empty' | translate }}</div></td>
+      </tr>
+    </ng-template>
+  </p-table>
+</div>
+
+<!-- Service details (everyone on staff) -->
+<p-dialog
+  [(visible)]="viewOpen"
+  [modal]="true"
+  [showHeader]="false"
+  [dismissableMask]="true"
+  [style]="{ width: '980px', maxWidth: '96vw' }"
+  [draggable]="false"
+  appendTo="body"
+  styleClass="svc-dialog"
+>
+  @if (viewing(); as v) {
+    <div class="svc-form">
+      <div class="view-hero">
+        <img [src]="v.imageUrl || defaultImage(v.name, v.nameEn)" alt="" />
+        <button type="button" class="dlg-close on-image" (click)="viewOpen.set(false)" [attr.aria-label]="'common.close' | translate">
+          <i class="pi pi-times" aria-hidden="true"></i>
+        </button>
+        <span class="pill hero-pill" [class.off]="!v.active">{{ (v.active ? 'common.active' : 'common.inactive') | translate }}</span>
+      </div>
+      <div class="dlg-body view-body">
+        <div class="view-title">
+          <h2>{{ v.name }}</h2>
+          @if (v.nameEn) { <p class="ltr-block" dir="ltr">{{ v.nameEn }}</p> }
+          @else { <div class="missing-en"><i class="pi pi-language"></i> {{ 'services.noEnglish' | translate }}</div> }
+        </div>
+        @if (v.description || v.descriptionEn) {
+          <div class="view-desc">
+            @if (v.description) { <p dir="rtl">{{ v.description }}</p> }
+            @if (v.descriptionEn) { <p dir="ltr">{{ v.descriptionEn }}</p> }
+          </div>
+        }
+
+        <div class="stats">
+          <div class="stat">
+            <i class="pi" [class]="pricingIcon(v.pricingType)" aria-hidden="true"></i>
+            <small>{{ 'services.pricing' | translate }}</small>
+            <b>{{ 'services.pricingTypes.' + v.pricingType | translate }}</b>
+          </div>
+          <div class="stat">
+            <i class="pi pi-wallet" aria-hidden="true"></i>
+            <small>{{ (activeOptions(v).length ? 'services.from' : 'services.price') | translate }}</small>
+            <b class="ltr">{{ fromPrice(v) | sar }}</b>
+          </div>
+          <div class="stat">
+            <i class="pi pi-clock" aria-hidden="true"></i>
+            <small>{{ 'services.duration' | translate }}</small>
+            <b>{{ 'services.minutes' | translate: { n: v.durationMin } }}</b>
+          </div>
+        </div>
+
+        <section class="sec">
+          <div class="sec-head"><div><h3>{{ 'services.options' | translate }}</h3></div></div>
+          @if (v.options.length) {
+            <div class="rows">
+              @for (o of v.options; track o.id) {
+                <div class="view-row" [class.muted-row]="!o.active">
+                  <div class="names-view">
+                    <b>{{ o.name }}</b>
+                    @if (o.nameEn) { <small dir="ltr">{{ o.nameEn }}</small> }
+                  </div>
+                  <span class="muted">{{ 'services.minutes' | translate: { n: o.durationMin ?? v.durationMin } }}</span>
+                  <b class="ltr">{{ o.priceHalalas | sar }}</b>
+                  <span class="pill" [class.off]="!o.active">{{ (o.active ? 'common.active' : 'common.inactive') | translate }}</span>
+                </div>
+              }
+            </div>
+          } @else {
+            <div class="rows-empty">{{ 'services.noOptions' | translate }}</div>
+          }
+        </section>
+
+        <section class="sec">
+          <div class="sec-head"><div><h3>{{ 'services.addons' | translate }}</h3></div></div>
+          @if (v.addons.length) {
+            <div class="rows">
+              @for (a of v.addons; track a.id) {
+                <div class="view-row addon" [class.muted-row]="!a.active">
+                  <div class="names-view">
+                    <b>{{ a.name }}</b>
+                    @if (a.nameEn) { <small dir="ltr">{{ a.nameEn }}</small> }
+                  </div>
+                  <b class="ltr">+{{ a.priceHalalas | sar }}</b>
+                  <span class="pill" [class.off]="!a.active">{{ (a.active ? 'common.active' : 'common.inactive') | translate }}</span>
+                </div>
+              }
+            </div>
+          } @else {
+            <div class="rows-empty">{{ 'services.noAddons' | translate }}</div>
+          }
+        </section>
+      </div>
+      <footer class="dlg-foot">
+        @if (isOwner) {
+          <p-button icon="pi pi-pencil" [label]="'common.edit' | translate" (onClick)="editFromView()" />
+        }
+        <p-button [label]="'common.close' | translate" severity="secondary" [outlined]="true" (onClick)="viewOpen.set(false)" />
+      </footer>
+    </div>
+  }
+</p-dialog>
+
+<p-dialog
+  [(visible)]="dialogOpen"
+  [modal]="true"
+  [showHeader]="false"
+  [dismissableMask]="false"
+  [closeOnEscape]="true"
+  [style]="{ width: '980px', maxWidth: '96vw' }"
+  [draggable]="false"
+  appendTo="body"
+  styleClass="svc-dialog"
+>
+  <form [formGroup]="form" (ngSubmit)="save()" class="svc-form">
+    <!-- Header: icon, title and subtitle, close -->
+    <header class="dlg-head">
+      <span class="dlg-ico"><i class="pi pi-box" aria-hidden="true"></i></span>
+      <div class="dlg-title">
+        <h2>{{ (editing() ? 'services.edit' : 'services.new') | translate }}</h2>
+        <p>{{ 'services.dialogSubtitle' | translate }}</p>
+      </div>
+      <button type="button" class="dlg-close" (click)="dialogOpen.set(false)" [attr.aria-label]="'common.cancel' | translate">
+        <i class="pi pi-times" aria-hidden="true"></i>
+      </button>
+    </header>
+
+    <div class="dlg-body">
+      <!-- 1. Service information -->
+      <section class="sec">
+        <div class="sec-head">
+          <span class="num">1</span>
+          <div>
+            <h3>{{ 'services.secInfo' | translate }}</h3>
+          </div>
+        </div>
+        <div class="sec-card">
+          <div class="grid-2">
+            <div class="field">
+              <label for="s-name">{{ 'services.nameAr' | translate }} <span class="req">*</span></label>
+              <div class="affix">
+                <input pInputText id="s-name" dir="rtl" formControlName="name" placeholder="مثال: تنظيف شقة" />
+                <span class="tag">AR</span>
+              </div>
+            </div>
+            <div class="field">
+              <label for="s-name-en">{{ 'services.nameEn' | translate }}</label>
+              <div class="affix">
+                <input pInputText id="s-name-en" dir="ltr" formControlName="nameEn" placeholder="e.g. Apartment cleaning" />
+                <span class="tag">EN</span>
+              </div>
+            </div>
+            <div class="field">
+              <label for="s-desc">{{ 'services.descriptionAr' | translate }} <small class="opt">({{ 'services.optional' | translate }})</small></label>
+              <div class="textarea-wrap">
+                <i class="pi pi-file-edit" aria-hidden="true"></i>
+                <textarea pTextarea id="s-desc" dir="rtl" formControlName="description" rows="3" maxlength="1000"
+                          [placeholder]="'services.descriptionPlaceholder' | translate"></textarea>
+                <span class="count ltr">{{ form.controls.description.value.length }} / 1000</span>
+              </div>
+            </div>
+            <div class="field">
+              <label for="s-desc-en">{{ 'services.descriptionEn' | translate }} <small class="opt">({{ 'services.optional' | translate }})</small></label>
+              <div class="textarea-wrap">
+                <i class="pi pi-file-edit" aria-hidden="true"></i>
+                <textarea pTextarea id="s-desc-en" dir="ltr" formControlName="descriptionEn" rows="3" maxlength="1000"></textarea>
+                <span class="count ltr">{{ form.controls.descriptionEn.value.length }} / 1000</span>
+              </div>
+            </div>
+          </div>
+          <small class="hint">{{ 'services.englishHint' | translate }}</small>
+
+          <!-- Photo for the service card on the company's public page -->
+          <div class="field photo-field">
+            <label>{{ 'services.photo' | translate }}</label>
+            <div class="pics" role="radiogroup" [attr.aria-label]="'services.photo' | translate">
+              <button type="button" class="pic" role="radio" [class.on]="choice() === 'auto'" [attr.aria-checked]="choice() === 'auto'" (click)="chooseAuto()">
+                <img [src]="defaultImage(nameValue(), form.controls.nameEn.value)" alt="" />
+                <span>{{ 'services.gallery.auto' | translate }}</span>
+              </button>
+              @for (g of gallery; track g.key) {
+                <button type="button" class="pic" role="radio" [class.on]="choice() === g.key" [attr.aria-checked]="choice() === g.key" (click)="chooseGallery(g)">
+                  <img [src]="g.src" alt="" />
+                  <span>{{ g.label | translate }}</span>
+                </button>
+              }
+              @if (ownPreview(); as own) {
+                <button type="button" class="pic" role="radio" [class.on]="choice() === 'own'" [attr.aria-checked]="choice() === 'own'" (click)="chooseOwn()">
+                  <img [src]="own" alt="" />
+                  <span>{{ 'services.gallery.own' | translate }}</span>
+                </button>
+              }
+              <button type="button" class="pic upload" (click)="photoInput.click()">
+                <i class="pi pi-upload" aria-hidden="true"></i>
+                <span>{{ 'services.choosePhoto' | translate }}</span>
+              </button>
+              <input #photoInput type="file" accept="image/jpeg,image/png,image/webp" (change)="pickPhoto(photoInput)" />
+            </div>
+            <small class="hint">{{ 'services.photoHint' | translate }}</small>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. Pricing and duration -->
+      <section class="sec">
+        <div class="sec-head">
+          <span class="num">2</span>
+          <div><h3>{{ 'services.secPricing' | translate }}</h3></div>
+        </div>
+        <div class="sec-card pricing">
+          <div class="status-box">
+            <label for="s-active">{{ 'services.status' | translate }}</label>
+            <div class="status-row">
+              <p-toggleswitch inputId="s-active" formControlName="active" />
+              <span class="pill" [class.off]="!form.controls.active.value">
+                {{ (form.controls.active.value ? 'common.active' : 'common.inactive') | translate }}
+              </span>
+            </div>
+            <small class="hint">{{ (form.controls.active.value ? 'services.visible' : 'services.hidden') | translate }}</small>
+          </div>
+          <div class="field">
+            <label for="s-price">{{ 'services.priceSar' | translate }} <span class="req">*</span></label>
+            <div class="affix">
+              <p-inputnumber inputId="s-price" formControlName="price" mode="decimal" [minFractionDigits]="0" [maxFractionDigits]="2" [min]="0" [fluid]="true" />
+              <span class="tag">SAR</span>
+            </div>
+            @if (hasActiveOptions()) {
+              <small class="hint">{{ 'services.priceFromOptions' | translate }}</small>
+            }
+          </div>
+          <div class="field">
+            <label for="s-dur">{{ 'services.durationMin' | translate }} <span class="req">*</span></label>
+            <div class="affix">
+              <p-inputnumber inputId="s-dur" formControlName="durationMin" [min]="5" [max]="1440" [step]="15" [useGrouping]="false" [fluid]="true" />
+              <span class="tag">{{ 'services.minShort' | translate }}</span>
+            </div>
+          </div>
+          <div class="types" role="radiogroup" [attr.aria-label]="'services.pricing' | translate">
+            <span class="types-title"><i class="pi pi-info-circle" aria-hidden="true"></i>{{ 'services.pricing' | translate }}</span>
+            @for (t of pricingOptions(); track t.value) {
+              <button type="button" class="type" role="radio" [class.on]="form.controls.pricingType.value === t.value"
+                      [attr.aria-checked]="form.controls.pricingType.value === t.value" (click)="setPricing(t.value)">
+                <i class="pi" [class]="pricingIcon(t.value)" aria-hidden="true"></i>{{ t.label }}
+              </button>
+            }
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. Options (sizes / types) -->
+      <section class="sec">
+        <div class="sec-head">
+          <span class="num">3</span>
+          <div>
+            <h3>{{ 'services.options' | translate }}</h3>
+            <p>{{ 'services.optionsHint' | translate }}</p>
+          </div>
+          <button type="button" class="add-btn" (click)="addOption()">
+            <i class="pi pi-plus" aria-hidden="true"></i>{{ 'services.addOption' | translate }}
+          </button>
+        </div>
+        <div formArrayName="options" class="rows">
+          @for (g of options.controls; track g; let i = $index, first = $first, last = $last) {
+            <div class="row-card" [formGroupName]="i">
+              <div class="row-actions-col">
+                <button type="button" class="icon-btn" [disabled]="first" (click)="moveOption(i, -1)" [attr.aria-label]="'services.moveUp' | translate"><i class="pi pi-arrow-up"></i></button>
+                <button type="button" class="icon-btn" [disabled]="last" (click)="moveOption(i, 1)" [attr.aria-label]="'services.moveDown' | translate"><i class="pi pi-arrow-down"></i></button>
+                <button type="button" class="icon-btn danger" (click)="removeOption(i)" [attr.aria-label]="'common.delete' | translate"><i class="pi pi-trash"></i></button>
+              </div>
+              <div class="names">
+                <input pInputText dir="rtl" formControlName="name" [placeholder]="'services.optionNameAr' | translate" />
+                <input pInputText dir="ltr" formControlName="nameEn" [placeholder]="'services.optionNameEn' | translate" />
+              </div>
+              <div class="mini">
+                <small>{{ 'services.price' | translate }}</small>
+                <div class="affix sm">
+                  <p-inputnumber formControlName="price" mode="decimal" [maxFractionDigits]="2" [min]="0" [fluid]="true" />
+                  <span class="tag">SAR</span>
+                </div>
+              </div>
+              <div class="mini">
+                <small>{{ 'services.duration' | translate }}</small>
+                <div class="affix sm">
+                  <p-inputnumber formControlName="durationMin" [min]="5" [max]="1440" [step]="15" [useGrouping]="false" [fluid]="true"
+                                 [placeholder]="'' + form.controls.durationMin.value" />
+                  <span class="tag">{{ 'services.minShort' | translate }}</span>
+                </div>
+              </div>
+              <label class="pill-toggle" [class.off]="!g.controls.active.value">
+                <input type="checkbox" formControlName="active" />
+                <span>{{ (g.controls.active.value ? 'common.active' : 'common.inactive') | translate }}</span>
+              </label>
+            </div>
+          } @empty {
+            <div class="rows-empty">{{ 'services.noOptions' | translate }}</div>
+          }
+        </div>
+      </section>
+
+      <!-- 4. Add-ons (optional) -->
+      <section class="sec">
+        <div class="sec-head">
+          <span class="num">4</span>
+          <div>
+            <h3>{{ 'services.addons' | translate }} <span class="badge">{{ 'services.optional' | translate }}</span></h3>
+            <p>{{ 'services.addonsHint' | translate }}</p>
+          </div>
+        </div>
+        <div formArrayName="addons" class="rows">
+          @for (g of addons.controls; track g; let i = $index) {
+            <div class="row-card addon" [formGroupName]="i">
+              <div class="row-actions-col">
+                <button type="button" class="icon-btn danger" (click)="removeAddon(i)" [attr.aria-label]="'common.delete' | translate"><i class="pi pi-trash"></i></button>
+              </div>
+              <div class="names">
+                <input pInputText dir="rtl" formControlName="name" [placeholder]="'services.addonNameAr' | translate" />
+                <input pInputText dir="ltr" formControlName="nameEn" [placeholder]="'services.addonNameEn' | translate" />
+              </div>
+              <div class="mini">
+                <small>{{ 'services.price' | translate }}</small>
+                <div class="affix sm">
+                  <p-inputnumber formControlName="price" mode="decimal" [maxFractionDigits]="2" [min]="0" [fluid]="true" />
+                  <span class="tag">SAR</span>
+                </div>
+              </div>
+              <label class="pill-toggle" [class.off]="!g.controls.active.value">
+                <input type="checkbox" formControlName="active" />
+                <span>{{ (g.controls.active.value ? 'common.active' : 'common.inactive') | translate }}</span>
+              </label>
+            </div>
+          }
+          <button type="button" class="add-wide" (click)="addAddon()">
+            <i class="pi pi-plus" aria-hidden="true"></i>{{ 'services.addAddonLong' | translate }}
+          </button>
+        </div>
+      </section>
+    </div>
+
+    <!-- Footer: save / cancel (deactivating is done from the table) -->
+    <footer class="dlg-foot">
+      <p-button type="submit" icon="pi pi-check" [label]="'services.saveService' | translate" [loading]="saving()" [disabled]="form.invalid" />
+      <p-button [label]="'common.cancel' | translate" severity="secondary" [outlined]="true" (onClick)="dialogOpen.set(false)" />
+    </footer>
+  </form>
+</p-dialog>

@@ -1,0 +1,15 @@
+<div class="wrap">
+  <i class="pi pi-link"></i>
+  <h1>{{ 'landing.title' | translate }}</h1>
+  <p class="muted">{{ 'landing.lead' | translate }}</p>
+  <form (ngSubmit)="go()">
+    <div class="field">
+      <label for="slug">{{ 'landing.code' | translate }}</label>
+      <div class="row">
+        <input id="slug" class="input ltr" name="slug" [(ngModel)]="slug" autocapitalize="off" autocomplete="off"
+               spellcheck="false" [placeholder]="'landing.codePlaceholder' | translate" />
+        <button class="btn btn-primary" [disabled]="!clean()">{{ 'landing.open' | translate }}</button>
+      </div>
+    </div>
+  </form>
+</div>

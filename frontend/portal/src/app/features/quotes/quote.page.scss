@@ -1,0 +1,33 @@
+.quote-page { display: grid; gap: 14px; }
+.q-head { display: flex; align-items: center; gap: 14px; }
+.q-ico { width: 52px; height: 52px; flex: none; border-radius: 16px; display: grid; place-items: center;
+         background: var(--foam); color: var(--tide-deep); font-size: 1.3rem; }
+.q-title { flex: 1; min-width: 0; }
+.q-title .page-title { margin: 0; }
+.q-title p { margin: 2px 0 0; font-size: .88rem; }
+.q-state { flex: none; padding: 6px 12px; border-radius: 999px; font-size: .8rem; font-weight: 700;
+           background: var(--mist); color: var(--ink-2); }
+.st-SENT { background: var(--foam); color: var(--tide-deep); }
+.st-ACCEPTED { background: color-mix(in srgb, var(--leaf) 14%, transparent); color: var(--leaf); }
+.st-REJECTED { background: color-mix(in srgb, var(--rose) 12%, transparent); color: var(--rose); }
+
+.lines { display: grid; gap: 0; padding: 6px 18px; }
+.line { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 12px 0;
+        border-bottom: 1px solid var(--line); }
+.line .desc { min-width: 0; font-weight: 600; }
+.line .desc small { display: block; font-weight: 400; margin-top: 2px; }
+.sums { display: grid; gap: 6px; padding: 12px 0 8px; }
+.sums > div { display: flex; justify-content: space-between; gap: 12px; color: var(--ink-2); font-size: .92rem; }
+.sums .off { color: var(--leaf); }
+.sums .grand { color: var(--ink); font-size: 1.1rem; font-weight: 800; padding-top: 8px; border-top: 1px dashed var(--line); }
+
+.notes b { display: block; margin-bottom: 4px; }
+.notes p { margin: 0; white-space: pre-line; color: var(--ink-2); }
+
+.actions { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; }
+.actions .btn { gap: 8px; }
+.hint { margin: 0; font-size: .85rem; text-align: center; }
+.answer { display: flex; align-items: center; gap: 8px; margin: 0; padding: 14px 16px; border-radius: var(--r-lg);
+          background: var(--surface); color: var(--ink-2); font-weight: 600; }
+.answer.ok { color: var(--leaf); }
+.to-visit { gap: 8px; }

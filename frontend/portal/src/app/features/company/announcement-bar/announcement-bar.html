@@ -1,0 +1,24 @@
+@if (shown(); as a) {
+  <div class="bar" role="region" [attr.aria-label]="'promo.region' | translate">
+    <span class="tag">{{ 'promo.tag' | translate }}</span>
+    <span>
+      {{ title() }}
+      @if (a.discountType === 'PERCENT') {
+        · <strong class="ltr">{{ a.discountValue }}%</strong>
+      } @else {
+        · <strong class="ltr">{{ a.discountValue | sar }}</strong>
+      }
+    </span>
+    <span>{{ 'promo.useCode' | translate }}</span>
+    <button type="button" class="code ltr" (click)="copy(a.code)" [attr.aria-label]="'promo.copy' | translate: { code: a.code }">
+      {{ copied() ? ('promo.copied' | translate) : a.code }}<i class="pi" [class]="copied() ? 'pi-check' : 'pi-copy'" aria-hidden="true"></i>
+    </button>
+    @if (a.endsAt) {
+      <span class="ends">{{ 'promo.until' | translate: { d: (lastDay() | ldate: 'dayShort') } }}</span>
+    }
+    @if (store.company()?.bookingOpen) {
+      <a class="go" [routerLink]="['/', store.slug(), 'book']" [queryParams]="{ promo: a.code }">{{ 'promo.bookNow' | translate }}</a>
+    }
+    <button type="button" class="x" (click)="close(a.code)" [attr.aria-label]="'promo.close' | translate"><i class="pi pi-times"></i></button>
+  </div>
+}

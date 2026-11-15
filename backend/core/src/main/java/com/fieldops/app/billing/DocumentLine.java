@@ -2,6 +2,7 @@ package com.fieldops.app.billing;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.UUID;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -35,6 +36,13 @@ public class DocumentLine extends TenantScopedEntity {
     @Column(name = "description_en")
     private String descriptionEn;
 
+    /** The catalog service (and add-on) this line was priced from; null for a free-text line. */
+    @Column(name = "service_id")
+    private UUID serviceId;
+
+    @Column(name = "addon_id")
+    private UUID addonId;
+
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal quantity;
 
@@ -60,6 +68,8 @@ public class DocumentLine extends TenantScopedEntity {
         DocumentLine c = new DocumentLine();
         c.description = description;
         c.descriptionEn = descriptionEn;
+        c.serviceId = serviceId;
+        c.addonId = addonId;
         c.quantity = quantity;
         c.unitPriceHalalas = unitPriceHalalas;
         c.totalHalalas = totalHalalas;
@@ -93,6 +103,21 @@ public class DocumentLine extends TenantScopedEntity {
         String v = en == null || en.isBlank() ? null : en.trim();
         this.descriptionEn = v != null && v.length() > 300 ? v.substring(0, 300) : v;
         return this;
+    }
+
+    /** Remembers the catalog service / add-on the line was priced from (an add-on needs its service). */
+    public DocumentLine withCatalog(UUID serviceId, UUID addonId) {
+        this.serviceId = serviceId;
+        this.addonId = serviceId == null ? null : addonId;
+        return this;
+    }
+
+    public UUID getServiceId() {
+        return serviceId;
+    }
+
+    public UUID getAddonId() {
+        return addonId;
     }
 
     public BigDecimal getQuantity() {

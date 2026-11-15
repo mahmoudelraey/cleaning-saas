@@ -106,7 +106,7 @@ public class CompanyController {
                 me == null ? null : me.customerId());
         BookingPricing.Priced p = q.priced();
         Promo promo = q.promo();
-        return new QuoteDto(p.items().stream().map(i -> new QuoteItemDto(i.getServiceId(), i.getAddonId(),
+        return new QuoteDto(p.items().stream().map(i -> new QuoteItemDto(i.getServiceId(), i.getAddonId(), i.getOptionId(),
                 i.getDescription(), i.getQuantity(), i.getTotalHalalas())).toList(), p.subtotalHalalas(), p.durationMin(),
                 q.discountHalalas(), q.totalHalalas(),
                 promo == null ? null : new QuotePromoDto(promo.getCode(), promo.getTitle(), promo.getTitleEn()),
@@ -120,10 +120,12 @@ public class CompanyController {
     }
 
     public static List<BookingPricing.Line> lines(List<ItemRequest> items) {
-        return items.stream().map(i -> new BookingPricing.Line(i.serviceId(), i.quantity(), i.addonIds())).toList();
+        return items.stream().map(i -> new BookingPricing.Line(i.serviceId(), i.optionId(), i.quantity(), i.addonIds())).toList();
     }
 
-    public record ItemRequest(@NotNull UUID serviceId, BigDecimal quantity, @Size(max = 20) List<UUID> addonIds) {
+    /** {@code optionId}: required when the service has options (e.g. small / medium / large car). */
+    public record ItemRequest(@NotNull UUID serviceId, UUID optionId, BigDecimal quantity,
+                              @Size(max = 20) List<UUID> addonIds) {
     }
 
     public record ItemsRequest(@NotEmpty @Size(max = 10) List<@Valid ItemRequest> items) {
@@ -160,17 +162,30 @@ public class CompanyController {
      */
     public record ServiceDto(UUID id, String name, String description, String nameEn, String descriptionEn,
                              PricingType pricingType, long basePriceHalalas, int durationMin, List<AddonDto> addons,
-                             String imageUrl) {
+                             List<OptionDto> options, String imageUrl) {
         static ServiceDto of(ServiceOffering s, String adminPublicUrl) {
             return new ServiceDto(s.getId(), s.getName(), s.getDescription(), s.getNameEn(), s.getDescriptionEn(),
                     s.getPricingType(), s.getBasePriceHalalas(), s.getDurationMin(),
                     s.getAddons().stream().filter(a -> a.isActive())
                             .map(a -> new AddonDto(a.getId(), a.getName(), a.getNameEn(), a.getPriceHalalas())).toList(),
+                    s.getActiveOptions().stream()
+                            .map(o -> new OptionDto(o.getId(), o.getName(), o.getNameEn(), o.getPriceHalalas(),
+                                    o.getDurationMin()))
+                            .toList(),
                     s.getImageUrl() == null ? null : adminPublicUrl + s.getImageUrl());
         }
     }
 
-    public record QuoteItemDto(UUID serviceId, UUID addonId, String description, BigDecimal quantity, long totalHalalas) {
+    /** A size / type of a service with its own price; {@code durationMin} null = the service's duration. */
+    public record OptionDto(UUID id, String name, String nameEn, long priceHalalas, Integer durationMin) {
+    }
+
+    public record QuoteItemDto(UUID serviceId, UUID addonId, UUID optionId, String description, BigDecimal quantity,
+                               long totalHalalas) {
+        /** A line without an option. */
+        public QuoteItemDto(UUID serviceId, UUID addonId, String description, BigDecimal quantity, long totalHalalas) {
+            this(serviceId, addonId, null, description, quantity, totalHalalas);
+        }
     }
 
     public record QuoteDto(List<QuoteItemDto> items, long subtotalHalalas, int durationMin, long discountHalalas,

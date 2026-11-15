@@ -11,74 +11,14 @@ import { Subject, debounceTime, distinctUntilChanged } from 'rxjs';
 
 import { CustomerDetail, CustomerSummary } from '../../core/api.types';
 import { PhonePipe } from '../../shared/format';
-import { CustomerFormDialog } from './customer-form.dialog';
+import { CustomerFormDialog } from './customer-form/customer-form.dialog';
 import { CustomersApi } from './customers.api';
 import { LocalDatePipe } from '../../shared/local-date.pipe';
 
 @Component({
   selector: 'app-customers',
   imports: [TranslatePipe, TableModule, Button, IconField, InputIcon, InputText, LocalDatePipe, PhonePipe, CustomerFormDialog],
-  template: `
-    <div class="page-header">
-      <div>
-        <h1>{{ 'customers.title' | translate }}</h1>
-        <p>{{ 'customers.subtitle' | translate }}</p>
-      </div>
-      <p-button icon="pi pi-plus" [label]="'customers.new' | translate" (onClick)="dialogOpen.set(true)" />
-    </div>
-
-    <div class="panel-flush">
-      <div class="toolbar-row">
-        <p-iconfield>
-          <p-inputicon styleClass="pi pi-search" />
-          <input
-            pInputText
-            type="search"
-            [placeholder]="'customers.searchPlaceholder' | translate"
-            (input)="search$.next($any($event.target).value)"
-          />
-        </p-iconfield>
-      </div>
-
-      <p-table
-        [value]="rows()"
-        [lazy]="true"
-        (onLazyLoad)="load($event)"
-        [paginator]="true"
-        [rows]="pageSize"
-        [totalRecords]="total()"
-        [loading]="loading()"
-        [rowHover]="true"
-        dataKey="id"
-      >
-        <ng-template #header>
-          <tr>
-            <th>{{ 'customers.name' | translate }}</th>
-            <th>{{ 'customers.phone' | translate }}</th>
-            <th>{{ 'customers.email' | translate }}</th>
-            <th>{{ 'common.createdAt' | translate }}</th>
-          </tr>
-        </ng-template>
-        <ng-template #body let-c>
-          <tr (click)="open(c)" style="cursor: pointer">
-            <td>{{ c.name }}</td>
-            <td><span class="ltr">{{ c.phone | phone }}</span></td>
-            <td><span class="ltr">{{ c.email }}</span></td>
-            <td class="muted">{{ c.createdAt | ldate: 'mediumDate' }}</td>
-          </tr>
-        </ng-template>
-        <ng-template #emptymessage>
-          <tr>
-            <td colspan="4">
-              <div class="empty"><i class="pi pi-users"></i>{{ 'customers.empty' | translate }}</div>
-            </td>
-          </tr>
-        </ng-template>
-      </p-table>
-    </div>
-
-    <app-customer-form-dialog [(visible)]="dialogOpen" (saved)="onCreated($event)" />
-  `,
+  templateUrl: './customers.page.html',
 })
 export class CustomersPage implements OnInit {
   private readonly api = inject(CustomersApi);

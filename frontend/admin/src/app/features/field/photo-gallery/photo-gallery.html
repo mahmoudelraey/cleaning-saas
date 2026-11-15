@@ -1,0 +1,73 @@
+<ng-template #thumbs let-k>
+  <div class="grid">
+    @for (m of byKind()[k]; track m.id) {
+      <div class="thumb" (click)="view(m)">
+        @if (urls()[m.id]; as url) {
+          <img [src]="url" [alt]="'photos.' + k | translate" loading="lazy" />
+        } @else {
+          <p-progressspinner strokeWidth="6" [style]="{ width: '28px', height: '28px' }" />
+        }
+        @if (canDelete(m)) {
+          <p-button class="del" icon="pi pi-trash" severity="danger" [rounded]="true" size="small" (onClick)="remove(m, $event)" />
+        }
+      </div>
+    }
+  </div>
+</ng-template>
+
+@if (variant() === 'cards') {
+  <div class="cards">
+    @for (k of kinds; track k) {
+      <div class="box">
+        @if (!byKind()[k].length) { <i class="pi pi-camera"></i> }
+        <h3>{{ 'photos.title' + k | translate }} <span class="ltr">({{ byKind()[k].length }})</span></h3>
+        @if (byKind()[k].length) {
+          <ng-container *ngTemplateOutlet="thumbs; context: { $implicit: k }" />
+        } @else {
+          <span class="sub">{{ 'photos.noneYet' | translate }}</span>
+        }
+        @if (canUpload()) {
+          <p-button
+            icon="pi pi-plus"
+            [label]="'photos.addMany' | translate"
+            size="small"
+            [outlined]="true"
+            [loading]="uploading() === k"
+            (onClick)="pick(k, fileInputCard)"
+          />
+          <input #fileInputCard type="file" accept="image/*" capture="environment" multiple (change)="onFiles(k, $event)" />
+        }
+      </div>
+    }
+  </div>
+} @else {
+@for (k of kinds; track k) {
+  <div class="section">
+    <div class="head">
+      <h3>{{ 'photos.' + k | translate }} <span class="muted">({{ byKind()[k].length }})</span></h3>
+      @if (canUpload()) {
+        <p-button
+          icon="pi pi-camera"
+          [label]="'photos.add' | translate"
+          size="small"
+          [outlined]="true"
+          [loading]="uploading() === k"
+          (onClick)="pick(k, fileInput)"
+        />
+        <input #fileInput type="file" accept="image/*" capture="environment" multiple (change)="onFiles(k, $event)" />
+      }
+    </div>
+    @if (byKind()[k].length) {
+      <ng-container *ngTemplateOutlet="thumbs; context: { $implicit: k }" />
+    } @else {
+      <div class="empty-small">{{ 'photos.none' | translate }}</div>
+    }
+  </div>
+}
+}
+
+<p-dialog [(visible)]="viewerOpen" [modal]="true" [dismissableMask]="true" [style]="{ width: '90vw', maxWidth: '900px' }" [draggable]="false" [header]="viewerTitle()">
+  @if (viewing(); as v) {
+    <img class="viewer" [src]="urls()[v.id]" alt="" />
+  }
+</p-dialog>

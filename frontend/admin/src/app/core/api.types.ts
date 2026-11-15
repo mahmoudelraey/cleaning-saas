@@ -157,6 +157,18 @@ export interface Addon {
   active: boolean;
 }
 
+/** A choice within a service with its own price, e.g. car wash → small / medium / large car. */
+export interface ServiceOption {
+  id: string;
+  /** Arabic (main) name. */
+  name: string;
+  nameEn?: string;
+  priceHalalas: number;
+  /** Minutes for one unit; null = the service's duration. */
+  durationMin?: number | null;
+  active: boolean;
+}
+
 export interface ServiceOffering {
   id: string;
   /** Arabic (main) name and description. */
@@ -169,6 +181,8 @@ export interface ServiceOffering {
   durationMin: number;
   active: boolean;
   addons: Addon[];
+  /** When a service has active options, the customer must choose one and its price replaces the base price. */
+  options: ServiceOption[];
   /** The service's photo (null = the default picture is shown). */
   imageUrl?: string | null;
 }
@@ -191,6 +205,9 @@ export interface Technician {
   active: boolean;
   mustChangePassword?: boolean;
   lastLoginAt?: string;
+  /** Average customer rating (1–5) of the visits they did; null until one is rated. */
+  ratingAverage?: number | null;
+  ratingCount?: number;
 }
 
 export interface StaffUser {
@@ -250,11 +267,17 @@ export interface BookingSummary {
   paymentMethod?: PaymentMethod | null;
   /** Names of the main services on the booking (list endpoints only). */
   services?: string[];
+  /** Promo or accepted-quote discount, and the amount after it (before VAT). */
+  discountHalalas?: number;
+  totalHalalas?: number;
+  /** When the request was made. */
+  createdAt?: string;
 }
 
 export interface BookingItem {
   serviceId: string;
   addonId?: string;
+  optionId?: string;
   description: string;
   quantity: number;
   unitPriceHalalas: number;
@@ -292,6 +315,8 @@ export interface BookingDetail extends BookingSummary {
 
 export interface BookingLineInput {
   serviceId: string;
+  /** Required when the service has active options. */
+  optionId?: string | null;
   quantity?: number | null;
   addonIds?: string[];
 }
@@ -378,15 +403,24 @@ export interface DocumentLine {
   quantity: number;
   unitPriceHalalas: number;
   totalHalalas: number;
+  /** The catalog service / add-on the line was priced from (absent for free-text lines). */
+  serviceId?: string;
+  addonId?: string;
+  optionId?: string;
 }
 
 /** A line as sent to the API: a catalog service (priced by the server) or free text with a price. */
 export interface LineInput {
   serviceId?: string;
+  optionId?: string | null;
   quantity?: number;
   addonIds?: string[];
   description?: string;
   unitPriceHalalas?: number;
+  /** On a free-text line: the catalog service / add-on it was first priced from. */
+  catalogServiceId?: string;
+  catalogAddonId?: string;
+  catalogOptionId?: string;
 }
 
 export interface Payment {
@@ -519,6 +553,7 @@ export interface PublicService {
   basePriceHalalas: number;
   durationMin: number;
   addons: { id: string; name: string; priceHalalas: number }[];
+  options: { id: string; name: string; priceHalalas: number; durationMin?: number | null }[];
 }
 
 export interface PublicBookingPage {
@@ -537,6 +572,7 @@ export interface PublicBookingPage {
 
 export interface PublicItem {
   serviceId: string;
+  optionId?: string | null;
   quantity?: number;
   addonIds?: string[];
 }

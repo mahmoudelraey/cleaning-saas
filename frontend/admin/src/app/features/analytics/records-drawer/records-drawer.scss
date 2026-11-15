@@ -1,0 +1,5 @@
+.summary { display: flex; gap: 1rem; flex-wrap: wrap; color: var(--fo-muted); font-size: .9rem; margin-bottom: .75rem; }
+.summary strong { color: var(--fo-text); }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-inline-end: .35rem; }
+td small { color: var(--fo-muted); display: block; }
+.num { text-align: end; white-space: nowrap; font-variant-numeric: tabular-nums; }

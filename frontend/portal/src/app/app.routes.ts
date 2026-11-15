@@ -20,9 +20,11 @@ export const routes: Routes = [
       // Public company page: services, ratings and contact us, all on one page. Open to everyone.
       { path: '', pathMatch: 'full', loadComponent: () => import('./features/company/company.page').then((m) => m.CompanyPage) },
       // All services, with search and pages. Open to everyone.
-      { path: 'services', loadComponent: () => import('./features/company/services.page').then((m) => m.ServicesPage) },
+      { path: 'services', loadComponent: () => import('./features/company/services/services.page').then((m) => m.ServicesPage) },
       { path: 'contact', canActivate: [toSection('contact')], children: [] },
       { path: 'about', redirectTo: '', pathMatch: 'full' },
+      // Booking: anyone can pick a service and see its details and price; the next step asks to sign in.
+      { path: 'book', loadComponent: () => import('./features/book/book.page').then((m) => m.BookPage) },
       { path: 'register', loadComponent: () => import('./features/register/register.page').then((m) => m.RegisterPage) },
       { path: 'login', loadComponent: () => import('./features/login/login.page').then((m) => m.LoginPage) },
       {
@@ -34,10 +36,14 @@ export const routes: Routes = [
           { path: 'bookings', loadComponent: () => import('./features/bookings/bookings.page').then((m) => m.BookingsPage) },
           {
             path: 'bookings/:id',
-            loadComponent: () => import('./features/bookings/booking-detail.page').then((m) => m.BookingDetailPage),
+            loadComponent: () => import('./features/bookings/booking-detail/booking-detail.page').then((m) => m.BookingDetailPage),
           },
-          { path: 'book', loadComponent: () => import('./features/book/book.page').then((m) => m.BookPage) },
+          { path: 'quotes/:id', loadComponent: () => import('./features/quotes/quote.page').then((m) => m.QuotePage) },
           { path: 'invoices', loadComponent: () => import('./features/invoices/invoices.page').then((m) => m.InvoicesPage) },
+          {
+            path: 'invoices/:id',
+            loadComponent: () => import('./features/invoices/invoice-detail/invoice-detail.page').then((m) => m.InvoiceDetailPage),
+          },
           { path: 'profile', loadComponent: () => import('./features/profile/profile.page').then((m) => m.ProfilePage) },
         ],
       },

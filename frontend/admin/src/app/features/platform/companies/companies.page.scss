@@ -1,0 +1,16 @@
+.filters { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; padding: 1rem 1.25rem; border-bottom: 1px solid var(--fo-border); }
+.filters input { min-width: 240px; }
+td small { display: block; color: var(--fo-muted); }
+tr.row { cursor: pointer; }
+.head { display: grid; gap: .3rem; margin-bottom: 1rem; }
+.head h2 { margin: 0; font-size: 1.2rem; }
+.facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem 1rem; font-size: .9rem; margin-bottom: 1rem; }
+.facts span { color: var(--fo-muted); display: block; font-size: .8rem; }
+section.box { border: 1px solid var(--fo-border); border-radius: 12px; padding: .9rem 1rem; margin-bottom: .85rem; display: grid; gap: .6rem; }
+section.box h3 { margin: 0; font-size: .95rem; }
+.row-f { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+.row-f > * { min-width: 0; }
+.hint { color: var(--fo-muted); font-size: .8rem; margin: 0; }
+ul.list { list-style: none; margin: 0; padding: 0; display: grid; gap: .4rem; font-size: .88rem; }
+ul.list li { display: flex; justify-content: space-between; gap: .5rem; border-bottom: 1px solid var(--fo-border); padding-bottom: .35rem; }
+.note { background: var(--danger-97); color: var(--danger-35); border-radius: 8px; padding: .5rem .75rem; font-size: .88rem; }

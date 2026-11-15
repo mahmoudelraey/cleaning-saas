@@ -1,7 +1,10 @@
 package com.fieldops.app.catalog;
 
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -52,6 +55,13 @@ public class ServiceOffering extends TenantScopedEntity {
     @OrderBy("createdAt asc")
     private List<ServiceAddon> addons = new ArrayList<>();
 
+    /**
+     * Sizes / types with their own price. A Set (not a List) so it can be fetched together with {@code addons}
+     * in one query; {@link #getOptions()} returns them in their display order.
+     */
+    @OneToMany(mappedBy = "service", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<ServiceOption> options = new LinkedHashSet<>();
+
     protected ServiceOffering() {
     }
 
@@ -82,6 +92,16 @@ public class ServiceOffering extends TenantScopedEntity {
 
     public void removeAddon(ServiceAddon addon) {
         addons.remove(addon);
+    }
+
+    public ServiceOption addOption(ServiceOption option) {
+        option.attachTo(this);
+        options.add(option);
+        return option;
+    }
+
+    public void removeOption(ServiceOption option) {
+        options.remove(option);
     }
 
     public String getName() {
@@ -149,5 +169,18 @@ public class ServiceOffering extends TenantScopedEntity {
 
     public List<ServiceAddon> getAddons() {
         return addons;
+    }
+
+    /** All options (active or not) in display order. */
+    public List<ServiceOption> getOptions() {
+        return options.stream()
+                .sorted(Comparator.comparingInt(ServiceOption::getPosition)
+                        .thenComparing(o -> o.getCreatedAt() == null ? java.time.Instant.MAX : o.getCreatedAt()))
+                .toList();
+    }
+
+    /** The options customers can choose from; empty = the service is booked at its base price. */
+    public List<ServiceOption> getActiveOptions() {
+        return getOptions().stream().filter(ServiceOption::isActive).toList();
     }
 }

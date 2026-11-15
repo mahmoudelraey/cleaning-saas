@@ -6,6 +6,6 @@ import { Toasts } from './core/toast';
 @Component({
   selector: 'pt-root',
   imports: [RouterOutlet, Toasts],
-  template: `<router-outlet /><pt-toasts />`,
+  templateUrl: './app.html',
 })
 export class App {}

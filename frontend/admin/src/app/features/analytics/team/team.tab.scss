@@ -1,0 +1,9 @@
+h2 { font-size: 1rem; margin: 0 0 .25rem; }
+.sub { color: var(--fo-muted); font-size: .8rem; margin: 0 0 .75rem; }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: .92rem; min-width: 560px; }
+th { text-align: start; color: var(--fo-muted); font-weight: 600; padding: .45rem .3rem; border-bottom: 1px solid var(--fo-border); }
+td { padding: .55rem .3rem; border-bottom: 1px solid var(--fo-border); }
+.num { text-align: end; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-inline-end: .45rem; }
+.bar { height: 5px; border-radius: 3px; margin-top: .3rem; }

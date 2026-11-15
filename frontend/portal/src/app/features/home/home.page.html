@@ -1,0 +1,87 @@
+<div class="hm">
+  <header class="title">
+    <span class="ico"><i class="pi pi-calendar" aria-hidden="true"></i></span>
+    <div>
+      <h1>{{ 'home.title' | translate }}</h1>
+      <p>{{ 'home.subtitle' | translate: { name: firstName() } }}</p>
+    </div>
+  </header>
+
+  @if (loading()) {
+    <div class="spinner"><i class="pi pi-spin pi-spinner"></i></div>
+  } @else {
+    @if (next(); as b) {
+      <section class="hero" [attr.aria-label]="'home.nextVisit' | translate">
+        <!-- Where the next visit stands -->
+        <div class="track">
+          <pt-visit-tracker [booking]="b" />
+        </div>
+
+        <!-- The visit itself -->
+        <div class="next">
+          <i class="pi pi-calendar-clock art" aria-hidden="true"></i>
+          <span class="eyebrow">{{ (isToday(b) ? 'home.today' : 'home.nextVisit') | translate }}</span>
+          <span class="day">{{ b.scheduledStart | ldate: 'day' }}</span>
+          <span class="time tnum">{{ b.scheduledStart | ldate: 'time' }}</span>
+          @if (b | visitServices; as names) { <span class="svc">{{ names }}</span> }
+          <div class="row2">
+            <span class="chip" [class.wait]="b.status === 'NEW'">
+              <i class="pi" [class]="b.status === 'NEW' ? 'pi-clock' : 'pi-check-circle'" aria-hidden="true"></i>{{ 'status.' + b.status | translate }}
+            </span>
+            <a class="ghost" [routerLink]="['/', slug(), 'bookings', b.id]">
+              <i class="pi pi-file" aria-hidden="true"></i>{{ 'home.viewDetails' | translate }}<i class="pi pi-arrow-left rtl-flip" aria-hidden="true"></i>
+            </a>
+          </div>
+          @if (upcoming().length > 1) {
+            <a class="more-up" [routerLink]="['/', slug(), 'bookings']">
+              {{ (upcoming().length === 2 ? 'home.moreUpcomingOne' : 'home.moreUpcoming') | translate: { n: upcoming().length - 1 } }}
+            </a>
+          }
+        </div>
+      </section>
+    } @else {
+      <section class="hero solo">
+        <div class="next none">
+          <i class="pi pi-calendar-plus art" aria-hidden="true"></i>
+          <span class="day">{{ 'home.noVisits' | translate }}</span>
+          <p>{{ 'home.noVisitsHint' | translate }}</p>
+        </div>
+      </section>
+    }
+
+    <div class="actions">
+      @if (store.company()?.bookingOpen) {
+        <a class="act primary" [routerLink]="['/', slug(), 'book']"><i class="pi pi-plus" aria-hidden="true"></i>{{ (next() ? 'home.bookAnother' : 'home.book') | translate }}</a>
+      }
+      @if (store.company()?.phone; as phone) {
+        <a class="act plain" [href]="'tel:' + phone"><i class="pi pi-phone" aria-hidden="true"></i>{{ 'home.call' | translate }}</a>
+      }
+    </div>
+
+    <h2 class="sec">{{ 'home.recent' | translate }}</h2>
+    @if (past().length) {
+      <ul class="list">
+        @for (b of past(); track b.id) {
+          <li>
+            <a class="visit" [routerLink]="['/', slug(), 'bookings', b.id]">
+              <span class="v-ico"><i class="pi pi-home" aria-hidden="true"></i></span>
+              <span class="cell amt"><b class="ltr tnum">{{ b.subtotalHalalas | sar }}</b><small>{{ 'home.amount' | translate }}</small></span>
+              <span class="cell date"><b class="tnum"><i class="pi pi-calendar" aria-hidden="true"></i>{{ b.scheduledStart | ldate: 'dayShort' }}</b><small>{{ 'home.visitDate' | translate }}</small></span>
+              <span class="what">
+                <i class="pi" [class]="icon(b)" aria-hidden="true"></i>
+                <span>{{ (b | visitServices) || ('#' + b.number) }}</span>
+                <small class="ltr">{{ b.scheduledStart | ldate: 'dayShort' }} · {{ b.subtotalHalalas | sar }}</small>
+              </span>
+              <span class="pill" [class]="pillClass(b.status)">
+                <i class="pi" [class]="pillIcon(b.status)" aria-hidden="true"></i>{{ 'status.' + b.status | translate }}
+              </span>
+              <i class="pi pi-chevron-left rtl-flip go" aria-hidden="true"></i>
+            </a>
+          </li>
+        }
+      </ul>
+    } @else {
+      <p class="list empty-list">{{ 'home.noPast' | translate }}</p>
+    }
+  }
+</div>

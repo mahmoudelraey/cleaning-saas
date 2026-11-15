@@ -1,0 +1,8 @@
+.who { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
+.avatar { width: 56px; height: 56px; border-radius: 50%; background: var(--foam); color: var(--tide-deep);
+          display: grid; place-items: center; font-weight: 700; font-size: 1.3rem; }
+.who h1 { font-size: 1.3rem; }
+.row i { color: var(--tide); }
+.row .txt { flex: 1; min-width: 0; }
+.row .txt small { display: block; color: var(--ink-2); }
+.out { margin-top: 26px; }

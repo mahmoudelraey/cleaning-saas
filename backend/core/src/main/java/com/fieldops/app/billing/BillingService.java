@@ -97,7 +97,16 @@ public class BillingService {
      * free-text line with its own unit price.
      */
     public record LineInput(UUID serviceId, BigDecimal quantity, List<UUID> addonIds, String description,
-                            Long unitPriceHalalas) {
+                            Long unitPriceHalalas, UUID catalogServiceId, UUID catalogAddonId) {
+
+        /**
+         * {@code catalogServiceId} / {@code catalogAddonId}: on a free-text line, the catalog service it was first
+         * priced from (an edited quote keeps its prices as typed but remembers where each line came from).
+         */
+        public LineInput(UUID serviceId, BigDecimal quantity, List<UUID> addonIds, String description,
+                         Long unitPriceHalalas) {
+            this(serviceId, quantity, addonIds, description, unitPriceHalalas, null, null);
+        }
     }
 
     public record InvoiceCommand(UUID customerId, List<LineInput> lines, long discountHalalas, LocalDate dueDate,
@@ -164,22 +173,33 @@ public class BillingService {
         if (invoices.findLiveForBooking(bookingId, Invoice.Status.VOID).isPresent()) {
             throw ApiException.conflict("already_invoiced", "This booking already has an invoice");
         }
+        // A quote the customer accepted for this visit is what they agreed to pay: invoice its lines and discount.
+        Quote agreed = quotes.findFirstByBookingIdAndStatusOrderByRespondedAtDesc(bookingId, Quote.Status.ACCEPTED)
+                .filter(q -> invoices.findByQuoteIdAndStatusNot(q.getId(), Invoice.Status.VOID).isEmpty())
+                .orElse(null);
         List<DocumentLine> lines = new ArrayList<>();
-        for (BookingItem item : b.getItems()) {
-            lines.add(lineFrom(item));
+        long baseDiscount;
+        if (agreed != null) {
+            agreed.getLines().forEach(l -> lines.add(l.copy()));
+            baseDiscount = agreed.getDiscountHalalas();
+        } else {
+            for (BookingItem item : b.getItems()) {
+                lines.add(lineFrom(item));
+            }
+            baseDiscount = b.getDiscountHalalas();
         }
-        // The booking's promo discount comes first; the office may add more on top (never past the lines total).
+        // The booking's (or quote's) discount comes first; the office may add more on top (never past the lines total).
         long linesTotal = lines.stream().mapToLong(DocumentLine::getTotalHalalas).sum();
-        long discount = Math.min(linesTotal, b.getDiscountHalalas() + Math.max(0, cmd.discountHalalas()));
+        long discount = Math.min(linesTotal, baseDiscount + Math.max(0, cmd.discountHalalas()));
         String notes = cmd.notes();
-        if (b.getPromoCode() != null && b.getDiscountHalalas() > 0) {
+        if (agreed == null && b.getPromoCode() != null && b.getDiscountHalalas() > 0) {
             String promoNote = "Promo / كود الخصم: " + b.getPromoCode();
             notes = notes == null || notes.isBlank() ? promoNote : notes + "\n" + promoNote;
             notes = notes.length() > 2000 ? notes.substring(0, 2000) : notes;
         }
         // Snapshot from the booking (works even if the customer was deleted since).
         Invoice inv = issue(b.getCustomerId(), b.getCustomerName(), b.getCustomerPhone(), cmd.customerVatNumber(),
-                lines, discount, cmd.dueDate(), notes, bookingId, null);
+                lines, discount, cmd.dueDate(), notes, bookingId, agreed == null ? null : agreed.getId());
         b.invoiceIssued();
         bookings.log(bookingId, VisitEvent.Type.INVOICE_ISSUED, null, null, "#" + inv.getNumber());
         if (cmd.send()) {
@@ -279,6 +299,9 @@ public class BillingService {
     @Transactional
     public Quote quoteFromBooking(UUID bookingId, LocalDate validUntil, String notes) {
         Booking b = bookings.get(bookingId);
+        if (b.getStatus() == BookingStatus.COMPLETED || NOT_BILLABLE.contains(b.getStatus())) {
+            throw ApiException.conflict("booking_closed", "A quote can't be made for a finished or cancelled booking");
+        }
         List<DocumentLine> lines = new ArrayList<>();
         for (BookingItem item : b.getItems()) {
             lines.add(lineFrom(item));
@@ -303,11 +326,16 @@ public class BillingService {
     public String sendQuote(UUID id) {
         Quote q = getQuote(id);
         q.assertEditable();
+        boolean sentBefore = q.getStatus() != Quote.Status.DRAFT;
         q.markSent();
         Tenant t = tenants.current();
         String link = url(PublicLink.Type.QUOTE, linkFor(PublicLink.Type.QUOTE, q.getId()));
         notifications.enqueue(q.getBookingId(), NotificationTemplate.QUOTE_SENT, q.getCustomerPhone(), List.of(
                 firstName(q.getCustomerName()), t.getName(), "Q-" + q.getNumber(), money(q.getTotalHalalas()), link));
+        // Also in the customer's portal bell; sending the same quote again doesn't add a second one.
+        if (!sentBefore) {
+            inbox.toCustomer(q.getCustomerId(), InboxKind.QUOTE_SENT, q.getBookingId(), q.getId(), q.getNumber(), null);
+        }
         return link;
     }
 
@@ -322,6 +350,9 @@ public class BillingService {
     public Quote respondToQuote(UUID id, boolean accepted) {
         Quote q = getQuote(id);
         q.respond(accepted, Instant.now(clock));
+        if (accepted) {
+            applyToBooking(q);
+        }
         return q;
     }
 
@@ -337,6 +368,7 @@ public class BillingService {
         }
         if (q.getStatus() != Quote.Status.ACCEPTED) {
             q.respond(true, Instant.now(clock));
+            applyToBooking(q);
         }
         UUID bookingId = q.getBookingId();
         if (bookingId != null && invoices.findLiveForBooking(bookingId, Invoice.Status.VOID).isPresent()) {
@@ -364,6 +396,9 @@ public class BillingService {
             throw ApiException.conflict("quote_expired", "This quote has expired");
         }
         q.respond(accepted, Instant.now(clock));
+        if (accepted) {
+            applyToBooking(q);
+        }
         return q;
     }
 
@@ -409,6 +444,35 @@ public class BillingService {
         notifications.enqueue(inv.getBookingId(), NotificationTemplate.INVOICE_ISSUED, inv.getCustomerPhone(), List.of(
                 firstName(inv.getCustomerName()), t.getName(), "INV-" + inv.getNumber(), money(inv.getTotalHalalas()), link));
         return link;
+    }
+
+    /**
+     * An accepted quote's prices replace the booking's, so the booking (admin and portal) shows what the customer
+     * agreed to. Not once the booking is invoiced, cancelled or a no-show. Lines that all came from the catalog
+     * become the booking's items; with free-text lines the items stay and the discount brings the booking to the
+     * agreed amount. The booking's invoice is then issued from the quote either way (see issueFromBooking).
+     */
+    private void applyToBooking(Quote q) {
+        if (q.getBookingId() == null) {
+            return;
+        }
+        Booking b = bookings.get(q.getBookingId());
+        if (NOT_BILLABLE.contains(b.getStatus())
+                || invoices.findLiveForBooking(b.getId(), Invoice.Status.VOID).isPresent()) {
+            return;
+        }
+        List<DocumentLine> lines = q.getLines();
+        if (!lines.isEmpty() && lines.stream().allMatch(l -> l.getServiceId() != null)) {
+            List<BookingItem> items = new ArrayList<>();
+            for (DocumentLine l : lines) {
+                items.add(new BookingItem(l.getServiceId(), l.getAddonId(), l.getDescription(), l.getQuantity(),
+                        l.getUnitPriceHalalas()));
+            }
+            b.agreePrices(items, q.getDiscountHalalas());
+        } else {
+            b.agreeTotal(q.getLinesTotalHalalas() - q.getDiscountHalalas());
+        }
+        bookings.log(b.getId(), VisitEvent.Type.UPDATED, null, null, "Q-" + q.getNumber());
     }
 
     private void apply(Quote q, QuoteCommand cmd) {
@@ -467,7 +531,10 @@ public class BillingService {
             if (l.unitPriceHalalas() == null || l.unitPriceHalalas() < 0 || l.unitPriceHalalas() > 100_000_000L) {
                 throw ApiException.badRequest("invalid_price", "Enter a valid unit price");
             }
-            out.add(new DocumentLine(description, qty, l.unitPriceHalalas()));
+            UUID from = knownService(l.catalogServiceId(), l.catalogAddonId()) ? l.catalogServiceId() : null;
+            out.add(new DocumentLine(description, qty, l.unitPriceHalalas())
+                    .withCatalog(from, l.catalogAddonId())
+                    .withEnglish(from == null ? null : englishName(from, l.catalogAddonId())));
         }
         return out;
     }
@@ -475,7 +542,18 @@ public class BillingService {
     /** A document line from a priced booking item, with the English text taken from the catalog. */
     private DocumentLine lineFrom(BookingItem item) {
         return new DocumentLine(item.getDescription(), item.getQuantity(), item.getUnitPriceHalalas())
+                .withCatalog(item.getServiceId(), item.getAddonId())
                 .withEnglish(englishName(item.getServiceId(), item.getAddonId()));
+    }
+
+    /** A service of this company (and, when given, one of its add-ons): a line may say it came from it. */
+    private boolean knownService(UUID serviceId, UUID addonId) {
+        if (serviceId == null) {
+            return false;
+        }
+        return catalog.findWithAddons(serviceId)
+                .map(s -> addonId == null || s.getAddons().stream().anyMatch(a -> addonId.equals(a.getId())))
+                .orElse(false);
     }
 
     /**

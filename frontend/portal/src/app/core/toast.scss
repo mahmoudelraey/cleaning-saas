@@ -1,0 +1,8 @@
+:host { position: fixed; inset-inline: 0; bottom: calc(84px + env(safe-area-inset-bottom)); z-index: 60;
+        display: grid; justify-items: center; gap: .5rem; pointer-events: none; padding-inline: 16px; }
+.t { pointer-events: auto; max-width: 480px; padding: .75rem 1rem; border-radius: 14px; font-size: .92rem;
+     background: var(--ink); color: var(--white); box-shadow: 0 12px 30px -12px rgba(var(--info-15-rgb), .5);
+     display: flex; gap: .6rem; align-items: center; animation: rise .25s ease-out; }
+.t.error { background: var(--rose); }
+@keyframes rise { from { transform: translateY(8px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .t { animation: none; } }

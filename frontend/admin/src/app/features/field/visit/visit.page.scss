@@ -1,0 +1,12 @@
+:host { display: block; max-width: 640px; margin-inline: auto; }
+.back { color: var(--fo-muted); text-decoration: none; display: inline-flex; gap: .35rem; align-items: center; margin-block-end: .75rem; }
+.panel + .panel { margin-top: .875rem; }
+h2 { font-size: 1.05rem; margin: 0 0 .75rem; }
+.row { display: flex; justify-content: space-between; gap: .75rem; align-items: center; }
+.time { font-size: 1.2rem; font-weight: 700; }
+.actions { display: grid; gap: .5rem; margin-top: .75rem; }
+ul { margin: .25rem 0 0; padding-inline-start: 1.1rem; }
+.note-box { display: flex; gap: .5rem; align-items: flex-start; }
+.note-box textarea { flex: 1; }
+.links { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .5rem; }
+.links a { text-decoration: none; }

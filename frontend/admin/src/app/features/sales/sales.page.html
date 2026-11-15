@@ -1,0 +1,165 @@
+<div class="page-header">
+  <div>
+    <h1>{{ 'sales.title' | translate }}</h1>
+    <p>{{ 'sales.subtitle' | translate }}</p>
+  </div>
+  <app-export-menu [query]="query()" />
+</div>
+
+<app-analytics-filters [(query)]="query" />
+
+@let v = data.value();
+@if (v.state === 'error') {
+  <div class="panel"><app-state kind="error" [message]="v.error" (retry)="data.reload()" /></div>
+} @else if (!v.data) {
+  <div class="panel"><app-state kind="loading" /></div>
+} @else {
+  @let d = v.data;
+  @let c = d.current;
+  @let p = d.previous;
+  <div class="kpis" [style.opacity]="v.state === 'loading' ? .6 : 1">
+    <app-kpi icon="pi pi-shopping-cart" [label]="'sales.kpi.gross' | translate" [value]="money(c.grossSalesHalalas)" [delta]="g(c.grossSalesHalalas, p?.grossSalesHalalas)"
+             [hint]="'sales.kpi.grossHint' | translate: { v: money(c.vatHalalas) }" [clickable]="true" (pick)="drillRevenue()" />
+    <app-kpi icon="pi pi-wallet" [label]="'analytics.kpi.revenue' | translate" [value]="money(c.revenueHalalas)" [delta]="g(c.revenueHalalas, p?.revenueHalalas)"
+             [hint]="'analytics.kpi.revenueHint' | translate" [clickable]="true" (pick)="drillRevenue()" />
+    <app-kpi icon="pi pi-file" [label]="'sales.kpi.invoices' | translate" [value]="count(c.invoices)" [delta]="g(c.invoices, p?.invoices)"
+             [hint]="'sales.kpi.avg' | translate: { v: money(c.invoices ? c.grossSalesHalalas / c.invoices : 0) }" />
+    @if (c.collectedHalalas !== null) {
+      <app-kpi icon="pi pi-money-bill" [label]="'analytics.kpi.collected' | translate" [value]="money(c.collectedHalalas)" [delta]="g(c.collectedHalalas, p?.collectedHalalas)"
+               [hint]="'sales.kpi.collectionRate' | translate: { r: pct(c.grossSalesHalalas ? (c.collectedHalalas ?? 0) / c.grossSalesHalalas : null) }" />
+    }
+    <app-kpi icon="pi pi-percentage" [label]="'analytics.kpi.growth' | translate" [value]="signed(g(c.revenueHalalas, p?.revenueHalalas))"
+             [negative]="(g(c.revenueHalalas, p?.revenueHalalas) ?? 0) < 0" [hint]="p ? ('analytics.kpi.growthHint' | translate: { v: money(p.revenueHalalas) }) : ('analytics.kpi.noCompare' | translate)" />
+  </div>
+
+  <div class="panel block">
+    <h2>
+      {{ 'sales.periods' | translate }}
+      <p-selectbutton [options]="periodKinds()" [(ngModel)]="periodKind" optionLabel="label" optionValue="value" [allowEmpty]="false" size="small" />
+    </h2>
+    <p class="sub">{{ 'sales.periodsHint' | translate }}</p>
+    <p-chart type="bar" [data]="periodChart()" [options]="periodOptions()" height="300px" (onDataSelect)="onPeriod($event)" />
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>{{ 'sales.period' | translate }}</th>
+            <th class="num">{{ 'analytics.revenue' | translate }}</th>
+            <th class="num">{{ 'sales.lastYear' | translate }}</th>
+            <th class="num">{{ 'sales.yoy' | translate }}</th>
+            <th class="num">{{ 'analytics.kpi.requests' | translate }}</th>
+            <th class="num">{{ 'analytics.kpi.completed' | translate }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (r of periods(); track r.key) {
+            @let gr = g(r.revenueHalalas, r.previousRevenueHalalas);
+            <tr class="row" (click)="drillPeriod(r)">
+              <td>{{ periodLabel(r) }}</td>
+              <td class="num"><span class="ltr">{{ money(r.revenueHalalas) }}</span></td>
+              <td class="num muted"><span class="ltr">{{ money(r.previousRevenueHalalas) }}</span></td>
+              <td class="num" [class.up]="(gr ?? 0) > 0" [class.down]="(gr ?? 0) < 0"><span class="ltr">{{ signed(gr) }}</span></td>
+              <td class="num">{{ count(r.requests) }}</td>
+              <td class="num">{{ count(r.completed) }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>{{ 'sales.best' | translate }}</h2>
+      <p class="sub">{{ 'sales.bestHint' | translate }}</p>
+      @if (best().length) {
+        <ol class="rank best">
+          @for (s of best(); track s.serviceId; let i = $index) {
+            <li (click)="drillService(s)"><span class="n">{{ i + 1 }}</span><span>{{ nm(s) }}<small>{{ 'analytics.nRequests' | translate: { n: s.requests } }} · {{ pct(s.share) }}</small></span><span class="num ltr">{{ money(s.revenueHalalas) }}</span></li>
+          }
+        </ol>
+      } @else { <app-state kind="empty" /> }
+    </div>
+    <div class="panel">
+      <h2>{{ 'sales.lowest' | translate }}</h2>
+      <p class="sub">{{ 'sales.lowestHint' | translate }}</p>
+      @if (lowest().length) {
+        <ol class="rank low">
+          @for (s of lowest(); track s.serviceId; let i = $index) {
+            <li (click)="drillService(s)"><span class="n">{{ i + 1 }}</span><span>{{ nm(s) }}<small>{{ 'analytics.nRequests' | translate: { n: s.requests } }} · {{ signed(g(s.revenueHalalas, s.previousRevenueHalalas)) }}</small></span><span class="num ltr">{{ money(s.revenueHalalas) }}</span></li>
+          }
+        </ol>
+      } @else { <app-state kind="empty" /> }
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>{{ 'sales.byRegion' | translate }}</h2>
+      <p class="sub">{{ 'analytics.clickToDrill' | translate }}</p>
+      @if (regionRows().length) {
+        <p-chart type="bar" [data]="regionChart()" [options]="regionOptions()" [height]="regionHeight()" (onDataSelect)="onRegion($event)" />
+      } @else { <app-state kind="empty" /> }
+    </div>
+    <div class="panel">
+      <h2>{{ 'sales.byCity' | translate }}</h2>
+      <p class="sub">{{ 'analytics.reg.citiesHint' | translate }}</p>
+      @if (cities().length) {
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>{{ 'analytics.city' | translate }}</th><th class="num">{{ 'analytics.revenue' | translate }}</th><th class="num">{{ 'analytics.kpi.requests' | translate }}</th></tr></thead>
+            <tbody>
+              @for (ct of cities(); track ct.cityId) {
+                <tr class="row" (click)="drillCity(ct.cityId, ctName(ct))"><td>{{ ctName(ct) }}</td><td class="num"><span class="ltr">{{ money(ct.revenueHalalas) }}</span></td><td class="num">{{ count(ct.requests) }}</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else { <app-state kind="empty" /> }
+    </div>
+  </div>
+
+  @if (d.financials) {
+    <div class="panel block">
+      <h2>{{ 'sales.profitability' | translate }}</h2>
+      <p class="sub">{{ 'sales.profitabilityHint' | translate }}</p>
+      <div class="table-wrap">
+        <table style="min-width: 760px">
+          <thead>
+            <tr>
+              <th>{{ 'analytics.service' | translate }}</th>
+              <th class="num">{{ 'analytics.revenue' | translate }}</th>
+              <th class="num">{{ 'sales.unitCost' | translate }}</th>
+              <th class="num">{{ 'analytics.directCost' | translate }}</th>
+              <th class="num">{{ 'analytics.grossProfit' | translate }}</th>
+              <th class="num">{{ 'analytics.margin' | translate }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (s of d.services.services; track s.serviceId) {
+              <tr>
+                <td>{{ nm(s) }}</td>
+                <td class="num"><span class="ltr">{{ money(s.revenueHalalas) }}</span></td>
+                <td class="num">
+                  <span class="cost">
+                    <p-inputnumber [ngModel]="costValue(s)" (ngModelChange)="draft(s.serviceId, $event)" mode="decimal"
+                                   [minFractionDigits]="0" [maxFractionDigits]="2" [min]="0" [placeholder]="'sales.costUnknown' | translate" [ariaLabel]="'sales.unitCost' | translate" />
+                    @if (costDraft()[s.serviceId] !== undefined) {
+                      <p-button icon="pi pi-check" size="small" [text]="true" [loading]="savingCost() === s.serviceId" (onClick)="saveCost(s)" [ariaLabel]="'common.save' | translate" />
+                    }
+                  </span>
+                </td>
+                <td class="num"><span class="ltr">{{ s.directCostHalalas === null ? '—' : money(s.directCostHalalas) }}</span></td>
+                <td class="num" [class.down]="(s.profitHalalas ?? 0) < 0" [class.up]="(s.profitHalalas ?? 0) > 0"><span class="ltr">{{ s.profitHalalas === null ? '—' : money(s.profitHalalas) }}</span></td>
+                <td class="num">{{ pct(s.margin) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="note"><i class="pi pi-info-circle"></i> {{ 'sales.profitNote' | translate }}</p>
+    </div>
+  }
+}
+
+<app-records-drawer [(drill)]="drill" />

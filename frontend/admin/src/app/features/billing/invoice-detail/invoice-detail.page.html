@@ -1,0 +1,108 @@
+<a routerLink="/invoices" class="back"><i class="pi pi-arrow-right rtl-flip"></i>{{ 'invoices.title' | translate }}</a>
+@if (invoice(); as inv) {
+  <div class="page-header">
+    <div>
+      <h1><span class="ltr">INV-{{ inv.number }}</span> <app-invoice-status [status]="inv.status" /></h1>
+      <p>{{ inv.customerName }} · {{ inv.issuedAt | ldate: 'medium' }}</p>
+    </div>
+    <div class="actions">
+      <p-button icon="pi pi-file-pdf" [label]="'doc.pdf' | translate" [outlined]="true" [loading]="pdfBusy()" (onClick)="pdf()" />
+      @if (inv.status !== 'VOID') {
+        <p-button icon="pi pi-link" [label]="'doc.copyLink' | translate" [outlined]="true" (onClick)="copyLink()" />
+        <p-button icon="pi pi-whatsapp" [label]="'doc.sendWhatsapp' | translate" severity="success" [loading]="sending()" (onClick)="send()" />
+      }
+      @if (inv.status === 'ISSUED' || inv.status === 'PARTIALLY_PAID') {
+        <p-button icon="pi pi-wallet" [label]="'invoices.recordPayment' | translate" (onClick)="openPay()" />
+      }
+      @if (isOwner && inv.status === 'ISSUED') {
+        <p-button icon="pi pi-ban" [label]="'invoices.void' | translate" severity="danger" [text]="true" (onClick)="voidOpen.set(true)" />
+      }
+    </div>
+  </div>
+
+  <div class="layout">
+    <app-document-view [doc]="view()!" />
+
+    <div>
+      <div class="panel">
+        <h2>{{ 'doc.balance' | translate }}</h2>
+        <div class="balance ltr">{{ inv.balanceHalalas | sar }}</div>
+        <p class="muted">{{ 'invoices.paidOf' | translate: { paid: (inv.paidHalalas | sar), total: (inv.totalHalalas | sar) } }}</p>
+      </div>
+
+      <div class="panel">
+        <h2>{{ 'invoices.payments' | translate }}</h2>
+        @for (p of inv.payments; track p.id) {
+          <div class="pay">
+            <div>
+              {{ 'paymentMethod.' + p.method | translate }}
+              <div class="muted">{{ p.paidAt | ldate: 'medium' }}@if (p.reference) { · <span class="ltr">{{ p.reference }}</span> }</div>
+            </div>
+            <strong class="ltr">{{ p.amountHalalas | sar }}</strong>
+          </div>
+        } @empty {
+          <p class="muted">{{ 'invoices.noPayments' | translate }}</p>
+        }
+      </div>
+
+      <div class="panel">
+        <h2>{{ 'invoices.details' | translate }}</h2>
+        <dl class="kv">
+          <dt>{{ 'bookings.customer' | translate }}</dt>
+          <dd><a [routerLink]="['/customers', inv.customerId]">{{ inv.customerName }}</a></dd>
+          @if (inv.bookingId) {
+            <dt>{{ 'invoices.booking' | translate }}</dt>
+            <dd><a [routerLink]="['/bookings', inv.bookingId]">{{ 'invoices.openBooking' | translate }}</a></dd>
+          }
+          @if (inv.quoteId) {
+            <dt>{{ 'invoices.quote' | translate }}</dt>
+            <dd><a [routerLink]="['/quotes', inv.quoteId]">{{ 'invoices.openQuote' | translate }}</a></dd>
+          }
+          @if (inv.voidReason) {
+            <dt>{{ 'invoices.voidReason' | translate }}</dt>
+            <dd>{{ inv.voidReason }}</dd>
+          }
+          <dt>{{ 'invoices.pricing' | translate }}</dt>
+          <dd>{{ (inv.vatInvoice ? (inv.pricesIncludeVat ? 'invoices.vatInclusive' : 'invoices.vatExclusive') : 'invoices.noVat') | translate }}</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+}
+
+<p-dialog [header]="'invoices.recordPayment' | translate" [(visible)]="payOpen" [modal]="true" [style]="{ width: '440px', maxWidth: '95vw' }" [draggable]="false">
+  <div class="form-grid">
+    <div class="field full">
+      <label for="p-method">{{ 'invoices.method' | translate }}</label>
+      <p-select inputId="p-method" [options]="methods()" [(ngModel)]="payMethod" optionLabel="label" optionValue="value" [fluid]="true" appendTo="body" />
+    </div>
+    <div class="field">
+      <label for="p-amount">{{ 'invoices.amountSar' | translate }}</label>
+      <p-inputnumber inputId="p-amount" [(ngModel)]="payAmount" [min]="0.01" [max]="maxPay()" [minFractionDigits]="0" [maxFractionDigits]="2" [fluid]="true" />
+    </div>
+    <div class="field">
+      <label for="p-date">{{ 'invoices.paidAt' | translate }}</label>
+      <p-datepicker inputId="p-date" [(ngModel)]="payDate" [maxDate]="today" dateFormat="yy-mm-dd" [showIcon]="true" [fluid]="true" appendTo="body" />
+    </div>
+    <div class="field full">
+      <label for="p-ref">{{ 'invoices.reference' | translate }}</label>
+      <input pInputText id="p-ref" [(ngModel)]="payRef" maxlength="100" dir="auto" />
+    </div>
+  </div>
+  <div class="dialog-actions">
+    <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="payOpen.set(false)" />
+    <p-button [label]="'common.save' | translate" [disabled]="!payAmount || payAmount <= 0" [loading]="busy()" (onClick)="pay()" />
+  </div>
+</p-dialog>
+
+<p-dialog [header]="'invoices.void' | translate" [(visible)]="voidOpen" [modal]="true" [style]="{ width: '440px', maxWidth: '95vw' }" [draggable]="false">
+  <p class="muted">{{ 'invoices.voidHint' | translate }}</p>
+  <div class="field">
+    <label for="v-reason">{{ 'invoices.voidReason' | translate }}</label>
+    <textarea pTextarea id="v-reason" [(ngModel)]="voidReason" rows="3" maxlength="500"></textarea>
+  </div>
+  <div class="dialog-actions">
+    <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="voidOpen.set(false)" />
+    <p-button [label]="'invoices.void' | translate" severity="danger" [disabled]="!voidReason.trim()" [loading]="busy()" (onClick)="doVoid()" />
+  </div>
+</p-dialog>

@@ -1,0 +1,58 @@
+<a routerLink="/today" class="back"><i class="pi pi-arrow-right rtl-flip"></i>{{ 'field.myVisits' | translate }}</a>
+
+@if (booking(); as b) {
+  <div class="panel">
+    <div class="row">
+      <span class="time">{{ b.scheduledStart | ltimeRange: b.scheduledEnd }}</span>
+      <app-booking-status [status]="b.status" />
+    </div>
+    <h2 style="margin-top: .5rem">#{{ b.number }} · {{ b.customerName }}</h2>
+    @if (b.addressText) { <div class="muted"><i class="pi pi-map-marker"></i> {{ b.addressText }}</div> }
+    <div class="links">
+      <a [href]="'tel:' + b.customerPhone"><p-button icon="pi pi-phone" [label]="(b.customerPhone | phone)" [outlined]="true" size="small" /></a>
+      <a [href]="'https://wa.me/' + b.customerPhone.replace('+', '')" target="_blank" rel="noopener"><p-button icon="pi pi-whatsapp" label="WhatsApp" [outlined]="true" size="small" /></a>
+      @if (b.navigationUrl) {
+        <a [href]="b.navigationUrl" target="_blank" rel="noopener"><p-button icon="pi pi-directions" [label]="'field.navigate' | translate" [outlined]="true" size="small" /></a>
+      }
+    </div>
+    <ul>
+      @for (it of b.items; track $index) { <li>{{ it.description }} @if (it.quantity !== 1) { × {{ it.quantity }} }</li> }
+    </ul>
+    @if (b.notes) { <p><i class="pi pi-info-circle"></i> {{ b.notes }}</p> }
+
+    <div class="actions">
+      @for (t of b.allowedTransitions; track t) {
+        <p-button
+          [label]="'bookingAction.' + t | translate"
+          [severity]="t === 'NO_SHOW' ? 'danger' : t === 'COMPLETED' ? 'success' : 'primary'"
+          [outlined]="t === 'NO_SHOW'"
+          [size]="t === 'NO_SHOW' ? 'small' : 'large'"
+          [fluid]="true"
+          [loading]="busy()"
+          (onClick)="move(t)"
+        />
+      }
+    </div>
+    @if (needsAfterPhoto()) {
+      <p class="muted" style="margin-top: .5rem"><i class="pi pi-camera"></i> {{ 'field.afterPhotoHint' | translate }}</p>
+    }
+  </div>
+
+  <div class="panel">
+    <h2>{{ 'photos.title' | translate }}</h2>
+    <app-photo-gallery
+      [bookingId]="b.id"
+      [canUpload]="canPhoto()"
+      [completed]="b.status === 'COMPLETED'"
+      (changed)="photoCount.set($event)"
+    />
+  </div>
+
+  <div class="panel">
+    <h2>{{ 'bookings.addNote' | translate }}</h2>
+    <div class="note-box">
+      <textarea pTextarea [(ngModel)]="note" rows="2" [placeholder]="'field.notePlaceholder' | translate"></textarea>
+      <p-button icon="pi pi-send" [disabled]="!note.trim()" (onClick)="addNote()" />
+    </div>
+  </div>
+}

@@ -71,7 +71,9 @@ app:
       secret: ${JWT_SECRET:ZGV2LW9ubHktc2VjcmV0LWNoYW5nZS1tZS1iZWZvcmUtcHJvZHVjdGlvbi0xMjM0NTY=}
       issuer: fieldops
       access-ttl: 15m
-      refresh-ttl: 30d
+      # Sliding: every refresh issues a new token with a fresh expiry, so this is also the server-side idle limit
+      # (the admin app signs office staff out after 30 idle minutes, technicians after 8 hours).
+      refresh-ttl: ${JWT_REFRESH_TTL:8h}
   cors:
     allowed-origins: ${CORS_ORIGINS:http://localhost:4200}
   db:

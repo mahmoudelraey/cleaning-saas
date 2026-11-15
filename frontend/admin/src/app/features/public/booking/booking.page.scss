@@ -1,0 +1,54 @@
+:host { display: block; min-height: 100vh; background: var(--fo-bg, var(--slate-97)); }
+.wrap { max-width: 720px; margin: 0 auto; padding: 1rem 1rem 7rem; }
+.brand { display: flex; align-items: center; gap: .75rem; padding: .5rem 0 1rem; }
+.brand img { height: 48px; max-width: 140px; object-fit: contain; }
+.brand h1 { margin: 0; font-size: 1.3rem; }
+.brand .lang { margin-inline-start: auto; }
+.note { background: var(--white); border: 1px solid var(--fo-border); border-radius: 12px; padding: .75rem 1rem; margin-bottom: 1rem; white-space: pre-line; }
+.steps { display: flex; gap: .4rem; margin-bottom: 1rem; }
+.steps span { flex: 1; height: 4px; border-radius: 4px; background: var(--fo-border); }
+.steps span.on { background: var(--p-primary-500); }
+h2 { font-size: 1.1rem; margin: 0 0 .75rem; }
+.svc { background: var(--white); border: 1.5px solid var(--fo-border); border-radius: 14px; padding: 1rem; margin-bottom: .75rem; cursor: pointer; transition: border-color .15s; }
+.svc.on { border-color: var(--p-primary-500); box-shadow: 0 0 0 3px color-mix(in srgb, var(--p-primary-500) 15%, transparent); }
+.svc-head { display: flex; justify-content: space-between; gap: .75rem; align-items: flex-start; }
+.svc-head strong { font-size: 1.02rem; }
+.svc p { margin: .35rem 0 0; color: var(--fo-muted); font-size: .9rem; }
+.price { white-space: nowrap; font-weight: 700; color: var(--p-primary-700); }
+.meta { color: var(--fo-muted); font-size: .82rem; margin-top: .25rem; }
+.svc-opts { margin-top: .75rem; display: grid; gap: .6rem; cursor: default; }
+.chips { display: flex; flex-wrap: wrap; gap: .5rem; }
+.chip { border: 1px solid var(--fo-border); border-radius: 999px; padding: .35rem .8rem; font-size: .88rem; background: var(--white); cursor: pointer; }
+.chip.on { background: var(--p-primary-50); border-color: var(--p-primary-400); color: var(--p-primary-800); }
+.days { display: flex; gap: .5rem; overflow-x: auto; padding-bottom: .5rem; scroll-snap-type: x mandatory; }
+.day { flex: 0 0 auto; width: 64px; text-align: center; border: 1.5px solid var(--fo-border); border-radius: 12px; padding: .5rem 0; background: var(--white); cursor: pointer; scroll-snap-align: start; }
+.day small { display: block; color: var(--fo-muted); font-size: .75rem; }
+.day strong { font-size: 1.15rem; }
+.day.on { border-color: var(--p-primary-500); background: var(--p-primary-50); }
+.slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: .5rem; margin-top: 1rem; }
+.slot { border: 1.5px solid var(--fo-border); border-radius: 10px; padding: .6rem 0; text-align: center; background: var(--white); cursor: pointer; font-variant-numeric: tabular-nums; unicode-bidi: isolate; direction: ltr; }
+.slot.on { border-color: var(--p-primary-500); background: var(--p-primary-500); color: var(--white); }
+.empty { text-align: center; color: var(--fo-muted); padding: 2rem 1rem; }
+.panel { background: var(--white); border: 1px solid var(--fo-border); border-radius: 14px; padding: 1rem; }
+.form { display: grid; gap: .9rem; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+@media (max-width: 420px) { .row2 { grid-template-columns: 1fr; } }
+.field { display: grid; gap: .35rem; }
+.field label { font-weight: 600; font-size: .9rem; }
+.hint { color: var(--fo-muted); font-size: .8rem; }
+.bar { position: fixed; inset-inline: 0; bottom: 0; background: var(--white); border-top: 1px solid var(--fo-border); padding: .75rem 1rem calc(.75rem + env(safe-area-inset-bottom)); }
+.bar-in { max-width: 720px; margin: 0 auto; display: flex; align-items: center; gap: .75rem; }
+.bar .sum { flex: 1; }
+.bar .sum strong { font-size: 1.15rem; }
+.bar .sum small { display: block; color: var(--fo-muted); }
+.summary { display: grid; gap: .35rem; margin-bottom: 1rem; }
+.summary div { display: flex; justify-content: space-between; gap: 1rem; }
+.done { text-align: center; padding: 2.5rem 1rem; }
+.done i { font-size: 3.5rem; color: var(--p-green-500); }
+.done h2 { font-size: 1.4rem; margin: 1rem 0 .5rem; }
+.otp { display: grid; justify-items: center; gap: 1rem; text-align: center; }
+.dev { background: var(--warning-96); color: var(--warning-34); padding: .35rem .75rem; border-radius: 8px; font-size: .85rem; }
+.state { text-align: center; padding: 5rem 1rem; color: var(--fo-muted); }
+.state i { font-size: 2.5rem; display: block; margin-bottom: 1rem; }
+
+.price small { font-weight: 400; font-size: .75rem; color: var(--fo-muted); margin-inline-end: .25rem; }

@@ -1,0 +1,41 @@
+<div class="panel">
+  <h2>{{ 'reports.technicians' | translate }}</h2>
+  <p class="sub">{{ 'analytics.team.hint' | translate }}</p>
+  @let v = data.value();
+  @if (v.state === 'error') {
+    <app-state kind="error" [message]="v.error" (retry)="data.reload()" />
+  } @else if (!v.data) {
+    <app-state kind="loading" />
+  } @else if (!v.data.technicians.length) {
+    <app-state kind="empty" />
+  } @else {
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>{{ 'nav.technicians' | translate }}</th>
+            <th class="num">{{ 'reports.done' | translate }}</th>
+            <th class="num">{{ 'analytics.team.completion' | translate }}</th>
+            <th class="num">{{ 'reports.hours' | translate }}</th>
+            <th class="num">{{ 'reports.revenue' | translate }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (t of v.data.technicians; track t.technicianId) {
+            <tr>
+              <td>
+                <span class="dot" [style.background]="t.color"></span>{{ t.name }}
+                @if (t.noShow) { <small class="muted"> · {{ 'reports.noShows' | translate: { n: t.noShow } }}</small> }
+                <div class="bar" [style.background]="t.color" [style.width.%]="share(t.completedValueHalalas)"></div>
+              </td>
+              <td class="num"><span class="ltr">{{ t.completed }} / {{ t.visits }}</span></td>
+              <td class="num">{{ t.visits ? round((t.completed / t.visits) * 100) + '%' : '—' }}</td>
+              <td class="num">{{ t.hours }}</td>
+              <td class="num"><span class="ltr">{{ money(t.completedValueHalalas) }}</span></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>

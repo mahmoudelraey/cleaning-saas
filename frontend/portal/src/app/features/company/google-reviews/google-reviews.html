@@ -1,0 +1,59 @@
+@if (place(); as p) {
+  <div class="head">
+    @if (p.rating) {
+      <span class="big tnum">{{ p.rating.toFixed(1) }}</span>
+      <span class="side">
+        <pt-stars [value]="p.rating" style="--star-size: 1.1rem" />
+        @if (p.count) { <span class="muted">{{ 'google.count' | translate: { n: p.count } }}</span> }
+      </span>
+    }
+    <span class="attrib">
+      {{ 'google.from' | translate }}
+      @if (logoOk()) {
+        <img src="google/google_logo.png" alt="Google" (error)="logoOk.set(false)" />
+      }
+      <span class="gm">Google Maps</span>
+    </span>
+  </div>
+
+  @if (p.reviews.length) {
+    <ul class="list">
+      @for (r of p.reviews; track $index) {
+        <li class="card">
+          <a class="who" [href]="r.author?.uri" target="_blank" rel="noopener nofollow">
+            @if (r.author?.photoUri) {
+              <img [src]="r.author!.photoUri" alt="" referrerpolicy="no-referrer" loading="lazy" />
+            } @else {
+              <span class="ph">{{ (r.author?.name || '?').charAt(0) }}</span>
+            }
+            <span style="min-width:0">
+              <strong>{{ r.author?.name }}</strong>
+              @if (r.relativeTime) { <small>{{ r.relativeTime }}</small> }
+            </span>
+          </a>
+          <pt-stars [value]="r.rating" />
+          @if (r.text) { <p class="text" dir="auto">{{ r.text }}</p> }
+          <footer>
+            @if (r.translated) { <span>{{ 'google.translated' | translate }}</span> }
+            @if (r.googleMapsUri) {
+              <a [href]="r.googleMapsUri" target="_blank" rel="noopener nofollow">{{ 'google.viewReview' | translate }}</a>
+            }
+            @if (r.flagUri) {
+              <a [href]="r.flagUri" target="_blank" rel="noopener nofollow">{{ 'google.report' | translate }}</a>
+            }
+          </footer>
+        </li>
+      }
+    </ul>
+    <p class="note">{{ 'google.ordering' | translate }}</p>
+  }
+  @if (p.googleMapsUri) {
+    <a class="all" [href]="p.googleMapsUri" target="_blank" rel="noopener">
+      <i class="pi pi-external-link"></i>{{ 'google.seeAll' | translate }}
+    </a>
+  }
+} @else if (failed()) {
+  <p class="state">{{ 'google.unavailable' | translate }}</p>
+} @else {
+  <div class="spinner" aria-hidden="true"></div>
+}

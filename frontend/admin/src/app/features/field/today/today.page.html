@@ -1,0 +1,52 @@
+<div class="page-header">
+  <div>
+    <h1>{{ 'field.hello' | translate: { name: auth.user()?.name } }}</h1>
+    <p>{{ day() | ldate: 'fullDate' }}</p>
+  </div>
+</div>
+
+<div class="day-switch">
+  <p-selectbutton [options]="dayOptions()" [ngModel]="offset()" (ngModelChange)="setOffset($event)" optionLabel="label" optionValue="value" [allowEmpty]="false" />
+</div>
+
+@if (visits().length) {
+  <p class="summary">{{ 'field.summary' | translate: { done: doneCount(), total: visits().length } }}</p>
+}
+
+@for (v of visits(); track v.id) {
+  <div class="card" [class.done]="v.status === 'COMPLETED' || v.status === 'NO_SHOW'">
+    <div class="top">
+      <span class="time">{{ v.scheduledStart | ltimeRange: v.scheduledEnd }}</span>
+      <app-booking-status [status]="v.status" />
+    </div>
+    <a class="name" [routerLink]="['/visit', v.id]">#{{ v.number }} · {{ v.customerName }}</a>
+    @if (v.addressText) { <div class="addr"><i class="pi pi-map-marker"></i> {{ v.addressText }}</div> }
+    <div class="services">{{ v.services.join('، ') }}</div>
+    @if (v.notes) { <div class="notes"><i class="pi pi-info-circle"></i> {{ v.notes }}</div> }
+
+    <div class="quick">
+      <a [href]="'tel:' + v.customerPhone"><p-button icon="pi pi-phone" [label]="'field.call' | translate" [outlined]="true" [fluid]="true" size="small" /></a>
+      <a [href]="'https://wa.me/' + v.customerPhone.replace('+', '')" target="_blank" rel="noopener"><p-button icon="pi pi-whatsapp" label="WhatsApp" [outlined]="true" [fluid]="true" size="small" /></a>
+      @if (v.navigationUrl) {
+        <a [href]="v.navigationUrl" target="_blank" rel="noopener"><p-button icon="pi pi-directions" [label]="'field.navigate' | translate" [outlined]="true" [fluid]="true" size="small" /></a>
+      } @else {
+        <p-button icon="pi pi-directions" [label]="'field.navigate' | translate" [outlined]="true" [fluid]="true" size="small" [disabled]="true" />
+      }
+    </div>
+
+    @if (primary(v); as next) {
+      <p-button
+        [label]="'bookingAction.' + next | translate"
+        [icon]="next === 'ON_THE_WAY' ? 'pi pi-car' : next === 'IN_PROGRESS' ? 'pi pi-play' : 'pi pi-check-circle'"
+        [severity]="next === 'COMPLETED' ? 'success' : 'primary'"
+        size="large"
+        [fluid]="true"
+        [loading]="busyId() === v.id"
+        (onClick)="advance(v, next)"
+      />
+    }
+    <a [routerLink]="['/visit', v.id]"><p-button [label]="'field.openVisit' | translate" icon="pi pi-camera" [text]="true" [fluid]="true" size="small" /></a>
+  </div>
+} @empty {
+  <div class="panel empty"><i class="pi pi-sun"></i>{{ 'field.noVisits' | translate }}</div>
+}

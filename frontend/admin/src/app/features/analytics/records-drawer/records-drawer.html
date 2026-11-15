@@ -1,0 +1,56 @@
+<p-drawer [visible]="!!drill()" (visibleChange)="!$event && drill.set(null)" position="right" [modal]="true"
+          [style]="{ width: '760px', maxWidth: '100vw' }" [header]="drill()?.title ?? ''" [blockScroll]="true">
+  @if (drill(); as d) {
+    <div class="summary">
+      <span>{{ d.query.from | ldate: 'mediumDate' }} – {{ d.query.to | ldate: 'mediumDate' }}</span>
+      @if (page(); as p) {
+        <span>{{ (d.kind === 'REVENUE' ? 'analytics.nInvoices' : 'analytics.nRequests') | translate: { n: p.total } }}</span>
+        <span>{{ (d.kind === 'REVENUE' ? 'analytics.revenue' : 'analytics.bookingValue') | translate }}: <strong class="ltr">{{ p.totalAmountHalalas | sar }}</strong></span>
+      }
+    </div>
+    @if (error()) {
+      <app-state kind="error" [message]="error()" (retry)="load(first())" />
+    } @else {
+      <p-table [value]="page()?.items ?? []" [lazy]="true" (onLazyLoad)="onLazy($event)" [paginator]="true" [rows]="pageSize"
+               [totalRecords]="page()?.total ?? 0" [loading]="loading()" [first]="first()" dataKey="id" [rowHover]="true" size="small">
+        <ng-template #header>
+          <tr>
+            <th>#</th>
+            <th>{{ 'analytics.date' | translate }}</th>
+            <th>{{ 'analytics.customer' | translate }}</th>
+            <th>{{ 'analytics.city' | translate }}</th>
+            <th>{{ 'common.status' | translate }}</th>
+            <th class="num">{{ (d.kind === 'REVENUE' ? 'analytics.revenue' : 'analytics.bookingValue') | translate }}</th>
+          </tr>
+        </ng-template>
+        <ng-template #body let-r>
+          <tr>
+            <td>
+              @if (r.kind === 'REVENUE') {
+                <a [routerLink]="['/invoices', r.id]" class="ltr">INV-{{ r.number }}</a>
+                @if (r.bookingNumber) { <small class="ltr">#{{ r.bookingNumber }}</small> }
+              } @else {
+                <a [routerLink]="['/bookings', r.id]" class="ltr">#{{ r.number }}</a>
+                @if (r.invoiceNumber) { <small class="ltr">INV-{{ r.invoiceNumber }}</small> }
+              }
+            </td>
+            <td>{{ r.date | ldate: 'medium' }}</td>
+            <td>{{ r.customerName }}<small>{{ r.services }}</small></td>
+            <td>{{ (en() ? r.cityEn : r.cityAr) || '—' }}</td>
+            <td>
+              @if (r.kind === 'REVENUE') {
+                <p-tag [value]="'invoiceStatus.' + r.status | translate" severity="secondary" />
+              } @else {
+                <span class="dot" [style.background]="color(r.status)"></span>{{ 'bookingStatus.' + r.status | translate }}
+              }
+            </td>
+            <td class="num"><span class="ltr">{{ r.amountHalalas | sar }}</span></td>
+          </tr>
+        </ng-template>
+        <ng-template #emptymessage>
+          <tr><td colspan="6"><app-state kind="empty" /></td></tr>
+        </ng-template>
+      </p-table>
+    }
+  }
+</p-drawer>

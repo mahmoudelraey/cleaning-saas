@@ -1,0 +1,152 @@
+<div class="page-header">
+  <div>
+    <h1>{{ 'platform.companies.title' | translate }}</h1>
+    <p>{{ 'platform.companies.subtitle' | translate }}</p>
+  </div>
+</div>
+
+<div class="panel-flush">
+  <div class="filters">
+    <input pInputText type="search" [ngModel]="q()" (ngModelChange)="onSearch($event)" [placeholder]="'platform.companies.search' | translate" />
+    <p-select [options]="filters()" [ngModel]="status()" (ngModelChange)="status.set($event); load()" optionLabel="label" optionValue="value" appendTo="body" />
+    <span class="muted">{{ 'platform.companies.count' | translate: { n: rows().length } }}</span>
+  </div>
+  <p-table [value]="rows()" [loading]="loading()" dataKey="id" [rowHover]="true" [paginator]="rows().length > 25" [rows]="25">
+    <ng-template #header>
+      <tr>
+        <th>{{ 'platform.company' | translate }}</th>
+        <th>{{ 'platform.owner' | translate }}</th>
+        <th>{{ 'platform.plan' | translate }}</th>
+        <th>{{ 'common.status' | translate }}</th>
+        <th>{{ 'platform.until' | translate }}</th>
+        <th>{{ 'platform.lastActive' | translate }}</th>
+      </tr>
+    </ng-template>
+    <ng-template #body let-c>
+      <tr class="row" (click)="open(c.id)">
+        <td>{{ c.name }}<small class="ltr">/{{ c.slug }}</small></td>
+        <td>{{ c.ownerName ?? '—' }}<small><span class="ltr">{{ c.ownerPhone | phone }}</span></small></td>
+        <td>{{ planName(c.planId) }}</td>
+        <td><p-tag [value]="statusLabel(c)" [severity]="sev(c)" /></td>
+        <td>{{ untilText(c) }}</td>
+        <td class="muted">{{ c.lastLoginAt ? (c.lastLoginAt | ldate: 'mediumDate') : '—' }}</td>
+      </tr>
+    </ng-template>
+    <ng-template #emptymessage>
+      <tr><td colspan="6"><div class="empty"><i class="pi pi-building"></i>{{ 'platform.companies.empty' | translate }}</div></td></tr>
+    </ng-template>
+  </p-table>
+</div>
+
+<p-drawer [visible]="!!detail()" (visibleChange)="!$event && detail.set(null)" position="right" [modal]="true" [style]="{ width: '620px', maxWidth: '100vw' }" [blockScroll]="true">
+  @if (detail(); as d) {
+    @let c = d.company;
+    <div class="head">
+      <h2>{{ c.name }}</h2>
+      <div><p-tag [value]="statusLabel(c)" [severity]="sev(c)" /> <span class="muted ltr">/{{ c.slug }}</span></div>
+    </div>
+    @if (c.statusNote && (c.status === 'SUSPENDED' || c.status === 'CANCELLED')) {
+      <p class="note">{{ c.statusNote }}</p>
+    }
+    <div class="facts">
+      <div><span>{{ 'platform.plan' | translate }}</span>{{ planName(c.planId) }}@if (c.billingCycle) { · {{ 'platform.cycle.' + c.billingCycle | translate }} }</div>
+      <div><span>{{ 'platform.until' | translate }}</span>{{ untilText(c) }}</div>
+      <div><span>{{ 'platform.owner' | translate }}</span>{{ c.ownerName ?? '—' }}</div>
+      <div><span>{{ 'platform.contact' | translate }}</span>
+        @if (c.ownerPhone) { <a [href]="'https://wa.me/' + c.ownerPhone.replace('+', '')" target="_blank" rel="noopener" class="ltr">{{ c.ownerPhone | phone }}</a> }
+        @if (c.ownerEmail) { <div><a [href]="'mailto:' + c.ownerEmail" class="ltr">{{ c.ownerEmail }}</a></div> }
+      </div>
+      <div><span>{{ 'platform.signedUp' | translate }}</span>{{ c.createdAt | ldate: 'mediumDate' }}</div>
+      <div><span>{{ 'platform.activeUsers' | translate }}</span>{{ c.users }}</div>
+    </div>
+
+    <section class="box">
+      <h3>{{ 'platform.actions.plan' | translate }}</h3>
+      <div class="row-f">
+        <p-select [options]="planOptions()" [(ngModel)]="planDraft" optionLabel="label" optionValue="value" appendTo="body" />
+        <p-button [label]="'common.save' | translate" [disabled]="planDraft === c.planId" [loading]="busy()" (onClick)="run(api.changePlan(c.id, planDraft))" />
+      </div>
+      <p class="hint">{{ 'platform.actions.planHint' | translate }}</p>
+    </section>
+
+    <section class="box">
+      <h3>{{ 'platform.actions.trial' | translate }}</h3>
+      <div class="row-f">
+        @for (n of [7, 14, 30]; track n) {
+          <p-button size="small" [outlined]="true" [label]="'+' + n + ' ' + ('platform.days' | translate)" [loading]="busy()" (onClick)="run(api.trial(c.id, { days: n }))" />
+        }
+        <p-inputnumber [(ngModel)]="extendDays" [min]="1" [max]="365" [showButtons]="false" [inputStyle]="{ width: '5rem' }" [ariaLabel]="'platform.days' | translate" />
+        <p-button size="small" [label]="'platform.actions.extend' | translate" [loading]="busy()" (onClick)="run(api.trial(c.id, { days: extendDays }))" />
+      </div>
+      <div class="row-f">
+        <p-datepicker [(ngModel)]="trialUntil" dateFormat="yy-mm-dd" [showIcon]="true" appendTo="body" [placeholder]="'platform.actions.trialUntil' | translate" />
+        <p-button size="small" [outlined]="true" [label]="'platform.actions.setDate' | translate" [disabled]="!trialUntil" [loading]="busy()"
+                  (onClick)="trialUntil && run(api.trial(c.id, { until: iso(trialUntil) }))" />
+        @if (c.status === 'TRIAL' && c.usable) {
+          <p-button size="small" severity="danger" [outlined]="true" [label]="'platform.actions.endTrial' | translate" (onClick)="endTrial(c)" />
+        }
+      </div>
+      <p class="hint">{{ 'platform.actions.trialHint' | translate }}</p>
+    </section>
+
+    <section class="box">
+      <h3>{{ 'platform.actions.activate' | translate }}</h3>
+      <div class="row-f">
+        <p-select [options]="planOptions()" [(ngModel)]="activatePlan" optionLabel="label" optionValue="value" appendTo="body" />
+        <p-selectbutton [options]="cycles()" [ngModel]="cycle()" (ngModelChange)="setCycle($event)" optionLabel="label" optionValue="value" [allowEmpty]="false" size="small" />
+      </div>
+      <div class="row-f">
+        <p-datepicker [(ngModel)]="paidUntil" dateFormat="yy-mm-dd" [showIcon]="true" appendTo="body" [minDate]="today" />
+        <p-button [label]="'platform.actions.activateBtn' | translate" icon="pi pi-check" [disabled]="!paidUntil || !activatePlan" [loading]="busy()"
+                  (onClick)="paidUntil && run(api.activate(c.id, activatePlan, cycle(), iso(paidUntil)))" />
+      </div>
+      @if (activatePrice(); as pr) {
+        <p class="hint">{{ 'platform.actions.price' | translate: { v: pr } }}</p>
+      }
+      <p class="hint">{{ 'platform.actions.activateHint' | translate }}</p>
+    </section>
+
+    <section class="box">
+      <h3>{{ 'platform.actions.access' | translate }}</h3>
+      <div class="row-f">
+        @if (c.status === 'SUSPENDED' || c.status === 'CANCELLED') {
+          <p-button icon="pi pi-replay" [label]="'platform.actions.reactivate' | translate" [loading]="busy()" (onClick)="run(api.reactivate(c.id))" />
+        } @else {
+          <input pInputText [(ngModel)]="note" [placeholder]="'platform.actions.reason' | translate" style="flex: 1" />
+          <p-button severity="danger" icon="pi pi-ban" [label]="'platform.actions.suspend' | translate" (onClick)="suspend(c)" />
+        }
+        @if (c.status !== 'CANCELLED') {
+          <p-button severity="secondary" [text]="true" [label]="'platform.actions.cancel' | translate" (onClick)="cancelSub(c)" />
+        }
+      </div>
+      <p class="hint">{{ 'platform.actions.accessHint' | translate }}</p>
+    </section>
+
+    <!-- Which messages this company's customers get: set here only, never by the company itself. -->
+    <section class="box">
+      <app-notification-settings [companyId]="c.id" />
+    </section>
+
+    <section class="box">
+      <h3>{{ 'platform.staff' | translate }}</h3>
+      <ul class="list">
+        @for (u of d.staff; track u.id) {
+          <li><span>{{ u.name }} · {{ 'roles.' + u.role | translate }}@if (!u.active) { <small class="muted"> ({{ 'common.inactive' | translate }})</small> }</span>
+            <span class="muted ltr">{{ u.phone | phone }}</span></li>
+        }
+      </ul>
+    </section>
+
+    <section class="box">
+      <h3>{{ 'platform.history' | translate }}</h3>
+      <ul class="list">
+        @for (h of d.history; track $index) {
+          <li><span>{{ 'platform.audit.' + h.action | translate }}@if (h.details) { <small class="muted"> · {{ h.details }}</small> }</span>
+            <span class="muted">{{ h.at | ldate: 'medium' }}</span></li>
+        } @empty {
+          <li class="muted">{{ 'platform.noHistory' | translate }}</li>
+        }
+      </ul>
+    </section>
+  }
+</p-drawer>

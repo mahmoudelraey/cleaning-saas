@@ -20,4 +20,16 @@ public interface VisitReviewRepository extends JpaRepository<VisitReview, UUID> 
             order by r.createdAt desc
             """)
     List<ReviewRow> recent(Pageable page);
+
+    /**
+     * Each technician's customer ratings: every rated visit they were assigned to counts once for each of them
+     * (a two-person team shares the visit's rating). Rows: technician id, average rating, number of ratings.
+     */
+    @Query("""
+            select a.technician.id, avg(r.rating), count(r)
+            from VisitReview r, com.fieldops.app.scheduling.Assignment a
+            where a.bookingId = r.bookingId
+            group by a.technician.id
+            """)
+    List<Object[]> ratingsByTechnician();
 }

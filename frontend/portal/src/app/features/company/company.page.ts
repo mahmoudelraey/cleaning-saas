@@ -8,11 +8,11 @@ import { LocalDatePipe } from '../../core/format';
 import { LanguageService } from '../../core/language.service';
 import { PortalApi } from '../../core/portal.api';
 import { socialLinks } from '../../core/socials';
-import { AboutSection } from './about-section';
-import { ContactSection } from './contact-section';
-import { GoogleReviews } from './google-reviews';
-import { ServiceCard } from './service-card';
-import { Stars } from './stars';
+import { AboutSection } from './about-section/about-section';
+import { ContactSection } from './contact-section/contact-section';
+import { GoogleReviews } from './google-reviews/google-reviews';
+import { ServiceCard } from './service-card/service-card';
+import { Stars } from './stars/stars';
 
 /**
  * The company's public page at {portal}/{slug}: a hero, the service cards with their

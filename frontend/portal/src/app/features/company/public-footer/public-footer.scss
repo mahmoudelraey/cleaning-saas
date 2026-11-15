@@ -1,0 +1,37 @@
+:host { display: block; margin-top: 64px; position: relative; color: rgba(var(--white-rgb), .82); }
+.wave { display: block; width: 100%; height: 56px; fill: var(--tide-deep); margin-bottom: -1px; }
+.band { background: linear-gradient(170deg, var(--tide-deep) 0%, var(--brand-15) 100%); position: relative; overflow: hidden; }
+/* Faint dot pattern in the corner, as in the hero. */
+.band::before { content: ''; position: absolute; inset-inline-end: 24px; top: 24px; width: 90px; height: 72px; pointer-events: none;
+                background-image: radial-gradient(rgba(var(--white-rgb), .22) 2px, transparent 2.6px); background-size: 18px 18px; }
+.cols { position: relative; max-width: 1200px; margin: 0 auto; padding: 20px clamp(20px, 6vw, 120px) 28px;
+        display: grid; gap: 28px 40px; grid-template-columns: 1fr; }
+@media (min-width: 760px) { .cols { grid-template-columns: 1.4fr 1fr 1.2fr; } }
+
+.brand { display: flex; align-items: center; gap: 12px; color: var(--white); text-decoration: none; }
+.mark { width: 46px; height: 46px; border-radius: 50%; background: var(--white); overflow: hidden; display: grid; place-items: center; flex: none; }
+.mark img { width: 100%; height: 100%; object-fit: contain; }
+.brand strong { font-size: 1.15rem; }
+.about { margin: 14px 0 0; line-height: 1.75; max-width: 36ch; font-size: .92rem; }
+
+h3 { color: var(--white); font-size: .98rem; font-weight: 700; margin: 4px 0 12px; }
+ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 9px; }
+a { color: rgba(var(--white-rgb), .82); text-decoration: none; }
+a:hover { color: var(--white); }
+a:focus-visible { outline: 3px solid rgba(var(--white-rgb), .6); outline-offset: 2px; border-radius: 6px; }
+li { display: flex; align-items: center; gap: 9px; font-size: .92rem; }
+li i { color: var(--brand-68); font-size: .9rem; }
+
+.socials { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+.socials a { width: 38px; height: 38px; border-radius: 50%; background: rgba(var(--white-rgb), .1); display: grid; place-items: center;
+             font-size: .78rem; font-weight: 700; color: var(--white); }
+.socials a:hover { background: rgba(var(--white-rgb), .2); }
+
+.bottom { border-top: 1px solid rgba(var(--white-rgb), .14); }
+.bottom-in { max-width: 1200px; margin: 0 auto; padding: 14px clamp(20px, 6vw, 120px); display: flex; flex-wrap: wrap;
+             align-items: center; justify-content: space-between; gap: 8px 20px; font-size: .85rem; }
+.signin { display: inline-flex; align-items: center; gap: 6px; color: var(--white); font-weight: 600; }
+.signin i { color: var(--sun); }
+
+/* Phones: leave room for the bar fixed at the bottom (booking bar or the signed-in tabs). */
+@media (max-width: 859px) { .bottom-in { padding-bottom: calc(var(--tabbar) + 18px + env(safe-area-inset-bottom)); } }

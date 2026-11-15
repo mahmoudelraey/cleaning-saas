@@ -1,0 +1,363 @@
+<nav class="crumbs">
+  <a routerLink="/bookings">{{ 'bookings.title' | translate }}</a>
+  <i class="pi pi-angle-left rtl-flip"></i>
+  <span>{{ 'bookingDetail.title' | translate }}</span>
+</nav>
+
+@if (booking(); as b) {
+  <!-- ============ header ============ -->
+  <section class="card hero">
+    <div class="hero-title">
+      <h1>
+        {{ 'bookings.number' | translate: { n: b.number } }}
+        <span class="status-chip" [style.--c]="color(b.status)">{{ 'bookingStatus.' + b.status | translate }}</span>
+      </h1>
+      <p>{{ b.scheduledStart | ldate: 'fullDate' }} · {{ b.scheduledStart | ldate: 'time' }}</p>
+    </div>
+
+    <div class="meta">
+      <div class="meta-item">
+        <i class="pi pi-clock"></i>
+        <div>
+          <small>{{ 'bookingDetail.scheduledTime' | translate }}</small>
+          <strong>{{ b.scheduledStart | ltimeRange: b.scheduledEnd }}</strong>
+        </div>
+      </div>
+      <div class="meta-item">
+        <i class="pi pi-user"></i>
+        <div>
+          <small>{{ 'bookingDetail.assignedTech' | translate }}</small>
+          <strong>{{ techNames() || ('bookings.noTechnician' | translate) }}</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      @if (primaryAction(); as t) {
+        <p-button [icon]="style(t).icon" [severity]="style(t).severity" [label]="'bookingAction.' + t | translate" [loading]="busy()" (onClick)="move(t)" />
+      }
+      @if (isOffice && canAssign() && !b.technicians.length) {
+        <p-button icon="pi pi-user-plus" [label]="'bookings.assign' | translate" [outlined]="true" (onClick)="openAssign()" />
+      }
+      @if (isOffice && editable()) {
+        <a [routerLink]="['/bookings', b.id, 'edit']"><p-button icon="pi pi-pencil" [label]="'common.edit' | translate" severity="secondary" [outlined]="true" /></a>
+      }
+      @if (moreItems().length) {
+        <p-button icon="pi pi-ellipsis-h" [label]="'bookingDetail.more' | translate" severity="secondary" [outlined]="true" (onClick)="moreMenu.toggle($event)" />
+        <p-menu #moreMenu [model]="moreItems()" [popup]="true" appendTo="body" />
+      }
+    </div>
+  </section>
+
+  <div class="layout">
+    <!-- ============ journey ============ -->
+    <div class="col col-journey">
+      <section class="card">
+        <div class="card-h"><i class="pi pi-history"></i><h2>{{ 'bookings.timeline' | translate }}</h2></div>
+        <ol class="journey">
+          @for (s of journey(); track s.status) {
+            <li [class]="s.state">
+              <div class="body">
+                <h3>{{ 'bookingDetail.step.' + s.status | translate }}</h3>
+                @if (s.at) { <time>{{ s.at | ldate: 'medium' }}</time> }
+                @if (s.state === 'pending') {
+                  <p>{{ 'bookingDetail.waiting' | translate }}</p>
+                } @else if (s.detail) {
+                  <p>{{ s.detail }}</p>
+                }
+              </div>
+              <span class="dot"><i [class]="s.state === 'done' && s.status !== 'COMPLETED' ? 'pi pi-check' : s.icon"></i></span>
+            </li>
+          }
+        </ol>
+        <div class="journey-foot wide-btn">
+          <p-button [label]="'bookingDetail.viewAll' | translate" [outlined]="true" (onClick)="openLog()" />
+        </div>
+      </section>
+    </div>
+
+    <!-- ============ main ============ -->
+    <div class="col col-main">
+      <section class="card">
+        <div class="card-h"><i class="pi pi-clipboard"></i><h2>{{ 'bookingDetail.summary' | translate }}</h2></div>
+        <div class="tiles">
+          <div class="tile">
+            <div class="tile-h"><span>{{ 'bookingDetail.number' | translate }}</span><i class="pi pi-hashtag"></i></div>
+            <strong class="ltr">#{{ b.number }}</strong>
+          </div>
+          <div class="tile">
+            <div class="tile-h"><span>{{ 'bookingDetail.date' | translate }}</span><i class="pi pi-calendar"></i></div>
+            <strong>{{ b.scheduledStart | ldate: 'dayMonthYear' }}</strong>
+          </div>
+          <div class="tile">
+            <div class="tile-h"><span>{{ 'bookingDetail.status' | translate }}</span><i class="pi pi-info-circle"></i></div>
+            <span class="status-chip" [style.--c]="color(b.status)">{{ 'bookingStatus.' + b.status | translate }}</span>
+          </div>
+          <div class="tile">
+            <div class="tile-h"><span>{{ 'bookings.paymentMethod' | translate }}</span><i class="pi pi-wallet"></i></div>
+            <strong>{{ b.paymentMethod ? ('paymentMethod.' + b.paymentMethod | translate) : ('bookings.paymentNotSet' | translate) }}</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-h"><i class="pi pi-user"></i><h2>{{ 'bookingDetail.customerInfo' | translate }}</h2></div>
+        <div class="who">
+          <span class="avatar">{{ initials(b.customerName) }}</span>
+          <div class="who-name">
+            @if (isOffice) { <a [routerLink]="['/customers', b.customerId]">{{ b.customerName }}</a> } @else { {{ b.customerName }} }
+          </div>
+        </div>
+        <div class="contact-row">
+          <i class="pi pi-phone"></i>
+          <span class="grow"><span class="ltr">{{ b.customerPhone | phone }}</span></span>
+          <a class="icon-btn" [href]="'tel:' + b.customerPhone" [attr.aria-label]="'bookingDetail.call' | translate"><i class="pi pi-phone"></i></a>
+          <a class="icon-btn wa" [href]="waLink(b.customerPhone)" target="_blank" rel="noopener" [attr.aria-label]="'channels.WHATSAPP' | translate"><i class="pi pi-whatsapp"></i></a>
+        </div>
+        <div class="contact-row">
+          <i class="pi pi-map-marker"></i>
+          <span class="grow">{{ b.addressText || ('bookings.noAddress' | translate) }}</span>
+          @if (b.navigationUrl) {
+            <a class="map-btn" [href]="b.navigationUrl" target="_blank" rel="noopener"><i class="pi pi-map"></i>{{ 'bookingDetail.showOnMap' | translate }}</a>
+          }
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-h"><i class="pi pi-briefcase"></i><h2>{{ 'bookings.services' | translate }}</h2></div>
+        <table class="items">
+          <thead>
+            <tr><th>{{ 'bookings.service' | translate }}</th><th class="num">{{ 'bookings.qty' | translate }}</th><th class="end">{{ 'bookingDetail.price' | translate }}</th></tr>
+          </thead>
+          <tbody>
+            @for (it of b.items; track $index) {
+              <tr>
+                <td>{{ it.description }}</td>
+                <td class="num">{{ it.quantity }}</td>
+                <td class="end"><span class="ltr">{{ it.totalHalalas | sar }}</span></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        @if (b.discountHalalas) {
+          <div class="total promo-line">
+            <span>{{ 'bookings.subtotal' | translate }}</span>
+            <span class="ltr">{{ b.subtotalHalalas | sar }}</span>
+          </div>
+          <div class="total promo-line off">
+            <span><i class="pi pi-ticket"></i> {{ 'promos.bookingDiscount' | translate: { code: b.promoCode ?? '' } }}</span>
+            <span class="ltr">−{{ b.discountHalalas | sar }}</span>
+          </div>
+          <div class="total">
+            <span>{{ 'promos.afterDiscount' | translate }}</span>
+            <span class="amount ltr">{{ b.subtotalHalalas - (b.discountHalalas ?? 0) | sar }}</span>
+          </div>
+        } @else {
+          <div class="total">
+            <span>{{ 'bookings.subtotal' | translate }}</span>
+            <span class="amount ltr">{{ b.subtotalHalalas | sar }}</span>
+          </div>
+        }
+      </section>
+
+      <section class="card">
+        <div class="card-h"><i class="pi pi-images"></i><h2>{{ 'bookingDetail.photos' | translate }}</h2></div>
+        @if (tenants.locked('photos')) {
+          <app-locked-feature feature="photos" />
+        } @else {
+          <app-photo-gallery
+            variant="cards"
+            [bookingId]="b.id"
+            [canUpload]="['ASSIGNED', 'ON_THE_WAY', 'IN_PROGRESS', 'COMPLETED'].includes(b.status)"
+            [completed]="b.status === 'COMPLETED'"
+          />
+        }
+      </section>
+
+      <section class="card">
+        <div class="card-h"><i class="pi pi-file-edit"></i><h2>{{ 'bookingDetail.notes' | translate }}</h2></div>
+        <div class="note-list">
+          @if (b.cancelReason) {
+            <div class="note warn"><div class="label"><i class="pi pi-times-circle"></i>{{ 'bookings.cancelReason' | translate }}</div><p>{{ b.cancelReason }}</p></div>
+          }
+          @if (b.notes) {
+            <div class="note"><div class="label"><i class="pi pi-users"></i>{{ 'bookings.notes' | translate }}</div><p>{{ b.notes }}</p></div>
+          }
+          @if (b.internalNotes && isOffice) {
+            <div class="note"><div class="label"><i class="pi pi-lock"></i>{{ 'bookings.internalNotes' | translate }}</div><p>{{ b.internalNotes }}</p></div>
+          }
+          @for (n of noteEvents(); track n.id) {
+            <div class="note">
+              <div class="label"><i class="pi pi-comment"></i>{{ n.actorName || ('events.NOTE' | translate) }} · {{ n.at | ldate: 'medium' }}</div>
+              <p>{{ n.note }}</p>
+            </div>
+          }
+        </div>
+        @if (noteOpen()) {
+          <div class="note-box">
+            <textarea pTextarea [(ngModel)]="note" rows="3" [placeholder]="'bookings.addNote' | translate" autofocus></textarea>
+            <div class="row">
+              <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" size="small" (onClick)="noteOpen.set(false)" />
+              <p-button icon="pi pi-send" [label]="'common.save' | translate" size="small" [disabled]="!note.trim()" (onClick)="addNote()" />
+            </div>
+          </div>
+        } @else {
+          <div class="notes-foot">
+            @if (!hasNotes()) { <span class="notes-empty">{{ 'bookingDetail.noNotes' | translate }}</span> } @else { <span></span> }
+            <p-button icon="pi pi-plus-circle" [label]="'bookingDetail.addNote' | translate" [outlined]="true" size="small" (onClick)="noteOpen.set(true)" />
+          </div>
+        }
+      </section>
+    </div>
+
+    <!-- ============ messages & billing ============ -->
+    <div class="col col-side">
+
+      @if (isOffice) {
+        <section class="card">
+          <div class="card-h">
+            <i class="pi pi-comments"></i><h2>{{ 'messages.title' | translate }}</h2>
+            <a class="link" routerLink="/messages">{{ 'bookingDetail.viewAllShort' | translate }}</a>
+          </div>
+          <app-messages #bookingMessages [bookingId]="b.id" [compact]="true" />
+          <div class="msg-actions">
+            <p-button icon="pi pi-send" [label]="'bookingDetail.newMessage' | translate" [outlined]="true" (onClick)="openMessage()" />
+            <a class="icon-btn wa" [href]="waLink(b.customerPhone)" target="_blank" rel="noopener"
+               [attr.aria-label]="'bookingDetail.openWhatsapp' | translate" [title]="'bookingDetail.openWhatsapp' | translate"><i class="pi pi-whatsapp"></i></a>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-h"><i class="pi pi-receipt"></i><h2>{{ 'invoices.billing' | translate }}</h2></div>
+          @if (tenants.locked('quotes_invoices')) {
+            <app-locked-feature feature="quotes_invoices" />
+          } @else {
+          @for (inv of invoices(); track inv.id) {
+            <div class="inv">
+              <a [routerLink]="['/invoices', inv.id]" class="ltr">INV-{{ inv.number }}</a>
+              <span class="grow ltr">{{ inv.totalHalalas | sar }}</span>
+              <app-invoice-status [status]="inv.status" />
+            </div>
+          } @empty {
+            @if (b.invoiceState === 'PENDING') {
+              <p class="muted"><i class="pi pi-spin pi-spinner"></i> {{ 'invoices.autoPending' | translate }}</p>
+            } @else if (b.invoiceState === 'FAILED') {
+              <p style="color: var(--p-red-600)"><i class="pi pi-exclamation-triangle"></i> {{ 'invoices.autoFailed' | translate }}</p>
+            } @else {
+              <p class="muted">{{ 'invoices.noneForBooking' | translate }}</p>
+            }
+          }
+          <div class="actions" style="margin-top: .75rem">
+            @if (canInvoice()) {
+              <p-button icon="pi pi-file-check" [label]="'invoices.issueForBooking' | translate" size="small" [loading]="billingBusy()" (onClick)="issueInvoice()" />
+            }
+            <!-- A quote is agreed before the visit: not once it is done, cancelled or a no-show. -->
+            @if (canQuote && b.status !== 'COMPLETED' && b.status !== 'CANCELLED' && b.status !== 'NO_SHOW') {
+              <p-button icon="pi pi-file-edit" [label]="'quotes.fromBooking' | translate" size="small" [outlined]="true" [loading]="billingBusy()" (onClick)="createQuote()" />
+            }
+          </div>
+          }
+        </section>
+      }
+    </div>
+  </div>
+
+  <!-- full log: every visit event plus the messages sent to the customer, oldest first -->
+  <p-dialog [header]="'bookingDetail.log.title' | translate: { n: b.number }" [(visible)]="logOpen" [modal]="true" [dismissableMask]="true" [style]="{ width: '640px', maxWidth: '95vw' }" [contentStyle]="{ maxHeight: '70vh' }" [draggable]="false">
+    <div class="log-filters">
+      @for (f of logFilters; track f) {
+        @if (f !== 'messages' || isOffice) {
+          <button type="button" [class.on]="logFilter() === f" (click)="logFilter.set(f)">
+            {{ 'bookingDetail.log.filters.' + f | translate }} <span class="n">{{ logCounts()[f] }}</span>
+          </button>
+        }
+      }
+    </div>
+    <ol class="log">
+      @for (e of filteredLog(); track e.id) {
+        <li>
+          <span class="ic" [style.--t]="e.tone"><i [class]="e.icon"></i></span>
+          <div class="entry">
+            <div class="row1">
+              <strong>{{ e.title }}</strong>
+              <span class="when">{{ e.at | ldate: 'dayMonthYear' }} · {{ e.at | ldate: 'time' }}</span>
+            </div>
+            <div class="by"><i class="pi pi-user" style="font-size: .7rem"></i>{{ e.actor }}</div>
+            @if (e.to) {
+              <div class="chg">
+                @if (e.from) {
+                  <span class="status-chip" [style.--c]="color(e.from)">{{ 'bookingStatus.' + e.from | translate }}</span>
+                  <i class="pi pi-arrow-left rtl-flip"></i>
+                }
+                <span class="status-chip" [style.--c]="color(e.to)">{{ 'bookingStatus.' + e.to | translate }}</span>
+              </div>
+            }
+            @if (e.text) {
+              <p class="txt" [class.quote]="e.quote" dir="auto">
+                @if (e.textLabel) { <small>{{ e.textLabel }}</small> }{{ e.text }}
+              </p>
+            }
+            @if (e.channel || e.msgStatus) {
+              <div class="msg-meta">
+                @if (e.channel) { <span>{{ 'channels.' + e.channel | translate }}</span> }
+                @if (e.msgStatus) { <span class="st" [class.bad]="e.msgStatus === 'FAILED'">{{ 'notificationStatus.' + e.msgStatus | translate }}</span> }
+              </div>
+            }
+          </div>
+        </li>
+      } @empty {
+        <div class="log-empty">{{ 'bookingDetail.log.empty' | translate }}</div>
+      }
+    </ol>
+  </p-dialog>
+} @else {
+  <div class="skeleton" style="height: 110px; margin-bottom: 1.25rem"></div>
+  <div class="layout">
+    <div class="col col-journey"><div class="skeleton" style="height: 420px"></div></div>
+    <div class="col col-main"><div class="skeleton" style="height: 160px"></div><div class="skeleton" style="height: 200px"></div></div>
+    <div class="col col-side"><div class="skeleton" style="height: 220px"></div></div>
+  </div>
+}
+
+<p-dialog [header]="'bookingDetail.newMessage' | translate" [(visible)]="messageOpen" [modal]="true" [style]="{ width: '520px', maxWidth: '95vw' }" [draggable]="false">
+  @if (booking(); as b) {
+    <p class="muted" style="margin-top: 0">{{ 'bookingDetail.messageTo' | translate: { name: b.customerName } }} · <span class="ltr">{{ b.customerPhone | phone }}</span></p>
+  }
+  <div class="field">
+    <label for="m-text">{{ 'messages.message' | translate }}</label>
+    <textarea pTextarea id="m-text" [(ngModel)]="messageText" rows="4" [maxlength]="messageMax" dir="auto"></textarea>
+    <small class="hint" style="display:flex; justify-content:space-between; gap:1rem">
+      <span>{{ 'bookingDetail.messageHint' | translate }}</span>
+      <span class="ltr">{{ messageText.length }}/{{ messageMax }}</span>
+    </small>
+  </div>
+  @if (messageText.trim()) {
+    <div class="msg-preview" dir="rtl">{{ messagePreview() }}</div>
+  }
+  <div class="dialog-actions">
+    <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="messageOpen.set(false)" />
+    <p-button icon="pi pi-send" [label]="'bookingDetail.send' | translate" [disabled]="!messageText.trim()" [loading]="messageSending()" (onClick)="sendMessage()" />
+  </div>
+</p-dialog>
+
+<p-dialog [header]="'bookings.assign' | translate" [(visible)]="assignOpen" [modal]="true" [style]="{ width: '480px', maxWidth: '95vw' }" [draggable]="false">
+  <div class="field">
+    <label for="a-techs">{{ 'bookings.technicians' | translate }}</label>
+    <p-multiselect inputId="a-techs" [options]="technicianOptions()" [(ngModel)]="selectedTechs" optionLabel="label" optionValue="value" display="chip" [fluid]="true" appendTo="body" />
+  </div>
+  <div class="dialog-actions">
+    <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="assignOpen.set(false)" />
+    <p-button [label]="'bookings.assign' | translate" [disabled]="!selectedTechs.length" [loading]="busy()" (onClick)="assign(false)" />
+  </div>
+</p-dialog>
+
+<p-dialog [header]="'bookingAction.CANCELLED' | translate" [(visible)]="cancelOpen" [modal]="true" [style]="{ width: '480px', maxWidth: '95vw' }" [draggable]="false">
+  <div class="field">
+    <label for="c-reason">{{ 'bookings.cancelReason' | translate }}</label>
+    <textarea pTextarea id="c-reason" [(ngModel)]="cancelReason" rows="3"></textarea>
+  </div>
+  <div class="dialog-actions">
+    <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="cancelOpen.set(false)" />
+    <p-button [label]="'bookingAction.CANCELLED' | translate" severity="danger" [loading]="busy()" (onClick)="doMove('CANCELLED', cancelReason)" />
+  </div>
+</p-dialog>

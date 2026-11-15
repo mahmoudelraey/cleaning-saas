@@ -14,10 +14,12 @@ public final class BillingDtos {
     private BillingDtos() {
     }
 
-    public record LineDto(String description, BigDecimal quantity, long unitPriceHalalas, long totalHalalas) {
+    /** {@code serviceId} / {@code addonId}: the catalog service the line was priced from (null for free text). */
+    public record LineDto(String description, BigDecimal quantity, long unitPriceHalalas, long totalHalalas,
+                          UUID serviceId, UUID addonId) {
         static List<LineDto> of(List<DocumentLine> lines) {
             return lines.stream().map(l -> new LineDto(l.getDescription(), l.getQuantity(), l.getUnitPriceHalalas(),
-                    l.getTotalHalalas())).toList();
+                    l.getTotalHalalas(), l.getServiceId(), l.getAddonId())).toList();
         }
     }
 
@@ -45,7 +47,7 @@ public final class BillingDtos {
                              long vatHalalas, long totalHalalas, long paidHalalas, long balanceHalalas,
                              String notes, String voidReason, Instant voidedAt, String zatcaQr, QrPath zatcaQrPath,
                              List<PaymentDto> payments, String publicUrl) {
-        static InvoiceDto of(Invoice i, List<Payment> payments, String publicUrl) {
+        public static InvoiceDto of(Invoice i, List<Payment> payments, String publicUrl) {
             String qr = i.zatcaQr();
             return new InvoiceDto(i.getId(), i.getNumber(), i.getStatus().name(), i.isVatInvoice(), i.getBookingId(),
                     i.getQuoteId(), i.getCustomerId(), i.getCustomerName(), i.getCustomerPhone(),
@@ -71,7 +73,7 @@ public final class BillingDtos {
                            boolean pricesIncludeVat, int vatRateBp, List<LineDto> lines, long linesTotalHalalas,
                            long discountHalalas, long taxableHalalas, long vatHalalas, long totalHalalas,
                            String notes, Instant respondedAt, String publicUrl, UUID invoiceId) {
-        static QuoteDto of(Quote q, LocalDate today, String publicUrl, UUID invoiceId) {
+        public static QuoteDto of(Quote q, LocalDate today, String publicUrl, UUID invoiceId) {
             return new QuoteDto(q.getId(), q.getNumber(), q.getStatus().name(), q.isExpired(today), q.getBookingId(),
                     q.getCustomerId(), q.getCustomerName(), q.getCustomerPhone(), q.getCreatedAt(), q.getValidUntil(),
                     q.isPricesIncludeVat(), q.getVatRateBp(), LineDto.of(q.getLines()), q.getLinesTotalHalalas(),

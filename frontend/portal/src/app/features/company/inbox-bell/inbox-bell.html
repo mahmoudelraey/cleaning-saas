@@ -1,0 +1,26 @@
+<button type="button" class="bell" (click)="toggle()" [attr.aria-label]="'inbox.title' | translate" [attr.aria-expanded]="open()">
+  <i class="pi pi-bell" aria-hidden="true"></i>
+  @if (unread() > 0) { <span class="count">{{ unread() > 9 ? '9+' : unread() }}</span> }
+</button>
+@if (open()) {
+  <div class="panel" role="dialog" [attr.aria-label]="'inbox.title' | translate">
+    <div class="head">
+      <strong>{{ 'inbox.title' | translate }}</strong>
+      @if (unread() > 0) { <button type="button" class="read-all" (click)="readAll()">{{ 'inbox.readAll' | translate }}</button> }
+    </div>
+    <div class="list">
+      @for (n of items(); track n.id) {
+        <button type="button" class="item" [class.new]="!n.read" (click)="go(n)">
+          <span class="ic"><i [class]="icon(n.kind)" aria-hidden="true"></i></span>
+          <span class="txt">
+            <strong>{{ 'inbox.kind.' + (n.kind === 'TECHNICIAN_ASSIGNED' && !n.actor ? 'TECHNICIAN_ASSIGNED_NONAME' : n.kind) | translate: { n: n.number, actor: n.actor } }}</strong>
+            <time>{{ n.createdAt | ldate: 'dateTime' }}</time>
+          </span>
+          @if (!n.read) { <span class="dot" aria-hidden="true"></span> }
+        </button>
+      } @empty {
+        <div class="empty"><i class="pi pi-bell" aria-hidden="true"></i>{{ 'inbox.empty' | translate }}</div>
+      }
+    </div>
+  </div>
+}

@@ -1,0 +1,190 @@
+// ============================================================================
+//  THEME — every colour the app uses lives here, and only here.
+//  Change a value below and every page that uses it follows.
+//
+//  Names are <family>-<lightness %>: e.g. --brand-25 is a dark brand green, --brand-95 a
+//  very light one. Each colour also has an "-rgb" twin (e.g. --brand-25-rgb: 13, 92, 70) for
+//  see-through use: rgba(var(--brand-25-rgb), 0.35).
+//  To re-theme, change the brand family (and the semantic names at the bottom); keep the
+//  lightness roughly the same so text stays readable.
+// ============================================================================
+:root {
+  // Brand (the greens / teals)
+  --brand-15: #04454b;
+  --brand-15-rgb: 4, 69, 75;
+  --brand-16: #0a4938;
+  --brand-16-rgb: 10, 73, 56;
+  --brand-18: #08524f;
+  --brand-18-rgb: 8, 82, 79;
+  --brand-21: #0d5c46;
+  --brand-21-rgb: 13, 92, 70;
+  --brand-26: #0b7a73;
+  --brand-26-rgb: 11, 122, 115;
+  --brand-30: #059669;
+  --brand-30-rgb: 5, 150, 105;
+  --brand-34: #149b74;
+  --brand-34-rgb: 20, 155, 116;
+  --brand-37: #2f8f5b;
+  --brand-37-rgb: 47, 143, 91;
+  --brand-39: #10b981;
+  --brand-39-rgb: 16, 185, 129;
+  --brand-45: #22c58b;
+  --brand-45-rgb: 34, 197, 139;
+  --brand-67: #6ee7b7;
+  --brand-67-rgb: 110, 231, 183;
+  --brand-68: #7fd6db;
+  --brand-68-rgb: 127, 214, 219;
+  --brand-82: #b6eeda;
+  --brand-82-rgb: 182, 238, 218;
+  --brand-86: #cfe8e0;
+  --brand-86-rgb: 207, 232, 224;
+  --brand-87: #cdeee2;
+  --brand-87-rgb: 205, 238, 226;
+  --brand-88: #d3f0e6;
+  --brand-88-rgb: 211, 240, 230;
+  --brand-89: #d5efec;
+  --brand-89-rgb: 213, 239, 236;
+  --brand-91: #ddf1ea;
+  --brand-91-rgb: 221, 241, 234;
+  --brand-92: #ddf7ed;
+  --brand-92-rgb: 221, 247, 237;
+  --brand-94: #e9f7f2;
+  --brand-94-rgb: 233, 247, 242;
+  --brand-95: #ecf8f4;
+  --brand-95-rgb: 236, 248, 244;
+  --brand-96: #f1f7f5;
+  --brand-96-rgb: 241, 247, 245;
+  --brand-97: #f0fdf8;
+  --brand-97-rgb: 240, 253, 248;
+  --brand-98: #f7fdfb;
+  --brand-98-rgb: 247, 253, 251;
+  --brand-88-2: #dbe7e3;
+  --brand-88-2-rgb: 219, 231, 227;
+  --brand-89-2: #dbe9eb;
+  --brand-89-2-rgb: 219, 233, 235;
+  --brand-91-2: #e2ece9;
+  --brand-91-2-rgb: 226, 236, 233;
+  --brand-92-2: #e2f4ee;
+  --brand-92-2-rgb: 226, 244, 238;
+  --brand-94-2: #eef2f1;
+  --brand-94-2-rgb: 238, 242, 241;
+  --brand-94-3: #eef3f2;
+  --brand-94-3-rgb: 238, 243, 242;
+  --brand-95-2: #eef6f4;
+  --brand-95-2-rgb: 238, 246, 244;
+  --brand-95-3: #eef8f4;
+  --brand-95-3-rgb: 238, 248, 244;
+  --brand-95-4: #f1f5f4;
+  --brand-95-4-rgb: 241, 245, 244;
+  --brand-96-2: #f1f8f8;
+  --brand-96-2-rgb: 241, 248, 248;
+  --brand-97-2: #f3faf8;
+  --brand-97-2-rgb: 243, 250, 248;
+  --brand-98-2: #f8fbfa;
+  --brand-98-2-rgb: 248, 251, 250;
+
+  // Text and lines (blue-grey)
+  --slate-11: #0f172a;
+  --slate-11-rgb: 15, 23, 42;
+  --slate-17: #1e293b;
+  --slate-17-rgb: 30, 41, 59;
+  --slate-27: #334155;
+  --slate-27-rgb: 51, 65, 85;
+  --slate-35: #475569;
+  --slate-35-rgb: 71, 85, 105;
+  --slate-37: #4a6273;
+  --slate-37-rgb: 74, 98, 115;
+  --slate-47: #64748b;
+  --slate-47-rgb: 100, 116, 139;
+  --slate-56: #7d93a2;
+  --slate-56-rgb: 125, 147, 162;
+  --slate-65: #94a3b8;
+  --slate-65-rgb: 148, 163, 184;
+  --slate-84: #cbd5e1;
+  --slate-84-rgb: 203, 213, 225;
+  --slate-91: #e2e8f0;
+  --slate-91-rgb: 226, 232, 240;
+  --slate-93: #e8eef0;
+  --slate-93-rgb: 232, 238, 240;
+  --slate-96: #f1f5f9;
+  --slate-96-rgb: 241, 245, 249;
+  --slate-98: #f8fafc;
+  --slate-98-rgb: 248, 250, 252;
+
+  // Info (blue)
+  --info-15: #0f2a3d;
+  --info-15-rgb: 15, 42, 61;
+  --info-38: #1d5fa3;
+  --info-38-rgb: 29, 95, 163;
+  --info-95: #e7f1fb;
+  --info-95-rgb: 231, 241, 251;
+
+  // Warning (amber / orange)
+  --warning-28: #8a5a07;
+  --warning-28-rgb: 138, 90, 7;
+  --warning-31: #92610a;
+  --warning-31-rgb: 146, 97, 10;
+  --warning-42: #b7791f;
+  --warning-42-rgb: 183, 121, 31;
+  --warning-44: #e0a800;
+  --warning-44-rgb: 224, 168, 0;
+  --warning-48: #f5b301;
+  --warning-48-rgb: 245, 179, 1;
+  --warning-51: #ffc107;
+  --warning-51-rgb: 255, 193, 7;
+  --warning-56: #f0a92e;
+  --warning-56-rgb: 240, 169, 46;
+  --warning-92: #fdf1da;
+  --warning-92-rgb: 253, 241, 218;
+  --warning-94: #fff6e0;
+  --warning-94-rgb: 255, 246, 224;
+
+  // Danger (red)
+  --danger-40: #b42318;
+  --danger-40-rgb: 180, 35, 24;
+  --danger-42: #b91c1c;
+  --danger-42-rgb: 185, 28, 28;
+  --danger-50: #c2413b;
+  --danger-50-rgb: 194, 65, 59;
+  --danger-59: #e5484d;
+  --danger-59-rgb: 229, 72, 77;
+  --danger-86: #f3c2c2;
+  --danger-86-rgb: 243, 194, 194;
+  --danger-91: #ffd2cf;
+  --danger-91-rgb: 255, 210, 207;
+  --danger-94: #fbe7e6;
+  --danger-94-rgb: 251, 231, 230;
+  --danger-96: #fdecec;
+  --danger-96-rgb: 253, 236, 236;
+  --danger-97: #fef2f2;
+  --danger-97-rgb: 254, 242, 242;
+
+  // White
+  --white: #ffffff;
+  --white-rgb: 255, 255, 255;
+
+  // Black
+  --black: #000000;
+  --black-rgb: 0, 0, 0;
+
+  // ---- Semantic names and sizes used across the app ----
+  --ink: var(--info-15);
+  --ink-2: var(--slate-37);
+  --ink-3: var(--slate-56);
+  --mist: var(--brand-96-2);
+  --surface: var(--white);
+  --line: var(--brand-89-2);
+  --tide: var(--brand-26);
+  --tide-deep: var(--brand-18);
+  --foam: var(--brand-89);
+  --sun: var(--warning-56);
+  --sun-soft: var(--warning-92);
+  --rose: var(--danger-50);
+  --rose-soft: var(--danger-94);
+  --leaf: var(--brand-37);
+  --r-lg: 22px;
+  --r-md: 14px;
+  --r-sm: 10px;
+  --shadow: 0 18px 40px -24px rgba(var(--info-15-rgb), 0.45);
+  --tabbar: 68px;
+}

@@ -1,0 +1,14 @@
+:host { display: block; max-width: 640px; margin-inline: auto; }
+.day-switch { margin-block-end: 1rem; display: flex; justify-content: center; }
+.card { background: var(--fo-surface); border: 1px solid var(--fo-border); border-radius: 16px; padding: 1rem; display: grid; gap: .6rem; }
+.card + .card { margin-top: .875rem; }
+.card.done { opacity: .7; }
+.top { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
+.time { font-size: 1.25rem; font-weight: 700; }
+.name { font-weight: 600; font-size: 1.05rem; color: inherit; text-decoration: none; }
+.addr { color: var(--fo-muted); }
+.services { font-size: .9rem; }
+.quick { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; }
+.quick a { text-decoration: none; }
+.notes { background: var(--warning-96-2); border-radius: 10px; padding: .5rem .75rem; font-size: .9rem; }
+.summary { text-align: center; color: var(--fo-muted); margin-block-end: .75rem; }

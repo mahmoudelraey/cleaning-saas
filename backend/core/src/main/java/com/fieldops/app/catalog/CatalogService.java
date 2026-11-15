@@ -3,6 +3,8 @@ package com.fieldops.app.catalog;
 import java.util.List;
 import java.util.UUID;
 
+import jakarta.persistence.EntityManager;
+
 import com.fieldops.app.common.web.ApiException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,9 +13,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class CatalogService {
 
     private final ServiceOfferingRepository services;
+    private final EntityManager em;
 
-    public CatalogService(ServiceOfferingRepository services) {
+    public CatalogService(ServiceOfferingRepository services, EntityManager em) {
         this.services = services;
+        this.em = em;
     }
 
     public record ServiceData(String name, String description, String nameEn, String descriptionEn,
@@ -21,6 +25,11 @@ public class CatalogService {
     }
 
     public record AddonData(String name, String nameEn, long priceHalalas, boolean active) {
+    }
+
+    /** @param durationMin minutes per unit, null = the service's duration; @param position display order (0 first). */
+    public record OptionData(String name, String nameEn, long priceHalalas, Integer durationMin, boolean active,
+                             int position) {
     }
 
     @Transactional(readOnly = true)
@@ -83,6 +92,54 @@ public class CatalogService {
     public void deleteAddon(UUID serviceId, UUID addonId) {
         ServiceOffering s = get(serviceId);
         s.removeAddon(findAddon(s, addonId));
+    }
+
+    @Transactional
+    public ServiceOption addOption(UUID serviceId, OptionData d) {
+        ServiceOffering s = get(serviceId);
+        ServiceOption option = s.addOption(new ServiceOption(d.name().trim(), blankToNull(d.nameEn()), d.priceHalalas(),
+                d.durationMin(), d.active(), d.position()));
+        services.flush();
+        return option;
+    }
+
+    @Transactional
+    public ServiceOption updateOption(UUID serviceId, UUID optionId, OptionData d) {
+        ServiceOption option = findOption(get(serviceId), optionId);
+        option.update(d.name().trim(), blankToNull(d.nameEn()), d.priceHalalas(), d.durationMin(), d.active(),
+                d.position());
+        return option;
+    }
+
+    /**
+     * Removes an option. One that bookings or quotes/invoices already used is archived instead (switched off), so
+     * those records keep their wording; it then simply disappears from new bookings.
+     */
+    @Transactional
+    public void deleteOption(UUID serviceId, UUID optionId) {
+        ServiceOffering s = get(serviceId);
+        ServiceOption option = findOption(s, optionId);
+        if (isOptionUsed(optionId)) {
+            option.deactivate();
+        } else {
+            s.removeOption(option);
+        }
+    }
+
+    private boolean isOptionUsed(UUID optionId) {
+        Object used = em.createNativeQuery("""
+                        select exists(select 1 from booking_items where option_id = :id)
+                            or exists(select 1 from document_lines where option_id = :id)""")
+                .setParameter("id", optionId)
+                .getSingleResult();
+        return Boolean.TRUE.equals(used);
+    }
+
+    private static ServiceOption findOption(ServiceOffering s, UUID optionId) {
+        return s.getOptions().stream()
+                .filter(o -> o.getId().equals(optionId))
+                .findFirst()
+                .orElseThrow(() -> ApiException.notFound("option"));
     }
 
     private static ServiceAddon findAddon(ServiceOffering s, UUID addonId) {

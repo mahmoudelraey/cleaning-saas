@@ -1,0 +1,16 @@
+:host { display: block; min-height: 100vh; background: var(--fo-bg, var(--slate-97)); padding: 1rem; }
+.wrap { max-width: 860px; margin: 0 auto; }
+.bar { display: flex; justify-content: space-between; align-items: center; gap: .75rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.company { display: flex; align-items: center; gap: .6rem; font-weight: 600; }
+.company img { height: 36px; max-width: 120px; object-fit: contain; }
+.tools { display: flex; gap: .5rem; flex-wrap: wrap; }
+.respond { margin-top: 1rem; display: flex; gap: .75rem; justify-content: center; flex-wrap: wrap; padding: 1rem;
+  background: var(--white); border: 1px solid var(--fo-border); border-radius: 14px; align-items: center; }
+.respond p { margin: 0; flex-basis: 100%; text-align: center; }
+.state { text-align: center; padding: 4rem 1rem; color: var(--fo-muted); }
+.state i { font-size: 2.5rem; display: block; margin-bottom: 1rem; }
+.powered { text-align: center; color: var(--fo-muted); font-size: .8rem; margin: 1.5rem 0 .5rem; }
+@media print {
+  :host { background: var(--white); padding: 0; }
+  .bar, .respond, .powered { display: none !important; }
+}

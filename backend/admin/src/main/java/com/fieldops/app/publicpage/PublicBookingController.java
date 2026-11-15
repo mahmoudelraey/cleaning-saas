@@ -86,12 +86,14 @@ public class PublicBookingController {
     }
 
     private static List<BookingPricing.Line> lines(List<ItemRequest> items) {
-        return items.stream().map(i -> new BookingPricing.Line(i.serviceId(), i.quantity(), i.addonIds())).toList();
+        return items.stream().map(i -> new BookingPricing.Line(i.serviceId(), i.optionId(), i.quantity(), i.addonIds())).toList();
     }
 
     // --- shapes -----------------------------------------------------------------------------------------
 
-    public record ItemRequest(@NotNull UUID serviceId, BigDecimal quantity, @Size(max = 20) List<UUID> addonIds) {
+    /** {@code optionId}: required when the service has options (e.g. small / medium / large car). */
+    public record ItemRequest(@NotNull UUID serviceId, UUID optionId, BigDecimal quantity,
+                              @Size(max = 20) List<UUID> addonIds) {
     }
 
     public record ItemsRequest(@NotEmpty @Size(max = 10) List<@Valid ItemRequest> items) {
@@ -119,12 +121,18 @@ public class PublicBookingController {
     public record AddonDto(UUID id, String name, long priceHalalas) {
     }
 
+    public record OptionDto(UUID id, String name, long priceHalalas, Integer durationMin) {
+    }
+
     public record ServiceDto(UUID id, String name, String description, PricingType pricingType, long basePriceHalalas,
-                             int durationMin, List<AddonDto> addons) {
+                             int durationMin, List<AddonDto> addons, List<OptionDto> options) {
         static ServiceDto of(ServiceOffering s) {
             return new ServiceDto(s.getId(), s.getName(), s.getDescription(), s.getPricingType(), s.getBasePriceHalalas(),
                     s.getDurationMin(), s.getAddons().stream().filter(a -> a.isActive())
-                    .map(a -> new AddonDto(a.getId(), a.getName(), a.getPriceHalalas())).toList());
+                    .map(a -> new AddonDto(a.getId(), a.getName(), a.getPriceHalalas())).toList(),
+                    s.getActiveOptions().stream()
+                            .map(o -> new OptionDto(o.getId(), o.getName(), o.getPriceHalalas(), o.getDurationMin()))
+                            .toList());
         }
     }
 

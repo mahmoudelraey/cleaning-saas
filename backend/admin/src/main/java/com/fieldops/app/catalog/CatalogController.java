@@ -106,6 +106,29 @@ public class CatalogController {
         service.deleteAddon(id, addonId);
     }
 
+    /** Options (sub-services) such as small / medium / large car, each with its own price. */
+    @PostMapping("/{id}/options")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasRole('OWNER')")
+    public OptionDto addOption(@PathVariable UUID id, @Valid @RequestBody OptionRequest req) {
+        return OptionDto.of(service.addOption(id, req.toData()));
+    }
+
+    @PutMapping("/{id}/options/{optionId}")
+    @PreAuthorize("hasRole('OWNER')")
+    public OptionDto updateOption(@PathVariable UUID id, @PathVariable UUID optionId,
+                                  @Valid @RequestBody OptionRequest req) {
+        return OptionDto.of(service.updateOption(id, optionId, req.toData()));
+    }
+
+    /** Deletes the option, or switches it off when bookings or invoices already used it. */
+    @DeleteMapping("/{id}/options/{optionId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasRole('OWNER')")
+    public void deleteOption(@PathVariable UUID id, @PathVariable UUID optionId) {
+        service.deleteOption(id, optionId);
+    }
+
     // --- DTOs ---------------------------------------------------------------------------------------
 
     public record ServiceRequest(
@@ -133,6 +156,27 @@ public class CatalogController {
         }
     }
 
+    public record OptionRequest(
+            @NotBlank @Size(max = 150) String name,
+            @Size(max = 150) String nameEn,
+            @Min(0) @Max(100_000_000) long priceHalalas,
+            @Min(5) @Max(24 * 60) Integer durationMin,
+            Boolean active,
+            @Min(0) @Max(1000) Integer position) {
+        CatalogService.OptionData toData() {
+            return new CatalogService.OptionData(name, nameEn, priceHalalas, durationMin, active == null || active,
+                    position == null ? 0 : position);
+        }
+    }
+
+    public record OptionDto(UUID id, String name, String nameEn, long priceHalalas, Integer durationMin,
+                            boolean active, int position) {
+        static OptionDto of(ServiceOption o) {
+            return new OptionDto(o.getId(), o.getName(), o.getNameEn(), o.getPriceHalalas(), o.getDurationMin(),
+                    o.isActive(), o.getPosition());
+        }
+    }
+
     public record AddonDto(UUID id, String name, String nameEn, long priceHalalas, boolean active) {
         static AddonDto of(ServiceAddon a) {
             return new AddonDto(a.getId(), a.getName(), a.getNameEn(), a.getPriceHalalas(), a.isActive());
@@ -141,12 +185,13 @@ public class CatalogController {
 
     public record ServiceDto(UUID id, String name, String description, String nameEn, String descriptionEn,
                              PricingType pricingType, long basePriceHalalas, int durationMin, boolean active,
-                             List<AddonDto> addons, String imageUrl) {
+                             List<AddonDto> addons, List<OptionDto> options, String imageUrl) {
         static ServiceDto of(ServiceOffering s) {
             return new ServiceDto(s.getId(), s.getName(), s.getDescription(), s.getNameEn(), s.getDescriptionEn(),
                     s.getPricingType(),
                     s.getBasePriceHalalas(), s.getDurationMin(), s.isActive(),
-                    s.getAddons().stream().map(AddonDto::of).toList(), s.getImageUrl());
+                    s.getAddons().stream().map(AddonDto::of).toList(),
+                    s.getOptions().stream().map(OptionDto::of).toList(), s.getImageUrl());
         }
     }
 }

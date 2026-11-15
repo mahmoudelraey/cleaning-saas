@@ -233,6 +233,20 @@ public class Booking extends TenantScopedEntity {
         this.discountHalalas = Math.max(0, Math.min(d, subtotalHalalas));
     }
 
+    /** The customer accepted a quote for this visit: its lines and discount become the booking's prices. */
+    public void agreePrices(List<BookingItem> newItems, long discount) {
+        replaceItems(newItems);
+        this.discountHalalas = Math.max(0, Math.min(discount, subtotalHalalas));
+    }
+
+    /**
+     * The customer accepted a quote whose lines can't all be booking items (free-text lines): the items stay and the
+     * discount is set so the booking comes to the agreed amount (before VAT), as far as the subtotal allows.
+     */
+    public void agreeTotal(long totalAfterDiscount) {
+        this.discountHalalas = Math.max(0, Math.min(subtotalHalalas - totalAfterDiscount, subtotalHalalas));
+    }
+
     /** Replaces all lines and recomputes the subtotal. */
     public void replaceItems(List<BookingItem> newItems) {
         items.clear();

@@ -1,0 +1,13 @@
+@if (stopped()) {
+  <div class="stopped"><i class="pi pi-times-circle"></i> {{ 'status.' + status() | translate }}</div>
+} @else {
+  <div class="rail" role="img" [attr.aria-label]="'status.' + status() | translate">
+    @for (s of flow; track s; let i = $index) {
+      <span class="seg" [class.done]="i < index() || status() === 'COMPLETED'" [class.now]="i === index() && status() !== 'COMPLETED'"></span>
+    }
+  </div>
+  <div class="label">
+    <strong>{{ 'status.' + status() | translate }}</strong>
+    @if (status() !== 'COMPLETED') { <span>{{ 'statusHint.' + status() | translate }}</span> }
+  </div>
+}

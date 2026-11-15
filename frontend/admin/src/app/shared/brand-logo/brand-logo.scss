@@ -1,0 +1,6 @@
+:host { display: inline-flex; align-items: center; gap: 0.6rem; direction: ltr; }
+img { display: block; flex: none; }
+.word { font-weight: 700; letter-spacing: -0.02em; line-height: 1; color: var(--brand-12); }
+.word .ops { color: var(--p-primary-600); }
+:host(.light) .word { color: var(--white); }
+:host(.light) .word .ops { color: var(--brand-64); }

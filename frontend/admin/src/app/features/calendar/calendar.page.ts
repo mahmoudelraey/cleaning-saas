@@ -8,7 +8,7 @@ import { SelectButton } from 'primeng/selectbutton';
 
 import { CalendarData } from '../../core/api.types';
 import { LanguageService } from '../../core/i18n/language.service';
-import { STATUS_COLOR } from '../../shared/booking-status';
+import { STATUS_COLOR } from '../../shared/booking-status/booking-status';
 import { BookingsApi } from '../bookings/bookings.api';
 import { LocalDatePipe, LocalTimeRangePipe, formatLocalDate } from '../../shared/local-date.pipe';
 
@@ -37,99 +37,8 @@ const HOUR_PX = 56;
 @Component({
   selector: 'app-calendar',
   imports: [FormsModule, RouterLink, TranslatePipe, Button, DatePicker, SelectButton, LocalDatePipe, LocalTimeRangePipe],
-  styles: `
-    .toolbar { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin-block-end: 1rem; }
-    .toolbar .title { font-weight: 700; font-size: 1.1rem; margin-inline: .5rem; }
-    .spacer { flex: 1; }
-    .grid { display: grid; overflow-x: auto; background: var(--fo-surface); border: 1px solid var(--fo-border); border-radius: var(--fo-radius); }
-    .head { position: sticky; top: 0; z-index: 2; background: var(--fo-surface); border-bottom: 1px solid var(--fo-border);
-            padding: .6rem .5rem; font-weight: 600; font-size: .9rem; display: flex; gap: .4rem; align-items: center; min-height: 44px; }
-    .head small { color: var(--fo-muted); font-weight: 400; }
-    .hours { border-inline-end: 1px solid var(--fo-border); }
-    .hour-label { height: 56px; font-size: .75rem; color: var(--fo-muted); text-align: center; padding-top: 2px; white-space: nowrap; }
-    .col { position: relative; border-inline-end: 1px solid var(--fo-border); min-width: 0; }
-    .col:last-child { border-inline-end: none; }
-    .slot { height: 56px; border-bottom: 1px dashed var(--fo-border); }
-    .block { position: absolute; border-radius: 8px; padding: 4px 6px; color: #fff; font-size: .78rem; overflow: hidden;
-             cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,.15); line-height: 1.3; text-decoration: none; }
-    .block:hover { filter: brightness(1.05); box-shadow: 0 2px 6px rgba(0,0,0,.2); }
-    .block strong { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .block .t { display: inline-block; opacity: .9; }
-    .block.cancelled { opacity: .55; text-decoration: line-through; }
-    .now { position: absolute; inset-inline: 0; height: 2px; background: var(--p-red-500); z-index: 1; }
-    .legend { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: .75rem; font-size: .85rem; color: var(--fo-muted); }
-  `,
-  template: `
-    <div class="page-header">
-      <div>
-        <h1>{{ 'calendar.title' | translate }}</h1>
-        <p>{{ 'calendar.subtitle' | translate }}</p>
-      </div>
-      <a routerLink="/bookings/new"><p-button icon="pi pi-plus" [label]="'bookings.new' | translate" /></a>
-    </div>
-
-    <div class="toolbar">
-      <p-button icon="pi pi-chevron-right rtl-flip" [text]="true" [rounded]="true" (onClick)="shift(-1)" />
-      <p-button [label]="'calendar.today' | translate" [outlined]="true" size="small" (onClick)="goToday()" />
-      <p-button icon="pi pi-chevron-left rtl-flip" [text]="true" [rounded]="true" (onClick)="shift(1)" />
-      <span class="title">
-        @if (view() === 'day') {
-          {{ anchor() | ldate: 'fullDate' }}
-        } @else {
-          {{ weekStart() | ldate: 'dayMonth' }} – {{ weekEnd() | ldate: 'dayMonthYear' }}
-        }
-      </span>
-      <p-datepicker [ngModel]="anchor()" (ngModelChange)="setAnchor($event)" [showIcon]="true" [readonlyInput]="true" dateFormat="yy-mm-dd" styleClass="cal-picker" />
-      <span class="spacer"></span>
-      <p-selectbutton [options]="viewOptions()" [ngModel]="view()" (ngModelChange)="setView($event)" optionLabel="label" optionValue="value" [allowEmpty]="false" />
-    </div>
-
-    <div class="grid" [style.grid-template-columns]="gridTemplate()">
-      <div class="hours">
-        <div class="head"></div>
-        @for (h of hours(); track h) {
-          <div class="hour-label">{{ hourLabel(h) }}</div>
-        }
-      </div>
-      @for (col of columns(); track col.key) {
-        <div class="col">
-          <div class="head">
-            {{ col.title }} @if (col.subtitle) { <small>{{ col.subtitle }}</small> }
-          </div>
-          <div style="position: relative">
-            @for (h of hours(); track h) { <div class="slot"></div> }
-            @if (nowTop() !== null && isTodayColumn(col.key)) {
-              <div class="now" [style.top.px]="nowTop()"></div>
-            }
-            @for (bl of col.blocks; track bl.booking.id) {
-              <a
-                class="block"
-                [class.cancelled]="bl.booking.status === 'CANCELLED' || bl.booking.status === 'NO_SHOW'"
-                [routerLink]="['/bookings', bl.booking.id]"
-                [style.top.px]="bl.top"
-                [style.height.px]="bl.height"
-                [style.inset-inline-start.%]="bl.left"
-                [style.width.%]="bl.width"
-                [style.background]="bl.color"
-                [title]="bl.booking.customerName"
-              >
-                <strong>#{{ bl.booking.number }} · {{ bl.booking.customerName }}</strong>
-                <span class="t">{{ bl.booking.start | ltimeRange: bl.booking.end }}</span>
-                @if (bl.height > 50 && bl.booking.addressText) { <div>{{ bl.booking.addressText }}</div> }
-              </a>
-            }
-          </div>
-        </div>
-      }
-    </div>
-
-    <div class="legend">
-      <span><span class="color-dot" [style.background]="statusColor.NEW"></span>{{ 'bookingStatus.NEW' | translate }}</span>
-      <span><span class="color-dot" [style.background]="statusColor.CONFIRMED"></span>{{ 'calendar.unassigned' | translate }}</span>
-      <span><span class="color-dot" [style.background]="statusColor.COMPLETED"></span>{{ 'bookingStatus.COMPLETED' | translate }}</span>
-      <span>{{ 'calendar.legendTech' | translate }}</span>
-    </div>
-  `,
+  styleUrl: './calendar.page.scss',
+  templateUrl: './calendar.page.html',
 })
 export class CalendarPage implements OnInit {
   private readonly api = inject(BookingsApi);

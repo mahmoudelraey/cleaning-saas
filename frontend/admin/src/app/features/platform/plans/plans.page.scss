@@ -1,0 +1,11 @@
+.plans { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: .9rem; }
+.plan { display: grid; gap: .6rem; align-content: start; }
+.plan.off { opacity: .65; }
+.plan h2 { margin: 0; font-size: 1.05rem; display: flex; justify-content: space-between; gap: .5rem; align-items: center; }
+.price strong { font-size: 1.4rem; }
+.price span, .muted { color: var(--fo-muted); font-size: .85rem; }
+ul { margin: 0; padding-inline-start: 1.1rem; font-size: .88rem; display: grid; gap: .2rem; }
+.actions { display: flex; gap: .4rem; justify-content: flex-end; margin-top: auto; }
+.feats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
+@media (max-width: 560px) { .feats { grid-template-columns: 1fr; } }
+.feats label { display: flex; gap: .45rem; align-items: center; font-size: .9rem; }

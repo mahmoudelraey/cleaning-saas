@@ -1,0 +1,31 @@
+.layout { display: grid; grid-template-columns: 1.4fr 1fr; gap: 1rem; align-items: start; }
+@media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+h2 { margin: 0 0 1rem; font-size: 1.05rem; }
+dl { display: grid; grid-template-columns: max-content 1fr; gap: .6rem 1rem; margin: 0; }
+dt { color: var(--fo-muted); }
+dd { margin: 0; }
+.check { display: inline-flex; gap: .5rem; align-items: center; cursor: pointer; }
+.logo-row { display: flex; gap: 1rem; align-items: center; }
+.logo-box { width: 120px; height: 72px; border: 1px dashed var(--fo-border); border-radius: 10px; display: grid; place-items: center; background: var(--white); }
+.logo-box img { max-width: 110px; max-height: 64px; object-fit: contain; }
+.logo-box i { font-size: 1.6rem; }
+.slug-edit { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.slug-edit .prefix { color: var(--fo-muted, var(--gray-46)); font-size: .9rem; }
+.slug-edit input { flex: 1 1 10rem; min-width: 8rem; }
+.hint.warn { display: block; color: var(--p-orange-600, var(--warning-40)); margin-top: .25rem; }
+.g-search { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .75rem; }
+.g-search input { flex: 1 1 14rem; }
+.g-results { list-style: none; padding: 0; margin: .75rem 0 0; display: flex; flex-direction: column; gap: .5rem; }
+.g-results li, .g-connected { display: flex; align-items: center; gap: .75rem; padding: .6rem .75rem; border: 1px solid var(--fo-border); border-radius: 10px; }
+.g-connected { margin-top: .75rem; }
+.g-connected > i { color: var(--p-primary-600); }
+.pp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .75rem 1rem; margin-top: .75rem; }
+.pp-grid .wide { grid-column: 1 / -1; }
+.online { display: flex; align-items: flex-start; gap: .6rem; margin: .75rem 0 .25rem; }
+.online small { display: block; }
+.with-action { display: flex; gap: .25rem; align-items: center; }
+.with-action input { flex: 1; min-width: 0; }
+.pp-grid label i { font-size: .85rem; }
+.link-row { display: flex; align-items: center; gap: .25rem; margin: .75rem 0; flex-wrap: wrap; }
+.link-row code { background: var(--fo-bg); padding: .4rem .6rem; border-radius: 8px; font-size: .85rem; word-break: break-all; }
+.logo-actions { display: grid; gap: .4rem; justify-items: start; }

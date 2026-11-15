@@ -1,0 +1,58 @@
+<button type="button" class="bell" (click)="toggle()" [attr.aria-label]="'bell.title' | translate" [attr.aria-expanded]="open()">
+  <i class="pi pi-bell"></i>
+  @if (badge() > 0) {
+    <span class="count" [class.seen]="!unread() && !unseenCount()">{{ badge() > 9 ? '9+' : badge() }}</span>
+  }
+</button>
+
+@if (open()) {
+  <div class="panel">
+    <div class="head">
+      <strong>{{ 'bell.title' | translate }}</strong>
+      @if (tab() === 'inbox' && unread() > 0) {
+        <button type="button" class="read-all" (click)="readAll()">{{ 'inbox.readAll' | translate }}</button>
+      } @else if (tab() === 'attention') {
+        <small>{{ 'bell.subtitle' | translate }}</small>
+      }
+    </div>
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" [class.on]="tab() === 'inbox'" [attr.aria-selected]="tab() === 'inbox'" (click)="tab.set('inbox')">
+        {{ 'inbox.tab' | translate }}@if (unread()) { <span class="n hot">{{ unread() }}</span> }
+      </button>
+      <button type="button" role="tab" [class.on]="tab() === 'attention'" [attr.aria-selected]="tab() === 'attention'" (click)="openAttention()">
+        {{ 'inbox.attentionTab' | translate }}@if (alerts().length) { <span class="n" [class.hot]="unseenCount() > 0">{{ alerts().length }}</span> }
+      </button>
+    </div>
+    @if (tab() === 'inbox') {
+      <div class="list">
+        @for (n of inbox(); track n.id) {
+          <button type="button" class="item" [class.unseen]="!n.read" (click)="openItem(n)">
+            <span class="ic" [style.--t]="inboxIcon(n.kind)[1]"><i [class]="inboxIcon(n.kind)[0]"></i></span>
+            <span class="txt">
+              <strong>{{ 'inbox.kind.' + n.kind | translate: { n: n.number, actor: n.actor } }}</strong>
+              <time>{{ n.createdAt | ldate: 'medium' }}</time>
+            </span>
+            @if (!n.read) { <span class="dot" aria-hidden="true"></span> }
+          </button>
+        } @empty {
+          <div class="empty"><i class="pi pi-bell"></i>{{ 'inbox.empty' | translate }}</div>
+        }
+      </div>
+    } @else {
+    <div class="list">
+      @for (a of alerts(); track a.key) {
+        <button type="button" class="item" [class.unseen]="isUnseen(a)" (click)="go(a)">
+          <span class="ic" [style.--t]="tone(a.kind)"><i [class]="icon(a.kind)"></i></span>
+          <span class="txt">
+            <strong>{{ 'bell.' + a.kind | translate: { n: a.number } }}</strong>
+            <span>{{ a.kind === 'failed' ? ('templates.' + a.template | translate) + ' · ' + a.customer : a.customer }}</span>
+            <time>{{ a.at | ldate: 'medium' }}</time>
+          </span>
+        </button>
+      } @empty {
+        <div class="empty"><i class="pi pi-check-circle"></i>{{ 'bell.allClear' | translate }}</div>
+      }
+    </div>
+    }
+  </div>
+}

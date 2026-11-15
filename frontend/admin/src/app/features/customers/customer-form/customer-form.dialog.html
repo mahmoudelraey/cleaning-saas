@@ -1,0 +1,36 @@
+<p-dialog
+  [header]="(customer() ? 'customers.edit' : 'customers.new') | translate"
+  [(visible)]="visible"
+  [modal]="true"
+  [style]="{ width: '560px', maxWidth: '95vw' }"
+  [draggable]="false"
+>
+  @if (error()) {
+    <p-message severity="error">{{ error() }}</p-message>
+  }
+  <form [formGroup]="form" (ngSubmit)="save()" class="form-grid">
+    <div class="field full">
+      <label for="c-name">{{ 'customers.name' | translate }}</label>
+      <input pInputText id="c-name" formControlName="name" />
+    </div>
+    <div class="field">
+      <label for="c-phone">{{ 'customers.phone' | translate }}</label>
+      <input pInputText id="c-phone" formControlName="phone" dir="ltr" placeholder="05XXXXXXXX" />
+      @if (form.controls.phone.touched && form.controls.phone.invalid) {
+        <small class="error">{{ 'errors.invalid_phone' | translate }}</small>
+      }
+    </div>
+    <div class="field">
+      <label for="c-email">{{ 'customers.email' | translate }}</label>
+      <input pInputText id="c-email" type="email" formControlName="email" dir="ltr" />
+    </div>
+    <div class="field full">
+      <label for="c-notes">{{ 'customers.notes' | translate }}</label>
+      <textarea pTextarea id="c-notes" formControlName="notes" rows="3"></textarea>
+    </div>
+    <div class="dialog-actions full">
+      <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="visible.set(false)" />
+      <p-button type="submit" [label]="'common.save' | translate" [loading]="saving()" [disabled]="form.invalid" />
+    </div>
+  </form>
+</p-dialog>

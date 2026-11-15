@@ -1,0 +1,59 @@
+<div class="page-header">
+  <div>
+    <h1>{{ 'contactRequests.title' | translate }}</h1>
+    <p>{{ 'contactRequests.subtitle' | translate }}</p>
+  </div>
+  <a [href]="tenants.portalUrl() + '/contact'" target="_blank" rel="noopener">
+    <p-button icon="pi pi-external-link" [label]="'contactRequests.viewPage' | translate" [outlined]="true" />
+  </a>
+</div>
+
+<div class="toolbar">
+  <p-selectbutton [options]="filters()" [(ngModel)]="filter" (onChange)="load()" optionLabel="label" optionValue="value" [allowEmpty]="false" />
+  @if (inbox.newCount() > 0) {
+    <span class="muted">{{ 'contactRequests.waiting' | translate: { n: inbox.newCount() } }}</span>
+  }
+</div>
+
+@if (loading()) {
+  <div class="empty"><i class="pi pi-spin pi-spinner"></i></div>
+} @else {
+  <div class="list">
+    @for (m of rows(); track m.id) {
+      <div class="panel msg" [class.new]="m.status === 'NEW'" [class.complaint]="m.topic === 'COMPLAINT'">
+        <span class="topic-ico"><i [class]="icon(m.topic)"></i></span>
+        <div>
+          <div class="top">
+            <strong>{{ m.name }}</strong>
+            <span class="tag" [class.new]="m.status === 'NEW'">{{ 'contactRequests.topics.' + m.topic | translate }}</span>
+            @if (m.customerId) {
+              <a class="meta" [routerLink]="['/customers', m.customerId]"><i class="pi pi-user"></i> {{ 'contactRequests.customer' | translate }}</a>
+            }
+            <span class="meta">{{ m.createdAt | ldate: 'medium' }}</span>
+          </div>
+          <div class="meta"><span class="ltr">{{ m.phone | phone }}</span>@if (m.email) { · <span class="ltr">{{ m.email }}</span> }</div>
+          <p class="text" dir="auto">{{ m.message }}</p>
+          <div class="actions">
+            <a [href]="whatsapp(m)" target="_blank" rel="noopener"><p-button icon="pi pi-whatsapp" [label]="'contactRequests.whatsapp' | translate" size="small" severity="success" [outlined]="true" /></a>
+            <a [href]="'tel:' + m.phone"><p-button icon="pi pi-phone" [label]="'contactRequests.call' | translate" size="small" [outlined]="true" /></a>
+            @if (m.email) {
+              <a [href]="'mailto:' + m.email"><p-button icon="pi pi-envelope" [label]="'contactRequests.email' | translate" size="small" [text]="true" /></a>
+            }
+            @if (m.status === 'NEW') {
+              <p-button icon="pi pi-check" [label]="'contactRequests.markDone' | translate" size="small" [loading]="busy() === m.id" (onClick)="setDone(m, true)" />
+            } @else {
+              <span class="done-note">{{ 'contactRequests.handled' | translate }} @if (m.handledAt) { · {{ m.handledAt | ldate: 'medium' }} }</span>
+              <p-button icon="pi pi-undo" [label]="'contactRequests.reopen' | translate" size="small" [text]="true" [loading]="busy() === m.id" (onClick)="setDone(m, false)" />
+            }
+          </div>
+        </div>
+      </div>
+    } @empty {
+      <div class="panel empty">
+        <i class="pi pi-envelope"></i>
+        <strong>{{ (filter === 'NEW' ? 'contactRequests.emptyNew' : 'contactRequests.empty') | translate }}</strong>
+        <p>{{ 'contactRequests.emptyHint' | translate }}</p>
+      </div>
+    }
+  </div>
+}

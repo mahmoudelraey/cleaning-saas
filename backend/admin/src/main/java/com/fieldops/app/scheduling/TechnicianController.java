@@ -1,6 +1,7 @@
 package com.fieldops.app.scheduling;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import jakarta.validation.Valid;
@@ -9,6 +10,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
+import com.fieldops.app.review.ReviewService;
 import com.fieldops.app.common.security.CurrentUser;
 import com.fieldops.app.common.util.SaudiMobile;
 import org.springframework.http.HttpStatus;
@@ -27,27 +29,32 @@ import org.springframework.web.bind.annotation.RestController;
 public class TechnicianController {
 
     private final TechnicianService service;
+    private final ReviewService reviews;
 
-    public TechnicianController(TechnicianService service) {
+    public TechnicianController(TechnicianService service, ReviewService reviews) {
         this.service = service;
+        this.reviews = reviews;
     }
 
     @GetMapping
     @PreAuthorize("hasAnyRole('OWNER','COORDINATOR')")
     public List<TechnicianDto> list() {
-        return service.list().stream().map(TechnicianDto::of).toList();
+        Map<UUID, ReviewService.TechnicianRating> ratings = reviews.technicianRatings();
+        return service.list().stream().map(t -> TechnicianDto.of(t, ratings.get(t.getId()))).toList();
     }
 
+    /** The technician's own profile, with the rating customers gave their visits. */
     @GetMapping("/me")
     @PreAuthorize("hasRole('TECHNICIAN')")
     public TechnicianDto me() {
-        return TechnicianDto.of(service.getByUser(CurrentUser.id()));
+        Technician t = service.getByUser(CurrentUser.id());
+        return TechnicianDto.of(t, reviews.technicianRatings().get(t.getId()));
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('OWNER','COORDINATOR')")
     public TechnicianDto get(@PathVariable UUID id) {
-        return TechnicianDto.of(service.get(id));
+        return TechnicianDto.of(service.get(id), reviews.technicianRatings().get(id));
     }
 
     @PostMapping
@@ -100,11 +107,18 @@ public class TechnicianController {
 
     public record TechnicianDto(UUID id, UUID userId, String name, String phone, String email,
                                 List<String> skills, List<WorkShift> workHours, String color, boolean active,
-                                boolean mustChangePassword, java.time.Instant lastLoginAt) {
+                                boolean mustChangePassword, java.time.Instant lastLoginAt,
+                                Double ratingAverage, long ratingCount) {
         static TechnicianDto of(Technician t) {
+            return of(t, null);
+        }
+
+        /** {@code rating} null: no rated visits yet (average null, count 0). */
+        static TechnicianDto of(Technician t, ReviewService.TechnicianRating rating) {
             return new TechnicianDto(t.getId(), t.getUser().getId(), t.getUser().getName(), t.getUser().getPhone(),
                     t.getUser().getEmail(), t.getSkills(), t.getWorkHours(), t.getColor(), t.isActive(),
-                    t.getUser().isMustChangePassword(), t.getUser().getLastLoginAt());
+                    t.getUser().isMustChangePassword(), t.getUser().getLastLoginAt(),
+                    rating == null ? null : rating.average(), rating == null ? 0 : rating.count());
         }
     }
 }

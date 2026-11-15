@@ -1,0 +1,12 @@
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 1rem; align-items: start; }
+@media (max-width: 1100px) { .layout { grid-template-columns: 1fr; } }
+.actions { display: flex; gap: .5rem; flex-wrap: wrap; }
+.back { color: var(--fo-muted); text-decoration: none; display: inline-flex; gap: .35rem; align-items: center; margin-block-end: .75rem; }
+h2 { font-size: 1rem; margin: 0 0 .75rem; }
+.panel + .panel { margin-top: 1rem; }
+.pay { display: flex; justify-content: space-between; gap: .5rem; padding: .5rem 0; border-bottom: 1px solid var(--fo-border); }
+.pay:last-child { border-bottom: none; }
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: .5rem 1rem; margin: 0; }
+.kv dt { color: var(--fo-muted); }
+.kv dd { margin: 0; }
+.balance { font-size: 1.4rem; font-weight: 700; }

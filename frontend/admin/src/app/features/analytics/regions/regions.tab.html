@@ -1,0 +1,78 @@
+@let v = data.value();
+@if (v.state === 'error') {
+  <div class="panel"><app-state kind="error" [message]="v.error" (retry)="data.reload()" /></div>
+} @else if (!v.data) {
+  <div class="panel"><app-state kind="loading" /></div>
+} @else {
+  @let d = v.data;
+  <div class="kpis" [style.opacity]="v.state === 'loading' ? .6 : 1">
+    @if (highlights().byRequests; as r) {
+      <app-kpi icon="pi pi-map-marker" [label]="'analytics.reg.mostRequests' | translate" [value]="rn(r)" [hint]="'analytics.nRequests' | translate: { n: r.requests }" [clickable]="true" (pick)="drillRegion(r, 'REQUESTS')" />
+    }
+    @if (highlights().byRevenue; as r) {
+      <app-kpi icon="pi pi-wallet" [label]="'analytics.reg.mostRevenue' | translate" [value]="rn(r)" [hint]="money(r.revenueHalalas) + ' · ' + pct(r.share)" [clickable]="true" (pick)="drillRegion(r, 'REVENUE')" />
+    }
+    @if (highlights().lowest; as r) {
+      <app-kpi icon="pi pi-compass" [label]="'analytics.reg.lowest' | translate" [value]="rn(r)" [hint]="'analytics.nRequests' | translate: { n: r.requests }" [clickable]="true" (pick)="drillRegion(r, 'REQUESTS')" />
+    }
+    <app-kpi icon="pi pi-globe" [label]="'analytics.reg.coverage' | translate" [value]="highlights().active + ' / ' + highlights().total"
+             [hint]="d.unknownRequests ? ('analytics.reg.unknown' | translate: { n: d.unknownRequests }) : ('analytics.reg.coverageHint' | translate)" />
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>
+        {{ 'analytics.reg.map' | translate }}
+        <p-selectbutton [options]="metrics()" [(ngModel)]="metric" optionLabel="label" optionValue="value" [allowEmpty]="false" size="small" />
+      </h2>
+      <p class="sub">{{ 'analytics.reg.mapHint' | translate }}</p>
+      <app-region-map [regions]="d.regions" [metric]="metric()" [selected]="query().regionId" (pick)="pickRegion($event)" />
+    </div>
+    <div class="panel">
+      <h2>{{ 'analytics.reg.comparison' | translate }}</h2>
+      <p class="sub">{{ 'analytics.clickToDrill' | translate }}</p>
+      @if (active().length) {
+        <p-chart type="bar" [data]="compareChart()" [options]="compareOptions()" [height]="barsHeight()" (onDataSelect)="onCompare($event)" />
+      } @else {
+        <app-state kind="empty" />
+      }
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>{{ 'analytics.reg.mix' | translate }}</h2>
+      <p class="sub">{{ 'analytics.reg.mixHint' | translate }}</p>
+      @if (active().length && d.topServices.length) {
+        <p-chart type="bar" [data]="mixChart()" [options]="mixOptions()" [height]="barsHeight()" (onDataSelect)="onMix($event)" />
+      } @else {
+        <app-state kind="empty" />
+      }
+    </div>
+    <div class="panel">
+      <h2>{{ 'analytics.reg.cities' | translate }}</h2>
+      <p class="sub">{{ 'analytics.reg.citiesHint' | translate }}</p>
+      @if (d.cities.length) {
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>{{ 'analytics.city' | translate }}</th><th class="num">{{ 'analytics.kpi.requests' | translate }}</th><th class="num">{{ 'analytics.revenue' | translate }}</th></tr></thead>
+            <tbody>
+              @for (c of d.cities; track c.cityId) {
+                <tr class="row" (click)="drillCity(c)">
+                  <td>{{ cn(c) }}<div class="bar" [style.width.%]="cityBar(c.requests)"></div></td>
+                  <td class="num">{{ count(c.requests) }}</td>
+                  <td class="num"><span class="ltr">{{ money(c.revenueHalalas) }}</span></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <app-state kind="empty" [message]="'analytics.reg.noCities' | translate" />
+      }
+    </div>
+  </div>
+  @if (d.unknownRequests) {
+    <p class="note"><i class="pi pi-info-circle"></i> {{ 'analytics.reg.unknownNote' | translate: { n: d.unknownRequests } }}</p>
+  }
+}

@@ -1,0 +1,34 @@
+<h2>{{ 'notifySettings.title' | translate }}</h2>
+<p class="muted">{{ 'notifySettings.subtitle' | translate }}</p>
+
+@if (s(); as v) {
+  <div class="providers">
+    @if (!v.whatsappConfigured && !v.smsConfigured) {
+      <p-message severity="warn">{{ 'notifySettings.noProvider' | translate }}</p-message>
+    } @else {
+      <p-message severity="success">
+        {{ 'notifySettings.active' | translate }}:
+        {{ v.whatsappConfigured ? 'WhatsApp' : '' }}{{ v.whatsappConfigured && v.smsConfigured ? ' + ' : '' }}{{ v.smsConfigured ? 'SMS' : '' }}
+      </p-message>
+    }
+  </div>
+
+  @for (k of keys; track k) {
+    <div class="row">
+      <label [for]="'n-' + k">{{ 'notifySettings.' + k | translate }}<small>{{ 'notifySettings.' + k + 'Hint' | translate }}</small></label>
+      <p-toggleswitch [inputId]="'n-' + k" [(ngModel)]="v[k]" [disabled]="!canEdit" />
+    </div>
+  }
+  <div class="row">
+    <label for="n-hours">{{ 'notifySettings.reminderHours' | translate }}</label>
+    <span class="hours">
+      <p-inputnumber inputId="n-hours" [(ngModel)]="v.reminderHours" [min]="1" [max]="48" [showButtons]="true" [disabled]="!canEdit || !v.reminder" />
+      <span class="muted">{{ 'notifySettings.hoursBefore' | translate }}</span>
+    </span>
+  </div>
+  @if (canEdit) {
+    <div class="dialog-actions">
+      <p-button [label]="'common.save' | translate" [loading]="saving()" (onClick)="save(v)" />
+    </div>
+  }
+}

@@ -1,0 +1,73 @@
+<div class="page quote-page">
+  @if (loading()) {
+    <div class="spinner"><i class="pi pi-spin pi-spinner"></i></div>
+  } @else if (failed() || !quote()) {
+    <div class="sheet empty"><i class="pi pi-file"></i><p>{{ 'quote.notFound' | translate }}</p></div>
+  } @else {
+    @let q = quote()!;
+    <header class="q-head">
+      <span class="q-ico"><i class="pi pi-file-edit" aria-hidden="true"></i></span>
+      <div class="q-title">
+        <h1 class="page-title">{{ 'quote.title' | translate: { n: q.number } }}</h1>
+        <p class="muted">
+          {{ 'quote.issued' | translate: { d: (q.createdAt | ldate: 'dayShort') } }} ·
+          {{ 'quote.validUntil' | translate: { d: (q.validUntil | ldate: 'dayShort') } }}
+        </p>
+      </div>
+      <span class="q-state" [class]="'q-state st-' + state()">{{ 'quote.state.' + state() | translate }}</span>
+    </header>
+
+    <section class="sheet lines">
+      @for (l of q.lines; track $index) {
+        <div class="line">
+          <span class="desc">
+            {{ l.description }}
+            @if (l.quantity !== 1) { <small class="muted"><span class="ltr">{{ l.quantity }} × {{ l.unitPriceHalalas | sar }}</span></small> }
+          </span>
+          <b class="ltr">{{ l.totalHalalas | sar }}</b>
+        </div>
+      }
+      <div class="sums">
+        @if (q.discountHalalas) {
+          <div><span>{{ 'quote.subtotal' | translate }}</span><span class="ltr">{{ q.linesTotalHalalas | sar }}</span></div>
+          <div class="off"><span>{{ 'quote.discount' | translate }}</span><span class="ltr">−{{ q.discountHalalas | sar }}</span></div>
+        }
+        @if (q.vatHalalas) {
+          <div>
+            <span>{{ (q.pricesIncludeVat ? 'quote.vatIncluded' : 'quote.vat') | translate: { r: q.vatRateBp / 100 } }}</span>
+            <span class="ltr">{{ q.vatHalalas | sar }}</span>
+          </div>
+        }
+        <div class="grand"><span>{{ 'quote.total' | translate }}</span><span class="ltr">{{ q.totalHalalas | sar }}</span></div>
+      </div>
+    </section>
+
+    @if (q.notes) {
+      <section class="sheet notes"><b>{{ 'quote.notes' | translate }}</b><p>{{ q.notes }}</p></section>
+    }
+
+    @if (open()) {
+      <div class="actions">
+        <button type="button" class="btn btn-primary" [disabled]="busy()" (click)="respond(true)">
+          <i class="pi pi-check" aria-hidden="true"></i>{{ 'quote.accept' | translate }}
+        </button>
+        <button type="button" class="btn btn-quiet" [disabled]="busy()" (click)="respond(false)">
+          {{ 'quote.reject' | translate }}
+        </button>
+      </div>
+      <p class="muted hint">{{ 'quote.acceptHint' | translate }}</p>
+    } @else if (state() === 'ACCEPTED') {
+      <p class="answer ok"><i class="pi pi-check-circle" aria-hidden="true"></i>{{ 'quote.acceptedNote' | translate }}</p>
+    } @else if (state() === 'REJECTED') {
+      <p class="answer"><i class="pi pi-times-circle" aria-hidden="true"></i>{{ 'quote.rejectedNote' | translate }}</p>
+    } @else if (state() === 'EXPIRED') {
+      <p class="answer"><i class="pi pi-clock" aria-hidden="true"></i>{{ 'quote.expiredNote' | translate }}</p>
+    }
+
+    @if (q.bookingId) {
+      <a class="btn btn-quiet btn-block to-visit" [routerLink]="['/', store.slug(), 'bookings', q.bookingId]">
+        <i class="pi pi-calendar" aria-hidden="true"></i>{{ 'quote.viewVisit' | translate }}
+      </a>
+    }
+  }
+</div>

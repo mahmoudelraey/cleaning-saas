@@ -1,0 +1,222 @@
+<a [routerLink]="id() ? ['/bookings', id()] : ['/bookings']" class="back">
+  <i class="pi pi-arrow-right rtl-flip"></i>{{ 'bookings.title' | translate }}
+</a>
+<div class="page-header">
+  <div>
+    <h1>{{ (id() ? 'bookings.edit' : 'bookings.new') | translate }}</h1>
+  </div>
+</div>
+
+<div class="layout">
+  <div>
+    <div class="panel">
+      <h2>{{ 'bookings.customer' | translate }}</h2>
+      <div class="form-grid">
+        <div class="field full">
+          <label for="b-cust">{{ 'bookings.customer' | translate }}</label>
+          <p-autocomplete
+            inputId="b-cust"
+            [(ngModel)]="customerPick"
+            [suggestions]="customerSuggestions()"
+            (completeMethod)="searchCustomers($event)"
+            (onSelect)="pickCustomer($event.value)"
+            optionLabel="name"
+            [forceSelection]="true"
+            [placeholder]="'bookings.customerSearch' | translate"
+            [fluid]="true"
+          >
+            <ng-template #item let-c>
+              <span class="cust-option">{{ c.name }}<small class="ltr">{{ c.phone | phone }}</small></span>
+            </ng-template>
+          </p-autocomplete>
+          <small class="hint">{{ 'bookings.customerHint' | translate }}</small>
+        </div>
+        <div class="field full">
+          <label for="b-pay">{{ 'bookings.paymentMethod' | translate }}</label>
+          <p-select
+            inputId="b-pay"
+            [options]="paymentOptions()"
+            [(ngModel)]="paymentMethod"
+            optionLabel="label"
+            optionValue="value"
+            [showClear]="true"
+            [placeholder]="'bookings.paymentNotSet' | translate"
+          />
+        </div>
+        <div class="field full">
+          <label for="b-addr">{{ 'bookings.address' | translate }}</label>
+          <p-select
+            inputId="b-addr"
+            [options]="addresses()"
+            [(ngModel)]="addressId"
+            optionLabel="label"
+            optionValue="id"
+            [showClear]="true"
+            [placeholder]="'bookings.noAddress' | translate"
+            [disabled]="!customer()"
+          />
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>{{ 'bookings.services' | translate }}</h2>
+      @for (line of lines(); track $index; let i = $index) {
+        <div class="line">
+          <div class="line-head">
+            <div class="field">
+              <label>{{ 'bookings.service' | translate }}</label>
+              <p-select
+                [options]="services()"
+                [(ngModel)]="line.serviceId"
+                (onChange)="onServiceChange(line)"
+                optionLabel="name"
+                optionValue="id"
+                [placeholder]="'bookings.chooseService' | translate"
+                [filter]="true"
+                filterBy="name"
+              />
+            </div>
+            <div class="field">
+              <label>{{ quantityLabel(line) | translate }}</label>
+              <p-inputnumber
+                [(ngModel)]="line.quantity"
+                (onInput)="refreshPreview()"
+                [min]="0"
+                [maxFractionDigits]="isFixed(line) ? 0 : 2"
+                [showButtons]="isFixed(line)"
+                [useGrouping]="false"
+              />
+            </div>
+            <p-button icon="pi pi-trash" [text]="true" severity="danger" (onClick)="removeLine(i)" [disabled]="lines().length === 1" />
+          </div>
+          @if (serviceOf(line); as s) {
+            @if (optionChoices(s).length) {
+              <div class="field option">
+                <label>{{ 'bookings.option' | translate }}</label>
+                <p-select
+                  [options]="optionChoices(s)"
+                  [(ngModel)]="line.optionId"
+                  (onChange)="lines.set([...lines()]); refreshPreview()"
+                  optionLabel="label"
+                  optionValue="value"
+                  [placeholder]="'bookings.chooseOption' | translate"
+                  [invalid]="needsOption(line)"
+                />
+              </div>
+            }
+            @if (activeAddons(s).length) {
+              <div class="addons">
+                @for (a of activeAddons(s); track a.id) {
+                  <label>
+                    <p-checkbox [value]="a.id" [(ngModel)]="line.addonIds" (onChange)="refreshPreview()" />
+                    {{ a.name }} <span class="muted ltr">+{{ a.priceHalalas | sar }}</span>
+                  </label>
+                }
+              </div>
+            }
+          }
+        </div>
+      }
+      <p-button icon="pi pi-plus" [text]="true" size="small" [label]="'bookings.addService' | translate" (onClick)="addLine()" />
+    </div>
+
+    <div class="panel">
+      <h2>{{ 'bookings.schedule' | translate }}</h2>
+      <div class="form-grid">
+        <div class="field">
+          <label for="b-start">{{ 'bookings.when' | translate }}</label>
+          <p-datepicker
+            inputId="b-start"
+            [(ngModel)]="start"
+            (onSelect)="onScheduleChange()"
+            [showTime]="true"
+            hourFormat="12"
+            [stepMinute]="15"
+            [showIcon]="true"
+            dateFormat="yy-mm-dd"
+            [fluid]="true"
+          />
+        </div>
+        <div class="field">
+          <label for="b-dur">{{ 'bookings.durationMin' | translate }}</label>
+          <p-inputnumber
+            inputId="b-dur"
+            [(ngModel)]="duration"
+            (onInput)="durationTouched = true; onScheduleChange()"
+            [min]="15"
+            [max]="1440"
+            [step]="15"
+            [showButtons]="true"
+          />
+          @if (!durationTouched) {
+            <small class="hint">{{ 'bookings.durationAuto' | translate }}</small>
+          }
+        </div>
+        <div class="field full">
+          <label for="b-tech">{{ 'bookings.technicians' | translate }}</label>
+          <p-multiselect
+            inputId="b-tech"
+            [options]="technicianOptions()"
+            [(ngModel)]="technicianIds"
+            optionLabel="label"
+            optionValue="value"
+            display="chip"
+            [placeholder]="'bookings.assignLater' | translate"
+            [disabled]="!!id()"
+          />
+          <small class="hint">{{ (id() ? 'bookings.assignFromDetail' : 'bookings.freeHint') | translate }}</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>{{ 'bookings.notesTitle' | translate }}</h2>
+      <div class="form-grid">
+        <div class="field full">
+          <label for="b-notes">{{ 'bookings.notes' | translate }}</label>
+          <textarea pTextarea id="b-notes" [(ngModel)]="notes" rows="2"></textarea>
+        </div>
+        <div class="field full">
+          <label for="b-inotes">{{ 'bookings.internalNotes' | translate }}</label>
+          <textarea pTextarea id="b-inotes" [(ngModel)]="internalNotes" rows="2"></textarea>
+          <small class="hint">{{ 'bookings.internalHint' | translate }}</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel sticky">
+    <h2>{{ 'bookings.summary' | translate }}</h2>
+    @if (preview(); as p) {
+      @for (it of p.items; track $index) {
+        <div class="summary-row">
+          <span>{{ it.description }} @if (it.quantity !== 1) {<span class="muted">× {{ it.quantity }}</span>}</span>
+          <span class="ltr">{{ it.totalHalalas | sar }}</span>
+        </div>
+      }
+      <div class="summary-row total">
+        <span>{{ 'bookings.subtotal' | translate }}</span>
+        <span class="ltr">{{ p.subtotalHalalas | sar }}</span>
+      </div>
+      <div class="summary-row muted">
+        <span>{{ 'bookings.vatNote' | translate }}</span>
+      </div>
+    } @else {
+      <p class="muted">{{ previewError() ?? ('bookings.chooseServiceFirst' | translate) }}</p>
+    }
+    @if (missingOption()) {
+      <p class="warn">{{ 'bookings.optionMissing' | translate }}</p>
+    }
+    <div class="dialog-actions">
+      <p-button
+        [label]="(id() ? 'common.save' : 'bookings.create') | translate"
+        icon="pi pi-check"
+        [loading]="saving()"
+        [disabled]="!canSave()"
+        (onClick)="save(false)"
+        [fluid]="true"
+      />
+    </div>
+  </div>
+</div>

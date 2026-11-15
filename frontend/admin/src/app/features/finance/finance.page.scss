@@ -1,0 +1,20 @@
+.tabs { margin-bottom: 1rem; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: .85rem; margin-bottom: .85rem; }
+.grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: .85rem; margin-bottom: .85rem; }
+@media (max-width: 980px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.block { margin-bottom: .85rem; }
+h2 { font-size: 1rem; margin: 0 0 .25rem; display: flex; justify-content: space-between; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.sub { color: var(--fo-muted); font-size: .8rem; margin: 0 0 .75rem; }
+.year { display: inline-flex; align-items: center; gap: .25rem; font-weight: 700; font-size: 1.05rem; }
+.table-wrap { overflow-x: auto; }
+table.pnl { width: 100%; border-collapse: collapse; font-size: .88rem; min-width: 820px; }
+table.pnl th { text-align: start; color: var(--fo-muted); font-weight: 600; padding: .45rem .35rem; border-bottom: 1px solid var(--fo-border); white-space: nowrap; }
+table.pnl td { padding: .5rem .35rem; border-bottom: 1px solid var(--fo-border); }
+table.pnl tfoot td { font-weight: 700; border-top: 2px solid var(--fo-border); }
+.num { text-align: end; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.up { color: var(--brand-29); } .down { color: var(--danger-42); }
+.filters { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; padding: 1rem 1.25rem; border-bottom: 1px solid var(--fo-border); }
+.filters .total { margin-inline-start: auto; color: var(--fo-muted); }
+.filters .total strong { color: var(--fo-text); }
+.vat { display: flex; gap: .4rem; align-items: center; }
+.vat p-inputnumber { flex: 1; }

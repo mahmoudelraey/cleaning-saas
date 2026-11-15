@@ -1,0 +1,54 @@
+<p-dialog [header]="'upgrade.title' | translate" [(visible)]="visible" [modal]="true" [dismissableMask]="true" [draggable]="false"
+          [style]="{ width: '920px', maxWidth: '95vw' }">
+  @if (featurePlan(); as fp) {
+    <p class="intro feature-intro">
+      <i class="pi pi-lock"></i>
+      {{ 'upgrade.featureIntro' | translate: { feature: ('upgrade.features.' + fp.feature | translate), plan: planName(fp.plan) } }}
+    </p>
+  } @else {
+    <p class="intro">{{ 'upgrade.intro' | translate }}</p>
+  }
+
+  @if (plans().length) {
+    <div class="plans">
+      @for (p of plans(); track p.id) {
+        <div class="plan" [class.current]="p.id === currentPlanId()">
+          @if (p.id === currentPlanId()) {
+            <span class="badge">{{ (isTrial() ? 'upgrade.trialPlan' : 'upgrade.currentPlan') | translate }}</span>
+          } @else if (p.id === 'pro') {
+            <span class="badge popular">{{ 'upgrade.popular' | translate }}</span>
+          }
+          <h3>{{ planName(p) }}</h3>
+          <div class="price">
+            <strong class="ltr">{{ p.priceMonthlyHalalas | sar }}</strong>
+            <span>/ {{ 'settings.month' | translate }}</span>
+          </div>
+          @if (p.priceYearlyHalalas) {
+            <div class="yearly">{{ 'upgrade.orYearly' | translate }} <span class="ltr">{{ p.priceYearlyHalalas | sar }}</span> / {{ 'upgrade.year' | translate }}</div>
+          }
+          <div class="techs"><i class="pi pi-users"></i>{{ 'upgrade.upTo' | translate: { n: p.maxTechnicians } }}</div>
+          <ul>
+            @for (f of p.features; track f) {
+              <li [class.hl]="f === upgrade.feature()"><i class="pi pi-check"></i>{{ 'upgrade.features.' + f | translate }}</li>
+            }
+          </ul>
+          @if (contactLink(p); as href) {
+            <a [href]="href" target="_blank" rel="noopener">
+              <p-button
+                [icon]="support.whatsapp ? 'pi pi-whatsapp' : 'pi pi-envelope'"
+                [label]="'upgrade.choose' | translate"
+                [outlined]="p.id !== recommendedId()"
+              />
+            </a>
+          }
+        </div>
+      }
+    </div>
+    <p class="note">
+      <i class="pi pi-info-circle"></i>
+      {{ (hasContact ? 'upgrade.howItWorks' : 'subscription.next') | translate }}
+    </p>
+  } @else {
+    <div class="loading"><i class="pi pi-spin pi-spinner"></i></div>
+  }
+</p-dialog>

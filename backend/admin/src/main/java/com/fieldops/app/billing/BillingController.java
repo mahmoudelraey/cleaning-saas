@@ -217,7 +217,7 @@ public class BillingController {
 
     private static List<BillingService.LineInput> lines(List<LineRequest> lines) {
         return lines.stream().map(l -> new BillingService.LineInput(l.serviceId(), l.quantity(), l.addonIds(),
-                l.description(), l.unitPriceHalalas())).toList();
+                l.description(), l.unitPriceHalalas(), l.catalogServiceId(), l.catalogAddonId())).toList();
     }
 
     private static BillingService.QuoteCommand command(QuoteRequest req) {
@@ -226,7 +226,8 @@ public class BillingController {
     }
 
     public record LineRequest(UUID serviceId, @DecimalMin(value = "0.01") BigDecimal quantity, List<UUID> addonIds,
-                              @Size(max = 300) String description, @Min(0) Long unitPriceHalalas) {
+                              @Size(max = 300) String description, @Min(0) Long unitPriceHalalas,
+                              UUID catalogServiceId, UUID catalogAddonId) {
     }
 
     public record IssueInvoiceRequest(@NotNull UUID customerId, @NotEmpty @Size(max = 100) List<@Valid LineRequest> lines,

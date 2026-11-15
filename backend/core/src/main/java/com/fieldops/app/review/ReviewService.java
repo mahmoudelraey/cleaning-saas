@@ -52,6 +52,21 @@ public class ReviewService {
                 });
     }
 
+    /** A technician's rating from customers: the average of the visits they did (1–5, one decimal) and how many. */
+    public record TechnicianRating(double average, long count) {
+    }
+
+    /** Ratings of every technician who has at least one rated visit, by technician id. */
+    @Transactional(readOnly = true)
+    public java.util.Map<UUID, TechnicianRating> technicianRatings() {
+        java.util.Map<UUID, TechnicianRating> out = new java.util.HashMap<>();
+        for (Object[] row : reviews.ratingsByTechnician()) {
+            double avg = ((Number) row[1]).doubleValue();
+            out.put((UUID) row[0], new TechnicianRating(Math.round(avg * 10) / 10.0, ((Number) row[2]).longValue()));
+        }
+        return out;
+    }
+
     @Transactional(readOnly = true)
     public List<ReviewRow> recent() {
         return reviews.recent(PageRequest.of(0, 200));

@@ -1,0 +1,70 @@
+<svg class="wave" viewBox="0 0 1440 56" preserveAspectRatio="none" aria-hidden="true">
+  <path d="M0,30 C240,6 460,0 720,22 C980,44 1200,50 1440,26 L1440,56 L0,56 Z" />
+</svg>
+<footer class="band">
+  <div class="cols">
+    <div>
+      <a class="brand" [routerLink]="['/', slug()]">
+        <span class="mark"><img [src]="company()?.logoUrl || 'brand/logo.svg'" alt="" /></span>
+        <strong>{{ companyName() }}</strong>
+      </a>
+      <p class="about">{{ store.headline() || ('company.defaultHeadline' | translate) }}</p>
+      @if (socials().length) {
+        <div class="socials">
+          @for (s of socials(); track s.key) {
+            <a [href]="s.url" target="_blank" rel="noopener" [attr.aria-label]="s.label" [title]="s.label">
+              @if (s.icon) { <i class="pi" [class]="s.icon"></i> } @else { {{ s.short }} }
+            </a>
+          }
+        </div>
+      }
+    </div>
+
+    <nav [attr.aria-label]="'company.menu' | translate">
+      <h3>{{ 'footer.pages' | translate }}</h3>
+      <ul>
+        <li><a [routerLink]="['/', slug()]" fragment="services">{{ 'company.services' | translate }}</a></li>
+        <li><a [routerLink]="['/', slug()]" fragment="reviews">{{ 'company.reviews' | translate }}</a></li>
+        <li><a [routerLink]="['/', slug()]" fragment="contact">{{ 'company.contact' | translate }}</a></li>
+        <li><a [routerLink]="['/', slug()]" fragment="about">{{ 'company.aboutUs' | translate }}</a></li>
+        @if (company()?.bookingOpen) {
+          <li><a [routerLink]="['/', slug(), 'book']">{{ 'company.book' | translate }}</a></li>
+        }
+        @if (signedIn()) {
+          <li><a [routerLink]="['/', slug(), 'bookings']">{{ 'shell.bookings' | translate }}</a></li>
+        } @else {
+          <li><a [routerLink]="['/', slug(), 'register']">{{ 'register.title' | translate }}</a></li>
+        }
+      </ul>
+    </nav>
+
+    @if (hasContact()) {
+    <div>
+      <h3>{{ 'company.contact' | translate }}</h3>
+      <ul>
+        @if (page().whatsapp) {
+          <li><i class="pi pi-whatsapp"></i><a [href]="'https://wa.me/' + page().whatsapp!.replace('+', '')" target="_blank" rel="noopener">{{ page().whatsapp | phone }}</a></li>
+        }
+        @if (company()?.phone) {
+          <li><i class="pi pi-phone"></i><a [href]="'tel:' + company()!.phone">{{ company()!.phone | phone }}</a></li>
+        }
+        @if (store.address()) {
+          <li><i class="pi pi-map-marker"></i><span>{{ store.address() }}</span></li>
+        }
+        @if (store.hours()) {
+          <li><i class="pi pi-clock"></i><span>{{ store.hours() }}</span></li>
+        }
+      </ul>
+    </div>
+    }
+  </div>
+
+  <div class="bottom">
+    <div class="bottom-in">
+      <span>© <span class="ltr tnum">{{ year }}</span> {{ companyName() }}. {{ 'footer.rights' | translate }}</span>
+      @if (!signedIn()) {
+        <a class="signin" [routerLink]="['/', slug(), 'login']"><i class="pi pi-shield" aria-hidden="true"></i>{{ 'company.signInHint' | translate }}</a>
+      }
+    </div>
+  </div>
+</footer>

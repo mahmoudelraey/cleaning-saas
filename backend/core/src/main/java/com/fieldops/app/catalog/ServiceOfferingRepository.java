@@ -11,15 +11,15 @@ import org.springframework.data.repository.query.Param;
 
 public interface ServiceOfferingRepository extends JpaRepository<ServiceOffering, UUID> {
 
-    @EntityGraph(attributePaths = "addons")
+    @EntityGraph(attributePaths = {"addons", "options"})
     @Query("select s from ServiceOffering s order by s.name")
     List<ServiceOffering> findAllWithAddons();
 
-    @EntityGraph(attributePaths = "addons")
+    @EntityGraph(attributePaths = {"addons", "options"})
     @Query("select s from ServiceOffering s where s.active = true order by s.name")
     List<ServiceOffering> findActiveWithAddons();
 
-    @EntityGraph(attributePaths = "addons")
+    @EntityGraph(attributePaths = {"addons", "options"})
     @Query("select s from ServiceOffering s where s.id = :id")
     Optional<ServiceOffering> findWithAddons(@Param("id") UUID id);
 }

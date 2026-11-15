@@ -1,0 +1,35 @@
+<div class="bar" role="search" [attr.aria-label]="'analytics.filters' | translate">
+  <p-select class="grow" [options]="presetOptions()" [ngModel]="preset()" (ngModelChange)="setPreset($event)" optionLabel="label" optionValue="value"
+            [ariaLabel]="'analytics.period' | translate" appendTo="body" />
+  @if (preset() === 'custom') {
+    <p-datepicker class="range" [ngModel]="range()" (ngModelChange)="onRange($event)" selectionMode="range" [readonlyInput]="true" [showIcon]="true"
+                  dateFormat="yy-mm-dd" [ariaLabel]="'analytics.customRange' | translate" appendTo="body" />
+  }
+  @if (showCompare()) {
+    <p-select class="grow" [options]="compareOptions()" [ngModel]="query().compare" (ngModelChange)="patch({ compare: $event })" optionLabel="label" optionValue="value"
+              [ariaLabel]="'analytics.compareWith' | translate" appendTo="body" />
+  }
+  <p-button class="toggle" size="small" [outlined]="true" icon="pi pi-filter" [label]="'analytics.moreFilters' | translate" (onClick)="open.set(!open())"
+            [badge]="activeCount() ? '' + activeCount() : undefined" />
+  <div class="extra" [class.open]="open()">
+    <p-select class="grow" [options]="regionOptions()" [ngModel]="query().regionId ?? null" (ngModelChange)="patch({ regionId: $event, cityId: null })"
+              optionLabel="label" optionValue="value" [showClear]="true" [filter]="true" filterBy="label" [placeholder]="'analytics.allRegions' | translate"
+              [ariaLabel]="'analytics.region' | translate" appendTo="body" />
+    <p-select class="grow" [options]="cityOptions()" [ngModel]="query().cityId ?? null" (ngModelChange)="patch({ cityId: $event })"
+              optionLabel="label" optionValue="value" [showClear]="true" [filter]="true" filterBy="label" [placeholder]="'analytics.allCities' | translate"
+              [ariaLabel]="'analytics.city' | translate" appendTo="body" [virtualScroll]="true" [virtualScrollItemSize]="38" />
+    @if (showService()) {
+      <p-select class="grow" [options]="serviceOptions()" [ngModel]="query().serviceId ?? null" (ngModelChange)="patch({ serviceId: $event })"
+                optionLabel="label" optionValue="value" [showClear]="true" [filter]="true" filterBy="label" [placeholder]="'analytics.allServices' | translate"
+                [ariaLabel]="'analytics.service' | translate" appendTo="body" />
+    }
+    @if (showStatus()) {
+      <p-multiselect class="grow" [options]="statusOptions()" [ngModel]="query().status ?? []" (ngModelChange)="patch({ status: $event })"
+                     optionLabel="label" optionValue="value" [placeholder]="'analytics.allStatuses' | translate" [maxSelectedLabels]="1"
+                     [selectedItemsLabel]="'analytics.nSelected' | translate" [ariaLabel]="'analytics.status' | translate" appendTo="body" />
+    }
+    @if (activeCount()) {
+      <p-button size="small" [text]="true" icon="pi pi-filter-slash" [label]="'analytics.clearFilters' | translate" (onClick)="clear()" />
+    }
+  </div>
+</div>

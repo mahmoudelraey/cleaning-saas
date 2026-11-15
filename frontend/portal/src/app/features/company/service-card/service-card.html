@@ -1,0 +1,31 @@
+@let s = service();
+<!-- The whole card opens the booking page with this service (when the company takes bookings). -->
+@if (store.company()?.bookingOpen) {
+  <a class="svc-card clickable" [routerLink]="['/', store.slug(), 'book']" [queryParams]="{ service: s.id }"
+     [attr.aria-label]="('company.bookService' | translate) + ': ' + (s | svc)">
+    <ng-container *ngTemplateOutlet="body" />
+  </a>
+} @else {
+  <article class="svc-card"><ng-container *ngTemplateOutlet="body" /></article>
+}
+
+<ng-template #body>
+  <div class="svc-media">
+    <img [src]="s.imageUrl || fallback()" [alt]="s | svc" loading="lazy" (error)="imageFailed($event)" />
+    <span class="svc-ico"><i class="pi" [class]="icon()" aria-hidden="true"></i></span>
+  </div>
+  <div class="svc-body">
+    <h3>{{ s | svc }}</h3>
+    @if (s | svc: 'description'; as d) { <p class="svc-desc">{{ d }}</p> }
+  </div>
+  <footer class="svc-foot">
+    <span class="from">
+      {{ 'company.startsFrom' | translate }}
+      <strong class="ltr tnum">{{ fromPrice() | sar }}</strong>
+      @if (s.pricingType !== 'FIXED') { <em>/ {{ 'book.unit.' + s.pricingType | translate }}</em> }
+    </span>
+    @if (store.company()?.bookingOpen) {
+      <span class="svc-go" aria-hidden="true"><i class="pi pi-arrow-left rtl-flip"></i></span>
+    }
+  </footer>
+</ng-template>

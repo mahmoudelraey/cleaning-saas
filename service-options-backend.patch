@@ -1,0 +1,715 @@
+diff --git a/backend/admin/src/main/java/com/fieldops/app/catalog/CatalogController.java b/backend/admin/src/main/java/com/fieldops/app/catalog/CatalogController.java
+index ac2a536..9514fbc 100644
+--- a/backend/admin/src/main/java/com/fieldops/app/catalog/CatalogController.java
++++ b/backend/admin/src/main/java/com/fieldops/app/catalog/CatalogController.java
+@@ -106,6 +106,29 @@ public class CatalogController {
+         service.deleteAddon(id, addonId);
+     }
+ 
++    /** Options (sub-services) such as small / medium / large car, each with its own price. */
++    @PostMapping("/{id}/options")
++    @ResponseStatus(HttpStatus.CREATED)
++    @PreAuthorize("hasRole('OWNER')")
++    public OptionDto addOption(@PathVariable UUID id, @Valid @RequestBody OptionRequest req) {
++        return OptionDto.of(service.addOption(id, req.toData()));
++    }
++
++    @PutMapping("/{id}/options/{optionId}")
++    @PreAuthorize("hasRole('OWNER')")
++    public OptionDto updateOption(@PathVariable UUID id, @PathVariable UUID optionId,
++                                  @Valid @RequestBody OptionRequest req) {
++        return OptionDto.of(service.updateOption(id, optionId, req.toData()));
++    }
++
++    /** Deletes the option, or switches it off when bookings or invoices already used it. */
++    @DeleteMapping("/{id}/options/{optionId}")
++    @ResponseStatus(HttpStatus.NO_CONTENT)
++    @PreAuthorize("hasRole('OWNER')")
++    public void deleteOption(@PathVariable UUID id, @PathVariable UUID optionId) {
++        service.deleteOption(id, optionId);
++    }
++
+     // --- DTOs ---------------------------------------------------------------------------------------
+ 
+     public record ServiceRequest(
+@@ -133,6 +156,27 @@ public class CatalogController {
+         }
+     }
+ 
++    public record OptionRequest(
++            @NotBlank @Size(max = 150) String name,
++            @Size(max = 150) String nameEn,
++            @Min(0) @Max(100_000_000) long priceHalalas,
++            @Min(5) @Max(24 * 60) Integer durationMin,
++            Boolean active,
++            @Min(0) @Max(1000) Integer position) {
++        CatalogService.OptionData toData() {
++            return new CatalogService.OptionData(name, nameEn, priceHalalas, durationMin, active == null || active,
++                    position == null ? 0 : position);
++        }
++    }
++
++    public record OptionDto(UUID id, String name, String nameEn, long priceHalalas, Integer durationMin,
++                            boolean active, int position) {
++        static OptionDto of(ServiceOption o) {
++            return new OptionDto(o.getId(), o.getName(), o.getNameEn(), o.getPriceHalalas(), o.getDurationMin(),
++                    o.isActive(), o.getPosition());
++        }
++    }
++
+     public record AddonDto(UUID id, String name, String nameEn, long priceHalalas, boolean active) {
+         static AddonDto of(ServiceAddon a) {
+             return new AddonDto(a.getId(), a.getName(), a.getNameEn(), a.getPriceHalalas(), a.isActive());
+@@ -141,12 +185,13 @@ public class CatalogController {
+ 
+     public record ServiceDto(UUID id, String name, String description, String nameEn, String descriptionEn,
+                              PricingType pricingType, long basePriceHalalas, int durationMin, boolean active,
+-                             List<AddonDto> addons, String imageUrl) {
++                             List<AddonDto> addons, List<OptionDto> options, String imageUrl) {
+         static ServiceDto of(ServiceOffering s) {
+             return new ServiceDto(s.getId(), s.getName(), s.getDescription(), s.getNameEn(), s.getDescriptionEn(),
+                     s.getPricingType(),
+                     s.getBasePriceHalalas(), s.getDurationMin(), s.isActive(),
+-                    s.getAddons().stream().map(AddonDto::of).toList(), s.getImageUrl());
++                    s.getAddons().stream().map(AddonDto::of).toList(),
++                    s.getOptions().stream().map(OptionDto::of).toList(), s.getImageUrl());
+         }
+     }
+ }
+diff --git a/backend/admin/src/main/java/com/fieldops/app/publicpage/PublicBookingController.java b/backend/admin/src/main/java/com/fieldops/app/publicpage/PublicBookingController.java
+index 891f92c..6a2bf73 100644
+--- a/backend/admin/src/main/java/com/fieldops/app/publicpage/PublicBookingController.java
++++ b/backend/admin/src/main/java/com/fieldops/app/publicpage/PublicBookingController.java
+@@ -86,12 +86,14 @@ public class PublicBookingController {
+     }
+ 
+     private static List<BookingPricing.Line> lines(List<ItemRequest> items) {
+-        return items.stream().map(i -> new BookingPricing.Line(i.serviceId(), i.quantity(), i.addonIds())).toList();
++        return items.stream().map(i -> new BookingPricing.Line(i.serviceId(), i.optionId(), i.quantity(), i.addonIds())).toList();
+     }
+ 
+     // --- shapes -----------------------------------------------------------------------------------------
+ 
+-    public record ItemRequest(@NotNull UUID serviceId, BigDecimal quantity, @Size(max = 20) List<UUID> addonIds) {
++    /** {@code optionId}: required when the service has options (e.g. small / medium / large car). */
++    public record ItemRequest(@NotNull UUID serviceId, UUID optionId, BigDecimal quantity,
++                              @Size(max = 20) List<UUID> addonIds) {
+     }
+ 
+     public record ItemsRequest(@NotEmpty @Size(max = 10) List<@Valid ItemRequest> items) {
+@@ -119,12 +121,18 @@ public class PublicBookingController {
+     public record AddonDto(UUID id, String name, long priceHalalas) {
+     }
+ 
++    public record OptionDto(UUID id, String name, long priceHalalas, Integer durationMin) {
++    }
++
+     public record ServiceDto(UUID id, String name, String description, PricingType pricingType, long basePriceHalalas,
+-                             int durationMin, List<AddonDto> addons) {
++                             int durationMin, List<AddonDto> addons, List<OptionDto> options) {
+         static ServiceDto of(ServiceOffering s) {
+             return new ServiceDto(s.getId(), s.getName(), s.getDescription(), s.getPricingType(), s.getBasePriceHalalas(),
+                     s.getDurationMin(), s.getAddons().stream().filter(a -> a.isActive())
+-                    .map(a -> new AddonDto(a.getId(), a.getName(), a.getPriceHalalas())).toList());
++                    .map(a -> new AddonDto(a.getId(), a.getName(), a.getPriceHalalas())).toList(),
++                    s.getActiveOptions().stream()
++                            .map(o -> new OptionDto(o.getId(), o.getName(), o.getPriceHalalas(), o.getDurationMin()))
++                            .toList());
+         }
+     }
+ 
+diff --git a/backend/core/src/main/java/com/fieldops/app/booking/BookingItem.java b/backend/core/src/main/java/com/fieldops/app/booking/BookingItem.java
+index 169d33e..d1cd680 100644
+--- a/backend/core/src/main/java/com/fieldops/app/booking/BookingItem.java
++++ b/backend/core/src/main/java/com/fieldops/app/booking/BookingItem.java
+@@ -14,11 +14,13 @@ import jakarta.persistence.Transient;
+ 
+ import com.fieldops.app.catalog.ServiceAddon;
+ import com.fieldops.app.catalog.ServiceOffering;
++import com.fieldops.app.catalog.ServiceOption;
+ import com.fieldops.app.common.persistence.TenantScopedEntity;
+ 
+ /**
+- * One priced line: a service (quantity = 1, hours or m²) or one of its add-ons. Prices are kept as agreed at
+- * booking time; the name is read from the service / add-on (services are archived, never deleted).
++ * One priced line: a service (quantity = 1, hours or m²), with its chosen option if it has options, or one of its
++ * add-ons. Prices are kept as agreed at booking time; the name is read from the service / option / add-on (booked
++ * ones are archived, never deleted).
+  */
+ @Entity
+ @Table(name = "booking_items")
+@@ -34,6 +36,10 @@ public class BookingItem extends TenantScopedEntity {
+     @Column(name = "addon_id")
+     private UUID addonId;
+ 
++    /** The service's option (e.g. large car) on the service line; null on add-on lines and services without options. */
++    @Column(name = "option_id")
++    private UUID optionId;
++
+     /** Read-only; {@link #serviceId} is the column that is written. */
+     @ManyToOne(fetch = FetchType.EAGER)
+     @JoinColumn(name = "service_id", insertable = false, updatable = false)
+@@ -44,6 +50,11 @@ public class BookingItem extends TenantScopedEntity {
+     @JoinColumn(name = "addon_id", insertable = false, updatable = false)
+     private ServiceAddon addon;
+ 
++    /** Read-only; {@link #optionId} is the column that is written. */
++    @ManyToOne(fetch = FetchType.EAGER)
++    @JoinColumn(name = "option_id", insertable = false, updatable = false)
++    private ServiceOption option;
++
+     /** The name given when the item was priced in this session (before the service row is loaded with it). */
+     @Transient
+     private String pendingDescription;
+@@ -64,7 +75,13 @@ public class BookingItem extends TenantScopedEntity {
+     }
+ 
+     public BookingItem(UUID serviceId, UUID addonId, String description, BigDecimal quantity, long unitPriceHalalas) {
++        this(serviceId, null, addonId, description, quantity, unitPriceHalalas);
++    }
++
++    public BookingItem(UUID serviceId, UUID optionId, UUID addonId, String description, BigDecimal quantity,
++                       long unitPriceHalalas) {
+         this.serviceId = serviceId;
++        this.optionId = optionId;
+         this.addonId = addonId;
+         this.pendingDescription = description;
+         this.quantity = quantity.setScale(2, RoundingMode.HALF_UP);
+@@ -87,21 +104,35 @@ public class BookingItem extends TenantScopedEntity {
+         return addonId;
+     }
+ 
+-    /** "Apartment cleaning" or "Apartment cleaning — Fridge", in Arabic (the main name). */
++    public UUID getOptionId() {
++        return optionId;
++    }
++
++    /**
++     * "Apartment cleaning", "Car wash (Large car)" or "Apartment cleaning — Fridge", in Arabic (the main name).
++     * Use {@link #describe} to build the same text before the row is loaded.
++     */
+     public String getDescription() {
+         if (service == null) {
+             return pendingDescription;
+         }
+-        return addon == null ? service.getName() : service.getName() + " — " + addon.getName();
++        if (addon != null) {
++            return service.getName() + " — " + addon.getName();
++        }
++        return describe(service.getName(), option == null ? null : option.getName());
+     }
+ 
+-    /** The same in English, or null when the service (or add-on) has no English name. */
++    /** The same in English, or null when the service (or option / add-on) has no English name. */
+     public String getDescriptionEn() {
+         if (service == null || service.getNameEn() == null || service.getNameEn().isBlank()) {
+             return null;
+         }
+         if (addon == null) {
+-            return service.getNameEn();
++            if (option == null) {
++                return service.getNameEn();
++            }
++            return option.getNameEn() == null || option.getNameEn().isBlank() ? null
++                    : describe(service.getNameEn(), option.getNameEn());
+         }
+         return addon.getNameEn() == null || addon.getNameEn().isBlank() ? null
+                 : service.getNameEn() + " — " + addon.getNameEn();
+@@ -122,4 +153,9 @@ public class BookingItem extends TenantScopedEntity {
+     public int getPosition() {
+         return position;
+     }
++
++    /** "Car wash (Large car)": how a service line with an option is written everywhere (bookings, invoices, PDFs). */
++    public static String describe(String serviceName, String optionName) {
++        return optionName == null || optionName.isBlank() ? serviceName : serviceName + " (" + optionName + ")";
++    }
+ }
+diff --git a/backend/core/src/main/java/com/fieldops/app/booking/BookingPricing.java b/backend/core/src/main/java/com/fieldops/app/booking/BookingPricing.java
+index 5d4dd78..68bd4d2 100644
+--- a/backend/core/src/main/java/com/fieldops/app/booking/BookingPricing.java
++++ b/backend/core/src/main/java/com/fieldops/app/booking/BookingPricing.java
+@@ -10,6 +10,7 @@ import com.fieldops.app.catalog.CatalogService;
+ import com.fieldops.app.catalog.PricingType;
+ import com.fieldops.app.catalog.ServiceAddon;
+ import com.fieldops.app.catalog.ServiceOffering;
++import com.fieldops.app.catalog.ServiceOption;
+ import com.fieldops.app.common.web.ApiException;
+ import org.springframework.stereotype.Component;
+ import org.springframework.transaction.annotation.Transactional;
+@@ -29,8 +30,15 @@ public class BookingPricing {
+         this.catalog = catalog;
+     }
+ 
+-    /** @param quantity FIXED: count (default 1), HOURLY: hours, PER_SQM: square metres. */
+-    public record Line(UUID serviceId, BigDecimal quantity, List<UUID> addonIds) {
++    /**
++     * @param optionId  the chosen option; required when the service has active options, ignored otherwise
++     * @param quantity  FIXED: count (default 1), HOURLY: hours, PER_SQM: square metres.
++     */
++    public record Line(UUID serviceId, UUID optionId, BigDecimal quantity, List<UUID> addonIds) {
++        /** A line for a service without options. */
++        public Line(UUID serviceId, BigDecimal quantity, List<UUID> addonIds) {
++            this(serviceId, null, quantity, addonIds);
++        }
+     }
+ 
+     public record Priced(List<BookingItem> items, long subtotalHalalas, int durationMin) {
+@@ -50,11 +58,13 @@ public class BookingPricing {
+                 throw ApiException.conflict("service_inactive", service.getName() + " is no longer offered");
+             }
+             BigDecimal qty = quantityFor(service, line.quantity());
+-            BookingItem main = new BookingItem(service.getId(), null, service.getName(), qty,
+-                    service.getBasePriceHalalas());
++            ServiceOption option = optionFor(service, line.optionId());
++            BookingItem main = new BookingItem(service.getId(), option == null ? null : option.getId(), null,
++                    BookingItem.describe(service.getName(), option == null ? null : option.getName()), qty,
++                    option == null ? service.getBasePriceHalalas() : option.getPriceHalalas());
+             items.add(main);
+             subtotal += main.getTotalHalalas();
+-            duration += durationFor(service, qty);
++            duration += durationFor(service, option, qty);
+ 
+             for (UUID addonId : new LinkedHashSet<>(line.addonIds() == null ? List.<UUID>of() : line.addonIds())) {
+                 ServiceAddon addon = service.getAddons().stream()
+@@ -70,6 +80,24 @@ public class BookingPricing {
+         return new Priced(items, subtotal, Math.max(duration, 15));
+     }
+ 
++    /**
++     * The line's option: required (and must be active) when the service has active options; a service without
++     * options ignores any option id sent.
++     */
++    private static ServiceOption optionFor(ServiceOffering service, UUID optionId) {
++        List<ServiceOption> active = service.getActiveOptions();
++        if (active.isEmpty()) {
++            return null;
++        }
++        if (optionId == null) {
++            throw ApiException.badRequest("option_required", "Choose an option for " + service.getName());
++        }
++        return active.stream()
++                .filter(o -> o.getId().equals(optionId))
++                .findFirst()
++                .orElseThrow(() -> ApiException.badRequest("invalid_option", "Option not available for this service"));
++    }
++
+     private static BigDecimal quantityFor(ServiceOffering service, BigDecimal requested) {
+         BigDecimal qty = requested == null ? null : requested.stripTrailingZeros();
+         if (service.getPricingType() != PricingType.FIXED && qty == null) {
+@@ -88,12 +116,16 @@ public class BookingPricing {
+         return qty;
+     }
+ 
+-    /** FIXED: duration × count, HOURLY: the hours booked, PER_SQM: the service's estimate. */
+-    private static int durationFor(ServiceOffering service, BigDecimal qty) {
++    /**
++     * FIXED: duration × count, HOURLY: the hours booked, PER_SQM: the service's estimate. The option's duration,
++     * when set, replaces the service's.
++     */
++    private static int durationFor(ServiceOffering service, ServiceOption option, BigDecimal qty) {
++        int unit = option != null && option.getDurationMin() != null ? option.getDurationMin() : service.getDurationMin();
+         return switch (service.getPricingType()) {
+-            case FIXED -> service.getDurationMin() * qty.intValueExact();
++            case FIXED -> unit * qty.intValueExact();
+             case HOURLY -> qty.multiply(BigDecimal.valueOf(60)).setScale(0, java.math.RoundingMode.CEILING).intValue();
+-            case PER_SQM -> service.getDurationMin();
++            case PER_SQM -> unit;
+         };
+     }
+ }
+diff --git a/backend/core/src/main/java/com/fieldops/app/catalog/CatalogService.java b/backend/core/src/main/java/com/fieldops/app/catalog/CatalogService.java
+index 6f3a8f0..92068f1 100644
+--- a/backend/core/src/main/java/com/fieldops/app/catalog/CatalogService.java
++++ b/backend/core/src/main/java/com/fieldops/app/catalog/CatalogService.java
+@@ -3,6 +3,8 @@ package com.fieldops.app.catalog;
+ import java.util.List;
+ import java.util.UUID;
+ 
++import jakarta.persistence.EntityManager;
++
+ import com.fieldops.app.common.web.ApiException;
+ import org.springframework.stereotype.Service;
+ import org.springframework.transaction.annotation.Transactional;
+@@ -11,9 +13,11 @@ import org.springframework.transaction.annotation.Transactional;
+ public class CatalogService {
+ 
+     private final ServiceOfferingRepository services;
++    private final EntityManager em;
+ 
+-    public CatalogService(ServiceOfferingRepository services) {
++    public CatalogService(ServiceOfferingRepository services, EntityManager em) {
+         this.services = services;
++        this.em = em;
+     }
+ 
+     public record ServiceData(String name, String description, String nameEn, String descriptionEn,
+@@ -23,6 +27,11 @@ public class CatalogService {
+     public record AddonData(String name, String nameEn, long priceHalalas, boolean active) {
+     }
+ 
++    /** @param durationMin minutes per unit, null = the service's duration; @param position display order (0 first). */
++    public record OptionData(String name, String nameEn, long priceHalalas, Integer durationMin, boolean active,
++                             int position) {
++    }
++
+     @Transactional(readOnly = true)
+     public List<ServiceOffering> list(boolean activeOnly) {
+         return activeOnly ? services.findActiveWithAddons() : services.findAllWithAddons();
+@@ -85,6 +94,54 @@ public class CatalogService {
+         s.removeAddon(findAddon(s, addonId));
+     }
+ 
++    @Transactional
++    public ServiceOption addOption(UUID serviceId, OptionData d) {
++        ServiceOffering s = get(serviceId);
++        ServiceOption option = s.addOption(new ServiceOption(d.name().trim(), blankToNull(d.nameEn()), d.priceHalalas(),
++                d.durationMin(), d.active(), d.position()));
++        services.flush();
++        return option;
++    }
++
++    @Transactional
++    public ServiceOption updateOption(UUID serviceId, UUID optionId, OptionData d) {
++        ServiceOption option = findOption(get(serviceId), optionId);
++        option.update(d.name().trim(), blankToNull(d.nameEn()), d.priceHalalas(), d.durationMin(), d.active(),
++                d.position());
++        return option;
++    }
++
++    /**
++     * Removes an option. One that bookings or quotes/invoices already used is archived instead (switched off), so
++     * those records keep their wording; it then simply disappears from new bookings.
++     */
++    @Transactional
++    public void deleteOption(UUID serviceId, UUID optionId) {
++        ServiceOffering s = get(serviceId);
++        ServiceOption option = findOption(s, optionId);
++        if (isOptionUsed(optionId)) {
++            option.deactivate();
++        } else {
++            s.removeOption(option);
++        }
++    }
++
++    private boolean isOptionUsed(UUID optionId) {
++        Object used = em.createNativeQuery("""
++                        select exists(select 1 from booking_items where option_id = :id)
++                            or exists(select 1 from document_lines where option_id = :id)""")
++                .setParameter("id", optionId)
++                .getSingleResult();
++        return Boolean.TRUE.equals(used);
++    }
++
++    private static ServiceOption findOption(ServiceOffering s, UUID optionId) {
++        return s.getOptions().stream()
++                .filter(o -> o.getId().equals(optionId))
++                .findFirst()
++                .orElseThrow(() -> ApiException.notFound("option"));
++    }
++
+     private static ServiceAddon findAddon(ServiceOffering s, UUID addonId) {
+         return s.getAddons().stream()
+                 .filter(a -> a.getId().equals(addonId))
+diff --git a/backend/core/src/main/java/com/fieldops/app/catalog/ServiceOffering.java b/backend/core/src/main/java/com/fieldops/app/catalog/ServiceOffering.java
+index 4ce5d9c..14d6e59 100644
+--- a/backend/core/src/main/java/com/fieldops/app/catalog/ServiceOffering.java
++++ b/backend/core/src/main/java/com/fieldops/app/catalog/ServiceOffering.java
+@@ -1,7 +1,10 @@
+ package com.fieldops.app.catalog;
+ 
+ import java.util.ArrayList;
++import java.util.Comparator;
++import java.util.LinkedHashSet;
+ import java.util.List;
++import java.util.Set;
+ 
+ import jakarta.persistence.CascadeType;
+ import jakarta.persistence.Column;
+@@ -52,6 +55,13 @@ public class ServiceOffering extends TenantScopedEntity {
+     @OrderBy("createdAt asc")
+     private List<ServiceAddon> addons = new ArrayList<>();
+ 
++    /**
++     * Sizes / types with their own price. A Set (not a List) so it can be fetched together with {@code addons}
++     * in one query; {@link #getOptions()} returns them in their display order.
++     */
++    @OneToMany(mappedBy = "service", cascade = CascadeType.ALL, orphanRemoval = true)
++    private Set<ServiceOption> options = new LinkedHashSet<>();
++
+     protected ServiceOffering() {
+     }
+ 
+@@ -84,6 +94,16 @@ public class ServiceOffering extends TenantScopedEntity {
+         addons.remove(addon);
+     }
+ 
++    public ServiceOption addOption(ServiceOption option) {
++        option.attachTo(this);
++        options.add(option);
++        return option;
++    }
++
++    public void removeOption(ServiceOption option) {
++        options.remove(option);
++    }
++
+     public String getName() {
+         return name;
+     }
+@@ -150,4 +170,17 @@ public class ServiceOffering extends TenantScopedEntity {
+     public List<ServiceAddon> getAddons() {
+         return addons;
+     }
++
++    /** All options (active or not) in display order. */
++    public List<ServiceOption> getOptions() {
++        return options.stream()
++                .sorted(Comparator.comparingInt(ServiceOption::getPosition)
++                        .thenComparing(o -> o.getCreatedAt() == null ? java.time.Instant.MAX : o.getCreatedAt()))
++                .toList();
++    }
++
++    /** The options customers can choose from; empty = the service is booked at its base price. */
++    public List<ServiceOption> getActiveOptions() {
++        return getOptions().stream().filter(ServiceOption::isActive).toList();
++    }
+ }
+diff --git a/backend/core/src/main/java/com/fieldops/app/catalog/ServiceOfferingRepository.java b/backend/core/src/main/java/com/fieldops/app/catalog/ServiceOfferingRepository.java
+index c91e5c9..2d3445f 100644
+--- a/backend/core/src/main/java/com/fieldops/app/catalog/ServiceOfferingRepository.java
++++ b/backend/core/src/main/java/com/fieldops/app/catalog/ServiceOfferingRepository.java
+@@ -11,15 +11,15 @@ import org.springframework.data.repository.query.Param;
+ 
+ public interface ServiceOfferingRepository extends JpaRepository<ServiceOffering, UUID> {
+ 
+-    @EntityGraph(attributePaths = "addons")
++    @EntityGraph(attributePaths = {"addons", "options"})
+     @Query("select s from ServiceOffering s order by s.name")
+     List<ServiceOffering> findAllWithAddons();
+ 
+-    @EntityGraph(attributePaths = "addons")
++    @EntityGraph(attributePaths = {"addons", "options"})
+     @Query("select s from ServiceOffering s where s.active = true order by s.name")
+     List<ServiceOffering> findActiveWithAddons();
+ 
+-    @EntityGraph(attributePaths = "addons")
++    @EntityGraph(attributePaths = {"addons", "options"})
+     @Query("select s from ServiceOffering s where s.id = :id")
+     Optional<ServiceOffering> findWithAddons(@Param("id") UUID id);
+ }
+diff --git a/backend/core/src/main/java/com/fieldops/app/catalog/ServiceOption.java b/backend/core/src/main/java/com/fieldops/app/catalog/ServiceOption.java
+new file mode 100644
+index 0000000..c5ad2ab
+--- /dev/null
++++ b/backend/core/src/main/java/com/fieldops/app/catalog/ServiceOption.java
+@@ -0,0 +1,95 @@
++package com.fieldops.app.catalog;
++
++import jakarta.persistence.Column;
++import jakarta.persistence.Entity;
++import jakarta.persistence.FetchType;
++import jakarta.persistence.JoinColumn;
++import jakarta.persistence.ManyToOne;
++import jakarta.persistence.Table;
++
++import com.fieldops.app.common.persistence.TenantScopedEntity;
++
++/**
++ * A sub-service with its own price, e.g. "سيارة كبيرة" under "غسيل سيارة". When a service has active options the
++ * customer must choose one; its price (and its duration, when set) replaces the service's base price / duration.
++ */
++@Entity
++@Table(name = "service_options")
++public class ServiceOption extends TenantScopedEntity {
++
++    @ManyToOne(fetch = FetchType.LAZY, optional = false)
++    @JoinColumn(name = "service_id", nullable = false, updatable = false)
++    private ServiceOffering service;
++
++    @Column(nullable = false)
++    private String name;
++
++    /** English name; {@code name} is the Arabic (main) one. */
++    @Column(name = "name_en")
++    private String nameEn;
++
++    @Column(name = "price_halalas", nullable = false)
++    private long priceHalalas;
++
++    /** Minutes for one unit; null = the service's duration. */
++    @Column(name = "duration_min")
++    private Integer durationMin;
++
++    @Column(nullable = false)
++    private boolean active = true;
++
++    @Column(nullable = false)
++    private int position;
++
++    protected ServiceOption() {
++    }
++
++    public ServiceOption(String name, String nameEn, long priceHalalas, Integer durationMin, boolean active, int position) {
++        update(name, nameEn, priceHalalas, durationMin, active, position);
++    }
++
++    void attachTo(ServiceOffering service) {
++        this.service = service;
++    }
++
++    public void update(String name, String nameEn, long priceHalalas, Integer durationMin, boolean active, int position) {
++        this.name = name;
++        this.nameEn = nameEn;
++        this.priceHalalas = priceHalalas;
++        this.durationMin = durationMin;
++        this.active = active;
++        this.position = position;
++    }
++
++    public void deactivate() {
++        this.active = false;
++    }
++
++    public ServiceOffering getService() {
++        return service;
++    }
++
++    public String getName() {
++        return name;
++    }
++
++    public String getNameEn() {
++        return nameEn;
++    }
++
++    public long getPriceHalalas() {
++        return priceHalalas;
++    }
++
++    public Integer getDurationMin() {
++        return durationMin;
++    }
++
++    public boolean isActive() {
++        return active;
++    }
++
++    public int getPosition() {
++        return position;
++    }
++}
+diff --git a/backend/portal/src/main/java/com/fieldops/portal/booking/BookingQueries.java b/backend/portal/src/main/java/com/fieldops/portal/booking/BookingQueries.java
+index 9446a95..c4fae96 100644
+--- a/backend/portal/src/main/java/com/fieldops/portal/booking/BookingQueries.java
++++ b/backend/portal/src/main/java/com/fieldops/portal/booking/BookingQueries.java
+@@ -45,7 +45,7 @@ public class BookingQueries {
+     }
+ 
+     /**
+-     * {@code description} (Arabic) and {@code descriptionEn} are read from the service and add-on names;
++     * {@code description} (Arabic) and {@code descriptionEn} are read from the service, option and add-on names;
+      * {@code descriptionEn} is null when there is no English name.
+      */
+     public record Item(String description, String descriptionEn, java.math.BigDecimal quantity, long totalHalalas,
+@@ -119,14 +119,20 @@ public class BookingQueries {
+             }
+             Summary b = withServicesAndTechnicians(q, me.tenantId(), rows).get(0);
+             List<Item> items = q.query("""
+-                    select case when bi.addon_id is null then s.name else s.name || ' — ' || a.name end as description,
++                    select case when bi.addon_id is not null then s.name || ' — ' || a.name
++                                when o.id is not null then s.name || ' (' || o.name || ')'
++                                else s.name end as description,
+                            bi.quantity, bi.total_halalas, bi.addon_id is not null as addon,
+-                           case when bi.addon_id is null then s.name_en
+-                                when s.name_en is not null and a.name_en is not null then s.name_en || ' — ' || a.name_en
++                           case when bi.addon_id is not null then
++                                    case when s.name_en is not null and a.name_en is not null then s.name_en || ' — ' || a.name_en end
++                                when o.id is not null then
++                                    case when s.name_en is not null and o.name_en is not null then s.name_en || ' (' || o.name_en || ')' end
++                                else s.name_en
+                            end as description_en
+                     from booking_items bi
+                     left join services s on s.id = bi.service_id
+                     left join service_addons a on a.id = bi.addon_id
++                    left join service_options o on o.id = bi.option_id
+                     where bi.tenant_id = :t and bi.booking_id = :b order by bi.position
+                     """, p, (rs, i) -> new Item(rs.getString("description"), rs.getString("description_en"),
+                     rs.getBigDecimal("quantity"), rs.getLong("total_halalas"), rs.getBoolean("addon")));
+@@ -167,8 +173,14 @@ public class BookingQueries {
+         // Same order as `services`; an entry is null when that service has no English name.
+         Map<UUID, List<String>> servicesEn = new LinkedHashMap<>();
+         q.query("""
+-                select bi.booking_id, s.name as description, s.name_en from booking_items bi
++                select bi.booking_id,
++                       case when o.id is null then s.name else s.name || ' (' || o.name || ')' end as description,
++                       case when o.id is null then s.name_en
++                            when s.name_en is not null and o.name_en is not null then s.name_en || ' (' || o.name_en || ')'
++                       end as name_en
++                from booking_items bi
+                 left join services s on s.id = bi.service_id
++                left join service_options o on o.id = bi.option_id
+                 where bi.tenant_id = :t and bi.booking_id in (:ids) and bi.addon_id is null order by bi.position
+                 """, p, rs -> {
+             UUID id = rs.getObject("booking_id", UUID.class);
+diff --git a/backend/portal/src/main/java/com/fieldops/portal/company/CompanyController.java b/backend/portal/src/main/java/com/fieldops/portal/company/CompanyController.java
+index 5c5e1e1..06505de 100644
+--- a/backend/portal/src/main/java/com/fieldops/portal/company/CompanyController.java
++++ b/backend/portal/src/main/java/com/fieldops/portal/company/CompanyController.java
+@@ -106,7 +106,7 @@ public class CompanyController {
+                 me == null ? null : me.customerId());
+         BookingPricing.Priced p = q.priced();
+         Promo promo = q.promo();
+-        return new QuoteDto(p.items().stream().map(i -> new QuoteItemDto(i.getServiceId(), i.getAddonId(),
++        return new QuoteDto(p.items().stream().map(i -> new QuoteItemDto(i.getServiceId(), i.getAddonId(), i.getOptionId(),
+                 i.getDescription(), i.getQuantity(), i.getTotalHalalas())).toList(), p.subtotalHalalas(), p.durationMin(),
+                 q.discountHalalas(), q.totalHalalas(),
+                 promo == null ? null : new QuotePromoDto(promo.getCode(), promo.getTitle(), promo.getTitleEn()),
+@@ -120,10 +120,12 @@ public class CompanyController {
+     }
+ 
+     public static List<BookingPricing.Line> lines(List<ItemRequest> items) {
+-        return items.stream().map(i -> new BookingPricing.Line(i.serviceId(), i.quantity(), i.addonIds())).toList();
++        return items.stream().map(i -> new BookingPricing.Line(i.serviceId(), i.optionId(), i.quantity(), i.addonIds())).toList();
+     }
+ 
+-    public record ItemRequest(@NotNull UUID serviceId, BigDecimal quantity, @Size(max = 20) List<UUID> addonIds) {
++    /** {@code optionId}: required when the service has options (e.g. small / medium / large car). */
++    public record ItemRequest(@NotNull UUID serviceId, UUID optionId, BigDecimal quantity,
++                              @Size(max = 20) List<UUID> addonIds) {
+     }
+ 
+     public record ItemsRequest(@NotEmpty @Size(max = 10) List<@Valid ItemRequest> items) {
+@@ -160,17 +162,30 @@ public class CompanyController {
+      */
+     public record ServiceDto(UUID id, String name, String description, String nameEn, String descriptionEn,
+                              PricingType pricingType, long basePriceHalalas, int durationMin, List<AddonDto> addons,
+-                             String imageUrl) {
++                             List<OptionDto> options, String imageUrl) {
+         static ServiceDto of(ServiceOffering s, String adminPublicUrl) {
+             return new ServiceDto(s.getId(), s.getName(), s.getDescription(), s.getNameEn(), s.getDescriptionEn(),
+                     s.getPricingType(), s.getBasePriceHalalas(), s.getDurationMin(),
+                     s.getAddons().stream().filter(a -> a.isActive())
+                             .map(a -> new AddonDto(a.getId(), a.getName(), a.getNameEn(), a.getPriceHalalas())).toList(),
++                    s.getActiveOptions().stream()
++                            .map(o -> new OptionDto(o.getId(), o.getName(), o.getNameEn(), o.getPriceHalalas(),
++                                    o.getDurationMin()))
++                            .toList(),
+                     s.getImageUrl() == null ? null : adminPublicUrl + s.getImageUrl());
+         }
+     }
+ 
+-    public record QuoteItemDto(UUID serviceId, UUID addonId, String description, BigDecimal quantity, long totalHalalas) {
++    /** A size / type of a service with its own price; {@code durationMin} null = the service's duration. */
++    public record OptionDto(UUID id, String name, String nameEn, long priceHalalas, Integer durationMin) {
++    }
++
++    public record QuoteItemDto(UUID serviceId, UUID addonId, UUID optionId, String description, BigDecimal quantity,
++                               long totalHalalas) {
++        /** A line without an option. */
++        public QuoteItemDto(UUID serviceId, UUID addonId, String description, BigDecimal quantity, long totalHalalas) {
++            this(serviceId, addonId, null, description, quantity, totalHalalas);
++        }
+     }
+ 
+     public record QuoteDto(List<QuoteItemDto> items, long subtotalHalalas, int durationMin, long discountHalalas,

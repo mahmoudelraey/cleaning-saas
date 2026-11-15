@@ -54,11 +54,15 @@ public class BookingController {
                                              @RequestParam(required = false) UUID technicianId,
                                              @RequestParam(required = false) String q,
                                              @RequestParam(defaultValue = "desc") String order,
+                                             @RequestParam(defaultValue = "scheduled") String sort,
                                              @RequestParam(defaultValue = "0") @Min(0) int page,
                                              @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
-        Sort sort = Sort.by("asc".equalsIgnoreCase(order) ? Sort.Direction.ASC : Sort.Direction.DESC, "scheduledStart");
+        // sort=created: by when the request came in (the bookings list); otherwise by the visit time (calendar etc.).
+        Sort.Direction dir = "asc".equalsIgnoreCase(order) ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Sort by = "created".equalsIgnoreCase(sort) ? Sort.by(dir, "createdAt").and(Sort.by(dir, "number"))
+                : Sort.by(dir, "scheduledStart");
         var result = service.search(new BookingService.Filter(status, from, to, customerId, technicianId, q),
-                PageRequest.of(page, size, sort));
+                PageRequest.of(page, size, by));
         Map<UUID, List<Assignment>> assigned = scheduling.forBookings(
                 result.getContent().stream().map(Booking::getId).toList());
         return PageResponse.of(result, b -> BookingSummary.of(b, assigned.getOrDefault(b.getId(), List.of())));
@@ -179,14 +183,17 @@ public class BookingController {
     public record BookingSummary(UUID id, long number, BookingStatus status, BookingSource source,
                                  Instant scheduledStart, Instant scheduledEnd, UUID customerId, String customerName,
                                  String customerPhone, String addressText, long subtotalHalalas,
-                                 List<TechnicianRef> technicians, PaymentMethod paymentMethod, List<String> services) {
+                                 List<TechnicianRef> technicians, PaymentMethod paymentMethod, List<String> services,
+                                 long discountHalalas, long totalHalalas, Instant createdAt) {
         static BookingSummary of(Booking b, List<Assignment> assigned) {
             return new BookingSummary(b.getId(), b.getNumber(), b.getStatus(), b.getSource(), b.getScheduledStart(),
                     b.getScheduledEnd(), b.getCustomerId(), b.getCustomerName(), b.getCustomerPhone(),
                     b.getAddressText(), b.getSubtotalHalalas(), assigned.stream().map(TechnicianRef::of).toList(),
                     b.getPaymentMethod(),
                     // main services only (add-ons are extras on a line, not a service type)
-                    b.getItems().stream().filter(i -> i.getAddonId() == null).map(BookingItem::getDescription).toList());
+                    b.getItems().stream().filter(i -> i.getAddonId() == null).map(BookingItem::getDescription).toList(),
+                    // what the customer pays before VAT (promo or accepted-quote discount taken off), as on the details
+                    b.getDiscountHalalas(), b.getTotalAfterDiscountHalalas(), b.getCreatedAt());
         }
     }
 

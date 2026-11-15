@@ -1,0 +1,19 @@
+.summary { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.avg { font-size: 2.4rem; font-weight: 700; line-height: 1; direction: ltr; }
+.stars { color: var(--warning-56); direction: ltr; white-space: nowrap; }
+.bars { flex: 1; min-width: 220px; max-width: 360px; display: grid; gap: .2rem; }
+.bar { display: grid; grid-template-columns: 1.2rem 1fr 2rem; align-items: center; gap: .5rem; font-size: .8rem; color: var(--fo-muted); direction: ltr; }
+.bar span.track { height: 6px; border-radius: 99px; background: var(--fo-bg); overflow: hidden; }
+.bar span.fill { display: block; height: 100%; background: var(--warning-56); }
+.toolbar { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; margin-bottom: .75rem; }
+.list { display: flex; flex-direction: column; gap: .6rem; }
+.rev { display: flex; gap: 1rem; align-items: flex-start; }
+.rev .body { flex: 1; min-width: 0; }
+.rev .top { display: flex; flex-wrap: wrap; gap: .25rem .75rem; align-items: center; }
+.rev .comment { margin: .4rem 0 0; white-space: pre-line; }
+.rev .meta { font-size: .8rem; color: var(--fo-muted); }
+.rev .none { font-style: italic; color: var(--fo-muted); margin: .4rem 0 0; font-size: .9rem; }
+.show { display: flex; align-items: center; gap: .5rem; font-size: .85rem; white-space: nowrap; }
+.low { border-inline-start: 3px solid var(--p-orange-400, var(--warning-61)); }
+.empty { text-align: center; color: var(--fo-muted); padding: 3rem 1rem; }
+.empty i { font-size: 2rem; display: block; margin-bottom: .5rem; }

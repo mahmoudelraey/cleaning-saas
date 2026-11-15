@@ -3,7 +3,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
   min-height: 100vh;
-  background: #f5fafa;
+  background: var(--brand-97-2);
 }
 
 .form-side {
@@ -15,8 +15,8 @@
   padding: 2.5rem 1.5rem 4.5rem;
   overflow: hidden;
   background:
-    radial-gradient(90% 60% at 20% 0%, #ffffff 0%, transparent 70%),
-    linear-gradient(180deg, #fbfdfd 0%, #eef6f6 100%);
+    radial-gradient(90% 60% at 20% 0%, var(--white) 0%, transparent 70%),
+    linear-gradient(180deg, var(--brand-99) 0%, var(--brand-95-2) 100%);
 
   // Faint skyline at the bottom corner.
   &::before {
@@ -49,7 +49,7 @@
     margin: 0 0 0.4rem;
     font-size: 2rem;
     font-weight: 700;
-    color: #10202a;
+    color: var(--slate-11-2);
   }
 
   .sub {
@@ -62,12 +62,12 @@
 .card {
   width: 100%;
   text-align: start;
-  background: #fff;
+  background: var(--white);
   border-radius: 22px;
   padding: 1.75rem 1.75rem 1.5rem;
   box-shadow:
-    0 1px 2px rgba(16, 42, 46, 0.04),
-    0 18px 40px -18px rgba(16, 42, 46, 0.22);
+    0 1px 2px rgba(var(--brand-12-2-rgb), 0.04),
+    0 18px 40px -18px rgba(var(--brand-12-2-rgb), 0.22);
 
   p-message {
     display: block;
@@ -81,7 +81,7 @@
 
   .field label {
     font-weight: 600;
-    color: #10202a;
+    color: var(--slate-11-2);
   }
 
   // Icon boxes before the inputs.
@@ -90,8 +90,8 @@
   }
 
   .p-inputgroupaddon {
-    background: #fff;
-    color: #334155;
+    background: var(--white);
+    color: var(--slate-27);
     min-width: 3rem;
   }
 

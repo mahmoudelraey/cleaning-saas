@@ -1,26 +1,8 @@
+// The palette and design tokens live in theme.scss (one place to change the theme).
+@use 'theme';
 // Customer portal. One family (IBM Plex Sans Arabic), a calm "clean water" palette, and a single bold
 // element: the next-visit ticket on the home page. Everything else stays quiet.
-:root {
-  --ink: #0f2a3d;
-  --ink-2: #4a6273;
-  --ink-3: #7d93a2;
-  --mist: #f1f8f8;
-  --surface: #ffffff;
-  --line: #dbe9eb;
-  --tide: #0b7a73;
-  --tide-deep: #08524f;
-  --foam: #d5efec;
-  --sun: #f0a92e;
-  --sun-soft: #fdf1da;
-  --rose: #c2413b;
-  --rose-soft: #fbe7e6;
-  --leaf: #2f8f5b;
-  --r-lg: 22px;
-  --r-md: 14px;
-  --r-sm: 10px;
-  --shadow: 0 18px 40px -24px rgba(15, 42, 61, 0.45);
-  --tabbar: 68px;
-}
+
 
 * {
   box-sizing: border-box;
@@ -122,7 +104,7 @@ h3 {
 
 .btn-primary {
   background: var(--tide);
-  color: #fff;
+  color: var(--white);
 
   &:hover:not(:disabled) {
     background: var(--tide-deep);
@@ -250,7 +232,7 @@ button.row {
 
   &.s-ON_THE_WAY,
   &.s-IN_PROGRESS {
-    color: #b7791f;
+    color: var(--warning-42);
   }
 
   &.s-COMPLETED {
@@ -308,7 +290,7 @@ button.row {
 
     &.on {
       background: var(--ink);
-      color: #fff;
+      color: var(--white);
     }
   }
 }
@@ -317,7 +299,7 @@ button.row {
 .backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(15, 42, 61, 0.45);
+  background: rgba(var(--info-15-rgb), 0.45);
   z-index: 50;
   display: grid;
   align-items: end;
@@ -395,7 +377,7 @@ video {
 // Firefox only: in Chrome, scrollbar-color would switch off the rounded ::-webkit-scrollbar look below.
 @supports (-moz-appearance: none) {
   html {
-    scrollbar-color: #149b74 #f1f5f9;
+    scrollbar-color: var(--brand-34) var(--slate-96);
   }
 }
 
@@ -405,14 +387,14 @@ video {
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: var(--slate-96);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #149b74;
+  background: var(--brand-34);
   border-radius: 5px;
 
   &:hover {
-    background: #0d5c46;
+    background: var(--brand-21);
   }
 }

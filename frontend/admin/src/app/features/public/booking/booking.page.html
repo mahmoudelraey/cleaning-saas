@@ -1,0 +1,183 @@
+@if (page(); as p) {
+  <div class="wrap">
+    <div class="brand">
+      @if (p.logoUrl) { <img [src]="p.logoUrl" alt="" /> }
+      <h1>{{ p.name }}</h1>
+      <p-button class="lang" [label]="lang.current() === 'ar' ? 'English' : 'العربية'" [text]="true" size="small" (onClick)="lang.toggle()" />
+    </div>
+    @if (p.note && step() === 'services') { <div class="note">{{ p.note }}</div> }
+
+    @if (step() !== 'done') {
+      <div class="steps" aria-hidden="true">
+        <span class="on"></span>
+        <span [class.on]="step() !== 'services'"></span>
+        <span [class.on]="step() === 'details'"></span>
+      </div>
+    }
+
+    @switch (step()) {
+      @case ('services') {
+        <h2>{{ 'book.chooseServices' | translate }}</h2>
+        @for (s of p.services; track s.id) {
+          <div class="svc" [class.on]="isPicked(s)" (click)="toggle(s)">
+            <div class="svc-head">
+              <div>
+                <strong>{{ s.name }}</strong>
+                <div class="meta">{{ unitLabel(s) | translate: { min: s.durationMin } }}</div>
+              </div>
+              <span class="price">
+                @if (s.options?.length) { <small>{{ 'book.from' | translate }}</small> }
+                <span class="ltr">{{ fromPrice(s) | sar }}</span>
+              </span>
+            </div>
+            @if (s.description) { <p>{{ s.description }}</p> }
+            @if (pickOf(s); as pk) {
+              <div class="svc-opts" (click)="$event.stopPropagation()">
+                @if (s.options?.length) {
+                  <div class="field">
+                    <label>{{ 'book.chooseOption' | translate }}</label>
+                    <div class="chips" role="radiogroup">
+                      @for (o of s.options; track o.id) {
+                        <span class="chip" role="radio" [attr.aria-checked]="pk.optionId === o.id" [class.on]="pk.optionId === o.id" (click)="pickOption(pk, o.id)">
+                          {{ o.name }} <span class="ltr">{{ o.priceHalalas | sar }}</span>
+                        </span>
+                      }
+                    </div>
+                  </div>
+                }
+                @if (s.pricingType !== 'FIXED') {
+                  <div class="field">
+                    <label>{{ (s.pricingType === 'HOURLY' ? 'book.hours' : 'book.area') | translate }}</label>
+                    <p-inputnumber [(ngModel)]="pk.quantity" (onInput)="changed()" [min]="s.pricingType === 'HOURLY' ? 1 : 1" [max]="10000"
+                                   [maxFractionDigits]="s.pricingType === 'HOURLY' ? 1 : 0" [showButtons]="s.pricingType === 'HOURLY'" [useGrouping]="false" />
+                  </div>
+                }
+                @if (s.addons.length) {
+                  <div class="chips">
+                    @for (a of s.addons; track a.id) {
+                      <span class="chip" [class.on]="pk.addonIds.includes(a.id)" (click)="toggleAddon(pk, a.id)">
+                        {{ a.name }} <span class="ltr">+{{ a.priceHalalas | sar }}</span>
+                      </span>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        } @empty {
+          <div class="empty">{{ 'book.noServices' | translate }}</div>
+        }
+        @if (p.vatRegistered && !p.pricesIncludeVat) { <p class="hint">{{ 'book.vatNote' | translate }}</p> }
+      }
+
+      @case ('time') {
+        <h2>{{ 'book.chooseTime' | translate }}</h2>
+        <div class="days">
+          @for (d of days(); track d.iso) {
+            <div class="day" [class.on]="d.iso === date()" (click)="pickDate(d.iso)">
+              <small>{{ d.weekday }}</small>
+              <strong>{{ d.day }}</strong>
+              <small>{{ d.month }}</small>
+            </div>
+          }
+        </div>
+        @if (loadingSlots()) {
+          <div class="empty"><i class="pi pi-spin pi-spinner"></i></div>
+        } @else {
+          <div class="slots">
+            @for (s of slots(); track s.start) {
+              <div class="slot" [class.on]="s.start === slot()?.start" (click)="slot.set(s)">{{ time(s.start) }}</div>
+            } @empty {
+              <div class="empty" style="grid-column: 1 / -1">{{ 'book.noSlots' | translate }}</div>
+            }
+          </div>
+        }
+        <p class="hint">{{ 'book.leadTime' | translate: { h: p.leadTimeHours } }}</p>
+      }
+
+      @case ('details') {
+        <h2>{{ 'book.yourDetails' | translate }}</h2>
+        <div class="panel summary">
+          @for (it of quoteItems(); track $index) {
+            <div><span>{{ it.description }}@if (it.quantity !== 1) { × {{ it.quantity }} }</span><span class="ltr">{{ it.totalHalalas | sar }}</span></div>
+          }
+          <div><strong>{{ 'book.when' | translate }}</strong><strong>{{ longDate(slot()!.start) }} · {{ time(slot()!.start) }}</strong></div>
+        </div>
+        <div class="panel form">
+          <div class="field">
+            <label for="bk-name">{{ 'book.name' | translate }}</label>
+            <input pInputText id="bk-name" [(ngModel)]="name" maxlength="150" autocomplete="name" />
+          </div>
+          <div class="field">
+            <label for="bk-phone">{{ 'book.phone' | translate }}</label>
+            <input pInputText id="bk-phone" [(ngModel)]="phone" dir="ltr" inputmode="tel" placeholder="05XXXXXXXX" autocomplete="tel" />
+            <span class="hint">{{ 'book.phoneHint' | translate }}</span>
+          </div>
+          <app-place-picker [(ngModel)]="place" idPrefix="bk" [stack]="true" />
+          <div class="field">
+            <label for="bk-details">{{ 'book.addressDetails' | translate }}</label>
+            <input pInputText id="bk-details" [(ngModel)]="details" maxlength="300" [placeholder]="'book.addressPlaceholder' | translate" />
+          </div>
+          <div class="field">
+            <label for="bk-map">{{ 'book.mapLink' | translate }}</label>
+            <input pInputText id="bk-map" [(ngModel)]="mapUrl" dir="ltr" maxlength="500" placeholder="https://maps.app.goo.gl/…" />
+          </div>
+          <div class="field">
+            <label for="bk-notes">{{ 'book.notes' | translate }}</label>
+            <textarea pTextarea id="bk-notes" [(ngModel)]="notes" rows="2" maxlength="1000"></textarea>
+          </div>
+        </div>
+      }
+
+      @case ('done') {
+        @if (booked(); as b) {
+          <div class="panel done">
+            <i class="pi pi-check-circle"></i>
+            <h2>{{ 'book.doneTitle' | translate }}</h2>
+            <p>{{ 'book.doneBody' | translate: { company: p.name } }}</p>
+            <p><strong>{{ 'book.number' | translate }} <span class="ltr">#{{ b.number }}</span></strong></p>
+            <p>{{ longDate(b.scheduledStart) }} · {{ time(b.scheduledStart) }}</p>
+            @if (p.phone) {
+              <a [href]="'https://wa.me/' + p.phone.replace('+', '')" target="_blank" rel="noopener">
+                <p-button icon="pi pi-whatsapp" [label]="'doc.contact' | translate" severity="success" [outlined]="true" />
+              </a>
+            }
+          </div>
+        }
+      }
+    }
+  </div>
+
+  @if (step() !== 'done') {
+    <div class="bar">
+      <div class="bar-in">
+        @if (step() !== 'services') {
+          <p-button icon="pi pi-arrow-right rtl-flip" [text]="true" severity="secondary" (onClick)="back()" [ariaLabel]="'book.back' | translate" />
+        }
+        <div class="sum">
+          <strong class="ltr">{{ subtotal() | sar }}</strong>
+          <small>{{ picks().length ? ('book.durationTotal' | translate: { min: duration() }) : ('book.pickHint' | translate) }}</small>
+        </div>
+        @switch (step()) {
+          @case ('services') { <p-button [label]="'book.next' | translate" [disabled]="!picks().length || missingOption() || !quoteOk()" (onClick)="toTime()" /> }
+          @case ('time') { <p-button [label]="'book.next' | translate" [disabled]="!slot()" (onClick)="step.set('details')" /> }
+          @case ('details') { <p-button [label]="'book.confirm' | translate" icon="pi pi-check" [disabled]="!detailsValid()" [loading]="busy()" (onClick)="startVerify()" /> }
+        }
+      </div>
+    </div>
+  }
+
+  <p-dialog [header]="'book.verifyTitle' | translate" [(visible)]="otpOpen" [modal]="true" [style]="{ width: '400px', maxWidth: '94vw' }" [draggable]="false">
+    <div class="otp">
+      <p>{{ 'book.verifyBody' | translate }} <span class="ltr">{{ phone }}</span></p>
+      <p-inputotp [(ngModel)]="code" [length]="6" [integerOnly]="true" dir="ltr" />
+      @if (devCode()) { <span class="dev">{{ 'book.devCode' | translate }} <span class="ltr">{{ devCode() }}</span></span> }
+      <p-button [label]="'book.verifyAndBook' | translate" [disabled]="code.length !== 6" [loading]="busy()" (onClick)="verifyAndBook()" [fluid]="true" />
+      <p-button [label]="resendIn() > 0 ? ('book.resendIn' | translate: { s: resendIn() }) : ('book.resend' | translate)" [text]="true" size="small" [disabled]="resendIn() > 0 || busy()" (onClick)="sendCode()" />
+    </div>
+  </p-dialog>
+} @else if (error()) {
+  <div class="state"><i class="pi pi-calendar-times"></i>{{ error() }}</div>
+} @else {
+  <div class="state"><i class="pi pi-spin pi-spinner"></i></div>
+}

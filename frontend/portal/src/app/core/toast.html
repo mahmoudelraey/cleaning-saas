@@ -1,0 +1,5 @@
+@for (t of toasts.items(); track t.id) {
+  <div class="t" [class.error]="t.tone === 'error'" role="status">
+    <i [class]="t.tone === 'error' ? 'pi pi-exclamation-circle' : 'pi pi-check-circle'"></i>{{ t.text }}
+  </div>
+}

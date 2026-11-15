@@ -1,0 +1,75 @@
+@let o = overview.value();
+@if (o.state === 'error') {
+  <div class="panel"><app-state kind="error" [message]="o.error" (retry)="overview.reload()" /></div>
+} @else if (!o.data) {
+  <div class="panel"><app-state kind="loading" /></div>
+} @else {
+  @let d = o.data;
+  @let c = d.current;
+  @let p = d.previous;
+  <div class="kpis" [style.opacity]="o.state === 'loading' ? .6 : 1">
+    <app-kpi icon="pi pi-wallet" [label]="'analytics.kpi.revenue' | translate" [value]="money(c.revenueHalalas)" [delta]="g(c.revenueHalalas, p?.revenueHalalas)"
+             [hint]="'analytics.kpi.revenueHint' | translate" [clickable]="true" (pick)="drillAll('REVENUE')" />
+    @if (c.expensesHalalas !== null) {
+      <app-kpi icon="pi pi-arrow-circle-up" [label]="'analytics.kpi.expenses' | translate" [value]="money(c.expensesHalalas)" [delta]="g(c.expensesHalalas, p?.expensesHalalas)" [invert]="true"
+               [hint]="'analytics.kpi.expensesHint' | translate: { s: money(c.salaryCostHalalas) }" />
+      <app-kpi icon="pi pi-chart-line" [label]="'analytics.kpi.netProfit' | translate" [value]="money(c.netProfitHalalas)" [negative]="(c.netProfitHalalas ?? 0) < 0"
+               [delta]="g(c.netProfitHalalas, p?.netProfitHalalas)" [hint]="'analytics.kpi.margin' | translate: { m: pct(c.profitMargin) }" />
+    }
+    <app-kpi icon="pi pi-percentage" [label]="'analytics.kpi.growth' | translate" [value]="growthText(c, p)" [negative]="(g(c.revenueHalalas, p?.revenueHalalas) ?? 0) < 0"
+             [hint]="p ? ('analytics.kpi.growthHint' | translate: { v: money(p.revenueHalalas) }) : ('analytics.kpi.noCompare' | translate)" />
+    <app-kpi icon="pi pi-inbox" [label]="'analytics.kpi.requests' | translate" [value]="count(c.requests)" [delta]="g(c.requests, p?.requests)"
+             [hint]="'analytics.kpi.customers' | translate: { n: c.customers }" [clickable]="true" (pick)="drillStatus('analytics.kpi.requests', [])" />
+    <app-kpi icon="pi pi-check-circle" [label]="'analytics.kpi.completed' | translate" [value]="count(c.completed)" [delta]="g(c.completed, p?.completed)"
+             [hint]="'analytics.kpi.completionRate' | translate: { r: pct(c.completionRate) }" [clickable]="true" (pick)="drillStatus('analytics.kpi.completed', ['COMPLETED'])" />
+    <app-kpi icon="pi pi-clock" [label]="'analytics.kpi.pending' | translate" [value]="count(c.pending)" [delta]="g(c.pending, p?.pending)"
+             [clickable]="true" (pick)="drillStatus('analytics.kpi.pending', pending)" />
+    <app-kpi icon="pi pi-times-circle" [label]="'analytics.kpi.cancelled' | translate" [value]="count(c.cancelled)" [delta]="g(c.cancelled, p?.cancelled)" [invert]="true"
+             [hint]="'analytics.kpi.cancelRate' | translate: { r: pct(c.cancellationRate), n: c.noShow }" [clickable]="true" (pick)="drillStatus('analytics.kpi.cancelled', ['CANCELLED', 'NO_SHOW'])" />
+    <app-kpi icon="pi pi-tag" [label]="'analytics.kpi.avgRevenue' | translate" [value]="money(c.avgRevenuePerRequestHalalas)" [delta]="g(c.avgRevenuePerRequestHalalas, p?.avgRevenuePerRequestHalalas)"
+             [hint]="'analytics.kpi.avgRevenueHint' | translate: { n: c.invoices }" />
+    @if (c.collectedHalalas !== null) {
+      <app-kpi icon="pi pi-money-bill" [label]="'analytics.kpi.collected' | translate" [value]="money(c.collectedHalalas)" [delta]="g(c.collectedHalalas, p?.collectedHalalas)"
+               [hint]="d.outstandingHalalas !== null ? ('analytics.kpi.outstanding' | translate: { v: money(d.outstandingHalalas) }) : null" />
+    }
+  </div>
+  @if (d.narrowed && d.financials) {
+    <p class="note"><i class="pi pi-info-circle"></i> {{ 'analytics.narrowedNote' | translate }}</p>
+  }
+
+  <div class="grid">
+    <div class="panel">
+      <h2>{{ 'analytics.revenueTrend' | translate }}</h2>
+      <p class="sub">{{ 'analytics.clickToDrill' | translate }}</p>
+      <p-chart type="line" [data]="revenueChart()" [options]="revenueOptions()" height="280px" (onDataSelect)="onTrend($event, 'REVENUE')" />
+    </div>
+    <div class="panel">
+      <h2>{{ 'analytics.insights' | translate }}</h2>
+      <p class="sub">{{ 'analytics.insightsHint' | translate }}</p>
+      <ul class="insights">
+        @for (i of insights(); track $index) {
+          <li><i class="pi" [class]="i.icon + ' ' + i.tone"></i><span>{{ i.text }}</span></li>
+        } @empty {
+          <li class="muted">{{ 'analytics.noData' | translate }}</li>
+        }
+      </ul>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>{{ 'analytics.requestsTrend' | translate }}</h2>
+      <p class="sub">{{ 'analytics.clickToDrill' | translate }}</p>
+      <p-chart type="bar" [data]="requestsChart()" [options]="requestsOptions()" height="280px" (onDataSelect)="onTrend($event, 'REQUESTS')" />
+    </div>
+    <div class="panel">
+      <h2>{{ 'analytics.statuses' | translate }}</h2>
+      <p class="sub">{{ 'analytics.clickToDrill' | translate }}</p>
+      @if (d.statuses.length) {
+        <p-chart type="doughnut" [data]="statusChart()" [options]="donutOptions()" height="280px" (onDataSelect)="onStatus($event)" />
+      } @else {
+        <app-state kind="empty" />
+      }
+    </div>
+  </div>
+}

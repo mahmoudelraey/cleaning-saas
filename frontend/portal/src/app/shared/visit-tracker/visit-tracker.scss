@@ -1,0 +1,20 @@
+:host { display: flex; flex-direction: column; justify-content: center; gap: 22px; }
+.steps { display: grid; grid-template-columns: repeat(4, 1fr); list-style: none; margin: 0; padding: 0; }
+.steps li { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center;
+            font-weight: 800; color: var(--slate-65); font-size: .95rem; }
+.steps li:not(:last-child)::after { content: ''; position: absolute; top: 27px; inset-inline-start: calc(50% + 30px);
+                                    width: calc(100% - 60px); height: 3px; border-radius: 3px; background: var(--brand-88-2); }
+.steps li.past:not(:last-child)::after { background: var(--brand-34); }
+.dot { position: relative; z-index: 1; width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center;
+       font-size: 1.3rem; background: var(--brand-95-4); color: var(--slate-65); }
+.steps li.past, .steps li.now { color: var(--slate-11); }
+.steps li.past .dot { background: var(--brand-92-2); color: var(--brand-34); }
+.steps li.now .dot { background: var(--brand-21); color: var(--white); box-shadow: 0 0 0 7px rgba(var(--brand-34-rgb), .15); }
+.note { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0; padding: 14px 18px; border-radius: 18px;
+        background: var(--brand-95-3); color: var(--brand-21); font-weight: 600; font-size: .92rem; text-align: center; }
+.note.bad { background: var(--danger-96); color: var(--danger-40); }
+@media (max-width: 599px) {
+  .steps li { font-size: .74rem; }
+  .dot { width: 40px; height: 40px; font-size: 1rem; }
+  .steps li:not(:last-child)::after { top: 20px; inset-inline-start: calc(50% + 23px); width: calc(100% - 46px); }
+}

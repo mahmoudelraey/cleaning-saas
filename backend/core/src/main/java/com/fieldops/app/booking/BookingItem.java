@@ -14,11 +14,13 @@ import jakarta.persistence.Transient;
 
 import com.fieldops.app.catalog.ServiceAddon;
 import com.fieldops.app.catalog.ServiceOffering;
+import com.fieldops.app.catalog.ServiceOption;
 import com.fieldops.app.common.persistence.TenantScopedEntity;
 
 /**
- * One priced line: a service (quantity = 1, hours or m²) or one of its add-ons. Prices are kept as agreed at
- * booking time; the name is read from the service / add-on (services are archived, never deleted).
+ * One priced line: a service (quantity = 1, hours or m²), with its chosen option if it has options, or one of its
+ * add-ons. Prices are kept as agreed at booking time; the name is read from the service / option / add-on (booked
+ * ones are archived, never deleted).
  */
 @Entity
 @Table(name = "booking_items")
@@ -34,6 +36,10 @@ public class BookingItem extends TenantScopedEntity {
     @Column(name = "addon_id")
     private UUID addonId;
 
+    /** The service's option (e.g. large car) on the service line; null on add-on lines and services without options. */
+    @Column(name = "option_id")
+    private UUID optionId;
+
     /** Read-only; {@link #serviceId} is the column that is written. */
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "service_id", insertable = false, updatable = false)
@@ -43,6 +49,11 @@ public class BookingItem extends TenantScopedEntity {
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "addon_id", insertable = false, updatable = false)
     private ServiceAddon addon;
+
+    /** Read-only; {@link #optionId} is the column that is written. */
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "option_id", insertable = false, updatable = false)
+    private ServiceOption option;
 
     /** The name given when the item was priced in this session (before the service row is loaded with it). */
     @Transient
@@ -64,7 +75,13 @@ public class BookingItem extends TenantScopedEntity {
     }
 
     public BookingItem(UUID serviceId, UUID addonId, String description, BigDecimal quantity, long unitPriceHalalas) {
+        this(serviceId, null, addonId, description, quantity, unitPriceHalalas);
+    }
+
+    public BookingItem(UUID serviceId, UUID optionId, UUID addonId, String description, BigDecimal quantity,
+                       long unitPriceHalalas) {
         this.serviceId = serviceId;
+        this.optionId = optionId;
         this.addonId = addonId;
         this.pendingDescription = description;
         this.quantity = quantity.setScale(2, RoundingMode.HALF_UP);
@@ -87,21 +104,35 @@ public class BookingItem extends TenantScopedEntity {
         return addonId;
     }
 
-    /** "Apartment cleaning" or "Apartment cleaning — Fridge", in Arabic (the main name). */
+    public UUID getOptionId() {
+        return optionId;
+    }
+
+    /**
+     * "Apartment cleaning", "Car wash (Large car)" or "Apartment cleaning — Fridge", in Arabic (the main name).
+     * Use {@link #describe} to build the same text before the row is loaded.
+     */
     public String getDescription() {
         if (service == null) {
             return pendingDescription;
         }
-        return addon == null ? service.getName() : service.getName() + " — " + addon.getName();
+        if (addon != null) {
+            return service.getName() + " — " + addon.getName();
+        }
+        return describe(service.getName(), option == null ? null : option.getName());
     }
 
-    /** The same in English, or null when the service (or add-on) has no English name. */
+    /** The same in English, or null when the service (or option / add-on) has no English name. */
     public String getDescriptionEn() {
         if (service == null || service.getNameEn() == null || service.getNameEn().isBlank()) {
             return null;
         }
         if (addon == null) {
-            return service.getNameEn();
+            if (option == null) {
+                return service.getNameEn();
+            }
+            return option.getNameEn() == null || option.getNameEn().isBlank() ? null
+                    : describe(service.getNameEn(), option.getNameEn());
         }
         return addon.getNameEn() == null || addon.getNameEn().isBlank() ? null
                 : service.getNameEn() + " — " + addon.getNameEn();
@@ -121,5 +152,10 @@ public class BookingItem extends TenantScopedEntity {
 
     public int getPosition() {
         return position;
+    }
+
+    /** "Car wash (Large car)": how a service line with an option is written everywhere (bookings, invoices, PDFs). */
+    public static String describe(String serviceName, String optionName) {
+        return optionName == null || optionName.isBlank() ? serviceName : serviceName + " (" + optionName + ")";
     }
 }

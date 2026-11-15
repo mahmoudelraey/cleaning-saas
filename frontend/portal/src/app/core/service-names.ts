@@ -1,6 +1,6 @@
 import { Pipe, PipeTransform, inject } from '@angular/core';
 
-import { Addon, BookingItem, BookingSummary, Quote, Service } from './api.types';
+import { Addon, BookingItem, BookingSummary, Quote, Service, ServiceOption } from './api.types';
 import { Lang, LanguageService } from './language.service';
 
 /** English when the visitor reads English and the company filled it in; otherwise the Arabic (main) text. */
@@ -16,8 +16,14 @@ export function serviceDescription(s: Service, lang: Lang): string {
   return pick(lang, s.description, s.descriptionEn);
 }
 
-export function addonName(a: Addon, lang: Lang): string {
+export function addonName(a: Addon | ServiceOption, lang: Lang): string {
   return pick(lang, a.name, a.nameEn);
+}
+
+/** "Car wash (Large car)": a service with its chosen option, as the server writes booking lines. */
+export function serviceWithOption(s: Service, optionId: string | null | undefined, lang: Lang): string {
+  const o = optionId ? s.options?.find((x) => x.id === optionId) : undefined;
+  return o ? `${serviceName(s, lang)} (${addonName(o, lang)})` : serviceName(s, lang);
 }
 
 /**
@@ -27,7 +33,7 @@ export function addonName(a: Addon, lang: Lang): string {
 export function quoteLine(item: Quote['items'][number], services: Service[], lang: Lang): string {
   const s = services.find((x) => x.id === item.serviceId);
   if (!s) return item.description;
-  if (!item.addonId) return serviceName(s, lang);
+  if (!item.addonId) return serviceWithOption(s, item.optionId, lang);
   const a = s.addons.find((x) => x.id === item.addonId);
   return a ? `${serviceName(s, lang)} — ${addonName(a, lang)}` : item.description;
 }
@@ -36,7 +42,7 @@ export function quoteLine(item: Quote['items'][number], services: Service[], lan
 @Pipe({ name: 'svc', pure: false })
 export class ServiceTextPipe implements PipeTransform {
   private readonly lang = inject(LanguageService);
-  transform(x: Service | Addon | null | undefined, field: 'name' | 'description' = 'name'): string {
+  transform(x: Service | Addon | ServiceOption | null | undefined, field: 'name' | 'description' = 'name'): string {
     if (!x) return '';
     const l = this.lang.current();
     if (field === 'description') return 'description' in x ? serviceDescription(x as Service, l) : '';

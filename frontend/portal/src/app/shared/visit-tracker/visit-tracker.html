@@ -1,0 +1,16 @@
+@let b = booking();
+@if (stopped()) {
+  <p class="note bad" role="status"><i class="pi pi-times-circle" aria-hidden="true"></i>{{ 'status.' + b.status | translate }}</p>
+} @else {
+  <ol class="steps">
+    @for (st of stages; track st.key; let i = $index) {
+      <li [class.past]="i < stage()" [class.now]="i === stage()">
+        <span class="dot"><i class="pi" [class]="i < stage() ? 'pi-check' : st.icon" aria-hidden="true"></i></span>
+        {{ (i === 3 && b.status === 'IN_PROGRESS' ? 'status.IN_PROGRESS' : st.key) | translate }}
+      </li>
+    }
+  </ol>
+  @if (b.status !== 'COMPLETED') {
+    <p class="note" role="status"><i class="pi pi-info-circle" aria-hidden="true"></i>{{ noteKey() | translate: { name: techNames() } }}</p>
+  }
+}

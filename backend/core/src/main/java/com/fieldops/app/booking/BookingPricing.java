@@ -10,6 +10,7 @@ import com.fieldops.app.catalog.CatalogService;
 import com.fieldops.app.catalog.PricingType;
 import com.fieldops.app.catalog.ServiceAddon;
 import com.fieldops.app.catalog.ServiceOffering;
+import com.fieldops.app.catalog.ServiceOption;
 import com.fieldops.app.common.web.ApiException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,8 +30,15 @@ public class BookingPricing {
         this.catalog = catalog;
     }
 
-    /** @param quantity FIXED: count (default 1), HOURLY: hours, PER_SQM: square metres. */
-    public record Line(UUID serviceId, BigDecimal quantity, List<UUID> addonIds) {
+    /**
+     * @param optionId  the chosen option; required when the service has active options, ignored otherwise
+     * @param quantity  FIXED: count (default 1), HOURLY: hours, PER_SQM: square metres.
+     */
+    public record Line(UUID serviceId, UUID optionId, BigDecimal quantity, List<UUID> addonIds) {
+        /** A line for a service without options. */
+        public Line(UUID serviceId, BigDecimal quantity, List<UUID> addonIds) {
+            this(serviceId, null, quantity, addonIds);
+        }
     }
 
     public record Priced(List<BookingItem> items, long subtotalHalalas, int durationMin) {
@@ -50,11 +58,13 @@ public class BookingPricing {
                 throw ApiException.conflict("service_inactive", service.getName() + " is no longer offered");
             }
             BigDecimal qty = quantityFor(service, line.quantity());
-            BookingItem main = new BookingItem(service.getId(), null, service.getName(), qty,
-                    service.getBasePriceHalalas());
+            ServiceOption option = optionFor(service, line.optionId());
+            BookingItem main = new BookingItem(service.getId(), option == null ? null : option.getId(), null,
+                    BookingItem.describe(service.getName(), option == null ? null : option.getName()), qty,
+                    option == null ? service.getBasePriceHalalas() : option.getPriceHalalas());
             items.add(main);
             subtotal += main.getTotalHalalas();
-            duration += durationFor(service, qty);
+            duration += durationFor(service, option, qty);
 
             for (UUID addonId : new LinkedHashSet<>(line.addonIds() == null ? List.<UUID>of() : line.addonIds())) {
                 ServiceAddon addon = service.getAddons().stream()
@@ -68,6 +78,24 @@ public class BookingPricing {
             }
         }
         return new Priced(items, subtotal, Math.max(duration, 15));
+    }
+
+    /**
+     * The line's option: required (and must be active) when the service has active options; a service without
+     * options ignores any option id sent.
+     */
+    private static ServiceOption optionFor(ServiceOffering service, UUID optionId) {
+        List<ServiceOption> active = service.getActiveOptions();
+        if (active.isEmpty()) {
+            return null;
+        }
+        if (optionId == null) {
+            throw ApiException.badRequest("option_required", "Choose an option for " + service.getName());
+        }
+        return active.stream()
+                .filter(o -> o.getId().equals(optionId))
+                .findFirst()
+                .orElseThrow(() -> ApiException.badRequest("invalid_option", "Option not available for this service"));
     }
 
     private static BigDecimal quantityFor(ServiceOffering service, BigDecimal requested) {
@@ -88,12 +116,16 @@ public class BookingPricing {
         return qty;
     }
 
-    /** FIXED: duration × count, HOURLY: the hours booked, PER_SQM: the service's estimate. */
-    private static int durationFor(ServiceOffering service, BigDecimal qty) {
+    /**
+     * FIXED: duration × count, HOURLY: the hours booked, PER_SQM: the service's estimate. The option's duration,
+     * when set, replaces the service's.
+     */
+    private static int durationFor(ServiceOffering service, ServiceOption option, BigDecimal qty) {
+        int unit = option != null && option.getDurationMin() != null ? option.getDurationMin() : service.getDurationMin();
         return switch (service.getPricingType()) {
-            case FIXED -> service.getDurationMin() * qty.intValueExact();
+            case FIXED -> unit * qty.intValueExact();
             case HOURLY -> qty.multiply(BigDecimal.valueOf(60)).setScale(0, java.math.RoundingMode.CEILING).intValue();
-            case PER_SQM -> service.getDurationMin();
+            case PER_SQM -> unit;
         };
     }
 }

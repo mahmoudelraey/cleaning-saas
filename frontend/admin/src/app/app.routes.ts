@@ -10,44 +10,44 @@ export const routes: Routes = [
   {
     path: 'login',
     canActivate: [guestGuard],
-    loadComponent: () => import('./features/auth/login.page').then((m) => m.LoginPage),
+    loadComponent: () => import('./features/auth/login/login.page').then((m) => m.LoginPage),
   },
   {
     path: 'signup',
     canActivate: [guestGuard],
-    loadComponent: () => import('./features/auth/signup.page').then((m) => m.SignupPage),
+    loadComponent: () => import('./features/auth/signup/signup.page').then((m) => m.SignupPage),
   },
   // End-customer pages opened from WhatsApp (no login).
   {
     path: 'i/:token',
     data: { kind: 'invoice' },
-    loadComponent: () => import('./features/public/public-document.page').then((m) => m.PublicDocumentPage),
+    loadComponent: () => import('./features/public/public-document/public-document.page').then((m) => m.PublicDocumentPage),
   },
   {
     path: 'q/:token',
     data: { kind: 'quote' },
-    loadComponent: () => import('./features/public/public-document.page').then((m) => m.PublicDocumentPage),
+    loadComponent: () => import('./features/public/public-document/public-document.page').then((m) => m.PublicDocumentPage),
   },
   {
     path: 'book/:slug',
-    loadComponent: () => import('./features/public/booking.page').then((m) => m.BookingPage),
+    loadComponent: () => import('./features/public/booking/booking.page').then((m) => m.BookingPage),
   },
   {
     path: 'change-password',
     canActivate: [authGuard],
-    loadComponent: () => import('./features/auth/change-password.page').then((m) => m.ChangePasswordPage),
+    loadComponent: () => import('./features/auth/change-password/change-password.page').then((m) => m.ChangePasswordPage),
   },
   {
     path: 'subscription-inactive',
     canActivate: [authGuard],
     loadComponent: () =>
-      import('./features/subscription/subscription-inactive.page').then((m) => m.SubscriptionInactivePage),
+      import('./features/subscription/subscription-inactive/subscription-inactive.page').then((m) => m.SubscriptionInactivePage),
   },
   {
     path: '',
     canActivate: [authGuard, passwordChangedGuard],
     canActivateChild: [passwordChangedGuard],
-    loadComponent: () => import('./layout/shell').then((m) => m.Shell),
+    loadComponent: () => import('./layout/shell/shell').then((m) => m.Shell),
     children: [
       {
         path: '',
@@ -58,12 +58,12 @@ export const routes: Routes = [
       {
         path: 'today',
         canActivate: [roleGuard('TECHNICIAN')],
-        loadComponent: () => import('./features/field/today.page').then((m) => m.TodayPage),
+        loadComponent: () => import('./features/field/today/today.page').then((m) => m.TodayPage),
       },
       {
         path: 'visit/:id',
         canActivate: [roleGuard('TECHNICIAN')],
-        loadComponent: () => import('./features/field/visit.page').then((m) => m.VisitPage),
+        loadComponent: () => import('./features/field/visit/visit.page').then((m) => m.VisitPage),
       },
       {
         path: 'dashboard',
@@ -78,17 +78,17 @@ export const routes: Routes = [
       {
         path: 'bookings/new',
         canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('BOOKINGS', 'CALENDAR')],
-        loadComponent: () => import('./features/bookings/booking-form.page').then((m) => m.BookingFormPage),
+        loadComponent: () => import('./features/bookings/booking-form/booking-form.page').then((m) => m.BookingFormPage),
       },
       {
         path: 'bookings/:id/edit',
         canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('BOOKINGS', 'CALENDAR')],
-        loadComponent: () => import('./features/bookings/booking-form.page').then((m) => m.BookingFormPage),
+        loadComponent: () => import('./features/bookings/booking-form/booking-form.page').then((m) => m.BookingFormPage),
       },
       {
         path: 'bookings/:id',
         canActivate: [screenGuard('BOOKINGS', 'CALENDAR', 'CUSTOMERS', 'DASHBOARD')],
-        loadComponent: () => import('./features/bookings/booking-detail.page').then((m) => m.BookingDetailPage),
+        loadComponent: () => import('./features/bookings/booking-detail/booking-detail.page').then((m) => m.BookingDetailPage),
       },
       {
         path: 'calendar',
@@ -103,7 +103,7 @@ export const routes: Routes = [
       {
         path: 'customers/:id',
         canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('CUSTOMERS')],
-        loadComponent: () => import('./features/customers/customer-detail.page').then((m) => m.CustomerDetailPage),
+        loadComponent: () => import('./features/customers/customer-detail/customer-detail.page').then((m) => m.CustomerDetailPage),
       },
       {
         path: 'services',
@@ -124,40 +124,40 @@ export const routes: Routes = [
       {
         path: 'invoices',
         canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('INVOICES'), featureGuard('quotes_invoices')],
-        loadComponent: () => import('./features/billing/invoices.page').then((m) => m.InvoicesPage),
+        loadComponent: () => import('./features/billing/invoices/invoices.page').then((m) => m.InvoicesPage),
       },
       {
         path: 'invoices/new',
         canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('INVOICES'), featureGuard('quotes_invoices')],
         data: { kind: 'invoice' },
-        loadComponent: () => import('./features/billing/document-editor.page').then((m) => m.DocumentEditorPage),
+        loadComponent: () => import('./features/billing/document-editor/document-editor.page').then((m) => m.DocumentEditorPage),
       },
       {
         path: 'invoices/:id',
         canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('INVOICES'), featureGuard('quotes_invoices')],
-        loadComponent: () => import('./features/billing/invoice-detail.page').then((m) => m.InvoiceDetailPage),
+        loadComponent: () => import('./features/billing/invoice-detail/invoice-detail.page').then((m) => m.InvoiceDetailPage),
       },
       {
         path: 'quotes',
         canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('QUOTES'), featureGuard('quotes_invoices')],
-        loadComponent: () => import('./features/billing/quotes.page').then((m) => m.QuotesPage),
+        loadComponent: () => import('./features/billing/quotes/quotes.page').then((m) => m.QuotesPage),
       },
       {
         path: 'quotes/new',
         canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('QUOTES'), featureGuard('quotes_invoices')],
         data: { kind: 'quote' },
-        loadComponent: () => import('./features/billing/document-editor.page').then((m) => m.DocumentEditorPage),
+        loadComponent: () => import('./features/billing/document-editor/document-editor.page').then((m) => m.DocumentEditorPage),
       },
       {
         path: 'quotes/:id/edit',
         canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('QUOTES'), featureGuard('quotes_invoices')],
         data: { kind: 'quote' },
-        loadComponent: () => import('./features/billing/document-editor.page').then((m) => m.DocumentEditorPage),
+        loadComponent: () => import('./features/billing/document-editor/document-editor.page').then((m) => m.DocumentEditorPage),
       },
       {
         path: 'quotes/:id',
         canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('QUOTES'), featureGuard('quotes_invoices')],
-        loadComponent: () => import('./features/billing/quote-detail.page').then((m) => m.QuoteDetailPage),
+        loadComponent: () => import('./features/billing/quote-detail/quote-detail.page').then((m) => m.QuoteDetailPage),
       },
       {
         path: 'messages',
@@ -167,7 +167,7 @@ export const routes: Routes = [
       {
         path: 'contact-requests',
         canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('CONTACT_REQUESTS')],
-        loadComponent: () => import('./features/contact/contact-requests.page').then((m) => m.ContactRequestsPage),
+        loadComponent: () => import('./features/contact/contact-requests/contact-requests.page').then((m) => m.ContactRequestsPage),
       },
       {
         path: 'reviews',
@@ -198,22 +198,22 @@ export const routes: Routes = [
       {
         path: 'platform',
         canActivate: [roleGuard('PLATFORM_ADMIN')],
-        loadComponent: () => import('./features/platform/overview.page').then((m) => m.PlatformOverviewPage),
+        loadComponent: () => import('./features/platform/overview/overview.page').then((m) => m.PlatformOverviewPage),
       },
       {
         path: 'platform/companies',
         canActivate: [roleGuard('PLATFORM_ADMIN')],
-        loadComponent: () => import('./features/platform/companies.page').then((m) => m.PlatformCompaniesPage),
+        loadComponent: () => import('./features/platform/companies/companies.page').then((m) => m.PlatformCompaniesPage),
       },
       {
         path: 'platform/plans',
         canActivate: [roleGuard('PLATFORM_ADMIN')],
-        loadComponent: () => import('./features/platform/plans.page').then((m) => m.PlatformPlansPage),
+        loadComponent: () => import('./features/platform/plans/plans.page').then((m) => m.PlatformPlansPage),
       },
       {
         path: 'platform/settings',
         canActivate: [roleGuard('PLATFORM_ADMIN')],
-        loadComponent: () => import('./features/platform/settings.page').then((m) => m.PlatformSettingsPage),
+        loadComponent: () => import('./features/platform/settings/settings.page').then((m) => m.PlatformSettingsPage),
       },
       {
         path: 'users',

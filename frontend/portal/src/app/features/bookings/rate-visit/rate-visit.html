@@ -1,0 +1,33 @@
+<div class="sheet">
+  @if (review() && !editing()) {
+    <div class="done">
+      <span class="shown" [attr.aria-label]="'rate.yourRating' | translate: { n: review()!.rating }">
+        @for (n of five; track n) { <i class="pi" [class.pi-star-fill]="n <= review()!.rating" [class.pi-star]="n > review()!.rating"></i> }
+      </span>
+      <div style="flex:1">
+        <strong>{{ 'rate.thanks' | translate }}</strong>
+        @if (review()!.comment) { <p class="muted">{{ review()!.comment }}</p> }
+        <p class="note">{{ (review()!.published ? 'rate.published' : 'rate.private') | translate }}</p>
+      </div>
+      <button type="button" class="link-btn" (click)="edit()">{{ 'rate.edit' | translate }}</button>
+    </div>
+  } @else {
+    <strong id="rate-q">{{ 'rate.question' | translate }}</strong>
+    <div class="stars" role="radiogroup" aria-labelledby="rate-q">
+      @for (n of five; track n) {
+        <button type="button" class="star" role="radio" [attr.aria-checked]="rating() === n"
+                [attr.aria-label]="'rate.stars' | translate: { n: n }" [class.on]="n <= rating()" (click)="rating.set(n)">
+          <i class="pi" [class.pi-star-fill]="n <= rating()" [class.pi-star]="n > rating()"></i>
+        </button>
+      }
+    </div>
+    <div class="word">@if (rating()) { {{ 'rate.word.' + rating() | translate }} }</div>
+    <textarea class="input" [(ngModel)]="comment" maxlength="1000" [placeholder]="'rate.commentPlaceholder' | translate"
+              [attr.aria-label]="'rate.comment' | translate"></textarea>
+    <p class="note">{{ 'rate.privacy' | translate }}</p>
+    <div class="actions">
+      <button type="button" class="btn btn-primary" [disabled]="!rating() || busy()" (click)="save()">{{ 'rate.send' | translate }}</button>
+      @if (review()) { <button type="button" class="btn btn-quiet" (click)="editing.set(false)">{{ 'rate.cancel' | translate }}</button> }
+    </div>
+  }
+</div>

@@ -1,0 +1,17 @@
+@switch (kind()) {
+  @case ('loading') {
+    <div class="skeleton" aria-busy="true" [attr.aria-label]="'analytics.loading' | translate">
+      <div class="bar" style="width: 60%"></div><div class="bar" style="width: 90%"></div><div class="bar" style="width: 75%"></div><div class="bar" style="width: 40%"></div>
+    </div>
+  }
+  @case ('error') {
+    <div class="state" role="alert">
+      <i class="pi pi-exclamation-triangle"></i>
+      <span>{{ message() || ('analytics.loadFailed' | translate) }}</span>
+      <p-button size="small" [outlined]="true" icon="pi pi-refresh" [label]="'analytics.retry' | translate" (onClick)="retry.emit()" />
+    </div>
+  }
+  @case ('empty') {
+    <div class="state"><i class="pi pi-chart-line"></i><span>{{ message() || ('analytics.noData' | translate) }}</span></div>
+  }
+}

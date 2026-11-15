@@ -1,0 +1,3 @@
+:host { display: inline-flex; gap: 2px; color: var(--sun); direction: ltr; }
+i { font-size: var(--star-size, .95rem); }
+i.off { color: color-mix(in srgb, currentColor 35%, transparent); }

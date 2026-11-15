@@ -20,7 +20,8 @@ public enum InboxKind {
     BOOKING_CANCELLED(null),
     TECHNICIAN_ON_THE_WAY(null),
     VISIT_DONE(null),
-    INVOICE_ISSUED(null);
+    INVOICE_ISSUED(null),
+    QUOTE_SENT(null);
 
     private final Screen screen;
 

@@ -1,0 +1,1 @@
+<p-tag [value]="(expired() ? 'quoteStatus.EXPIRED' : 'quoteStatus.' + status()) | translate" [severity]="expired() ? 'warn' : severity()" />

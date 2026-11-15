@@ -1,0 +1,10 @@
+<div class="box">
+  <span class="lock"><i class="pi pi-lock"></i></span>
+  <strong>{{ 'upgrade.lockedTitle' | translate: { feature: ('upgrade.features.' + feature() | translate) } }}</strong>
+  @if (isOwner) {
+    <p>{{ 'upgrade.lockedOwner' | translate }}</p>
+    <p-button icon="pi pi-bolt" [label]="'upgrade.upgradePlan' | translate" size="small" (onClick)="upgrade.prompt(feature())" />
+  } @else {
+    <p>{{ 'upgrade.lockedStaff' | translate }}</p>
+  }
+</div>

@@ -1,0 +1,21 @@
+<div class="field">
+  <label [for]="idPrefix() + '-city'">{{ 'geo.city' | translate }}</label>
+  <p-select [inputId]="idPrefix() + '-city'" [options]="cityOptions()" [ngModel]="cityId()" (ngModelChange)="pickCity($event)"
+            optionLabel="label" optionValue="id" [filter]="true" filterBy="label,alt" [virtualScroll]="true" [virtualScrollItemSize]="38"
+            [showClear]="true" [placeholder]="'geo.chooseCity' | translate" [disabled]="disabled()" [fluid]="true" appendTo="body"
+            [emptyFilterMessage]="'geo.noMatch' | translate">
+    <ng-template #item let-c><span class="opt">{{ c.label }}<small>{{ c.region }}</small></span></ng-template>
+  </p-select>
+</div>
+<div class="field">
+  <label [for]="idPrefix() + '-district'">{{ 'geo.district' | translate }}</label>
+  @if (!cityId() || districts().length) {
+    <p-select [inputId]="idPrefix() + '-district'" [options]="districtOptions()" [ngModel]="districtId()" (ngModelChange)="pickDistrict($event)"
+              optionLabel="label" optionValue="id" [filter]="true" filterBy="label,alt" [showClear]="true"
+              [placeholder]="(cityId() ? 'geo.chooseDistrict' : 'geo.cityFirst') | translate" [disabled]="disabled() || !cityId()"
+              [fluid]="true" appendTo="body" [loading]="loadingDistricts()" [emptyFilterMessage]="'geo.noMatch' | translate" />
+  } @else {
+    <input pInputText [id]="idPrefix() + '-district'" [ngModel]="districtText()" (ngModelChange)="typeDistrict($event)"
+           maxlength="80" [placeholder]="'geo.typeDistrict' | translate" [disabled]="disabled()" />
+  }
+</div>

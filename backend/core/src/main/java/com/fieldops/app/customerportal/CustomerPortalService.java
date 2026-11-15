@@ -11,8 +11,10 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 
+import com.fieldops.app.billing.BillingDtos;
 import com.fieldops.app.billing.BillingService;
 import com.fieldops.app.billing.InvoiceRepository;
+import com.fieldops.app.billing.Quote;
 import com.fieldops.app.booking.Booking;
 import com.fieldops.app.booking.BookingPricing;
 import com.fieldops.app.booking.BookingService;
@@ -281,6 +283,32 @@ public class CustomerPortalService {
             }
             return billing.invoiceLink(invoiceId);
         });
+    }
+
+    /** A quote the company sent to this customer, shown in the portal. */
+    public BillingDtos.QuoteDto quote(String slug, UUID customerId, UUID quoteId) {
+        Tenant t = company(slug);
+        return as(t, () -> BillingDtos.QuoteDto.of(ownQuote(customerId, quoteId), LocalDate.now(billing.zone()), null,
+                null));
+    }
+
+    /** The customer accepts or declines the quote from the portal (same rules as the public quote page). */
+    public BillingDtos.QuoteDto respondToQuote(String slug, UUID customerId, UUID quoteId, boolean accepted) {
+        Tenant t = company(slug);
+        return as(t, () -> {
+            ownQuote(customerId, quoteId);
+            return BillingDtos.QuoteDto.of(billing.respondPublicly(quoteId, accepted), LocalDate.now(billing.zone()),
+                    null, null);
+        });
+    }
+
+    /** Only the customer's own quotes, and only once sent (a draft is still being prepared by the office). */
+    private Quote ownQuote(UUID customerId, UUID quoteId) {
+        Quote q = billing.getQuote(quoteId);
+        if (!customerId.equals(q.getCustomerId()) || q.getStatus() == Quote.Status.DRAFT) {
+            throw ApiException.notFound("quote");
+        }
+        return q;
     }
 
     // ---------------------------------------------------------------------------------------------

@@ -1,0 +1,123 @@
+<div class="bd">
+  <a class="back" [routerLink]="['/', store.slug(), 'bookings']"><i class="pi pi-arrow-right rtl-flip" aria-hidden="true"></i>{{ 'bookings.title' | translate }}</a>
+
+  @if (detail(); as d) {
+    <section class="hero">
+      <div class="track">
+        <pt-visit-tracker [booking]="d.booking" />
+        @if (d.cancelReason) { <p class="reason">{{ 'detail.reason' | translate }}: {{ d.cancelReason }}</p> }
+      </div>
+      <div class="when">
+        <i class="pi pi-calendar-clock art" aria-hidden="true"></i>
+        <span class="num tnum">#{{ d.booking.number }}</span>
+        <span class="day">{{ d.booking.scheduledStart | ldate: 'full' }}</span>
+        <span class="time tnum">{{ d.booking.scheduledStart | ldate: 'time' }} – {{ d.booking.scheduledEnd | ldate: 'time' }}</span>
+        <span class="chip" [class.wait]="d.booking.status === 'NEW'" [class.bad]="d.booking.status === 'CANCELLED' || d.booking.status === 'NO_SHOW'">
+          <i class="pi" [class]="chipIcon(d.booking.status)" aria-hidden="true"></i>{{ 'status.' + d.booking.status | translate }}
+        </span>
+      </div>
+    </section>
+
+    <div class="grid">
+      <div class="col">
+        <section class="panel">
+          <h2 class="ph"><i class="pi pi-sparkles" aria-hidden="true"></i>{{ 'detail.services' | translate }}</h2>
+          <ul class="lines">
+            @for (it of d.items; track $index) {
+              <li [class.addon]="it.addon"><span>{{ it | itemText }}@if (it.quantity !== 1) { <span class="qty"> × {{ it.quantity }}</span> }</span><span class="ltr">{{ it.totalHalalas | sar }}</span></li>
+            }
+            @if (d.discountHalalas) {
+              <li class="off"><span>{{ 'promo.discount' | translate: { code: d.promoCode ?? '' } }}</span><span class="ltr">−{{ d.discountHalalas | sar }}</span></li>
+            }
+            <li class="total"><span>{{ 'detail.total' | translate }}</span><span class="ltr">{{ (d.booking.subtotalHalalas - (d.discountHalalas ?? 0)) | sar }}</span></li>
+          </ul>
+          @if (store.company()?.vatRegistered && !store.company()?.pricesIncludeVat) { <p class="vat">{{ 'detail.vatNote' | translate }}</p> }
+        </section>
+
+        @if (d.invoice; as inv) {
+          <section class="panel">
+            <h2 class="ph"><i class="pi pi-receipt" aria-hidden="true"></i>{{ 'detail.invoice' | translate }}</h2>
+            <button type="button" class="inv" (click)="openInvoice(inv.id)" [disabled]="opening()">
+              <i class="pi pi-receipt" aria-hidden="true"></i>
+              <span>{{ 'invoices.number' | translate: { n: inv.number } }}<small>{{ 'invoiceStatus.' + inv.status | translate }}</small></span>
+              <b class="ltr">{{ inv.totalHalalas | sar }}</b>
+              <i class="pi pi-chevron-left rtl-flip" style="color:var(--slate-65)" aria-hidden="true"></i>
+            </button>
+          </section>
+        }
+
+        @if (d.canReview) {
+          <section class="panel">
+            <h2 class="ph"><i class="pi pi-star" aria-hidden="true"></i>{{ 'rate.title' | translate }}</h2>
+            <pt-rate-visit [slug]="store.slug()" [bookingId]="d.booking.id" [review]="d.review" (saved)="reviewed($event)" />
+          </section>
+        }
+      </div>
+
+      <div class="col">
+        <section class="panel">
+          <h2 class="ph"><i class="pi pi-info-circle" aria-hidden="true"></i>{{ 'detail.details' | translate }}</h2>
+          <dl class="facts">
+            @if (d.booking.technicians.length) {
+              <div class="fact"><i class="pi pi-user" aria-hidden="true"></i><div><dt>{{ 'detail.technician' | translate }}</dt><dd>{{ techNames() }}</dd></div></div>
+            }
+            <div class="fact">
+              <i class="pi pi-map-marker" aria-hidden="true"></i>
+              <div>
+                <dt>{{ 'detail.address' | translate }}</dt>
+                <dd>
+                  {{ d.booking.addressText || ('detail.noAddress' | translate) }}
+                  @if (d.navigationUrl) { <div><a [href]="d.navigationUrl" target="_blank" rel="noopener"><i class="pi pi-directions" aria-hidden="true"></i>{{ 'detail.map' | translate }}</a></div> }
+                </dd>
+              </div>
+            </div>
+            <div class="fact">
+              <i class="pi pi-wallet" aria-hidden="true"></i>
+              <div><dt>{{ 'detail.payment' | translate }}</dt><dd>{{ d.booking.paymentMethod ? ('payment.' + d.booking.paymentMethod | translate) : ('detail.notSet' | translate) }}</dd></div>
+            </div>
+            @if (d.notes) {
+              <div class="fact"><i class="pi pi-comment" aria-hidden="true"></i><div><dt>{{ 'detail.notes' | translate }}</dt><dd>{{ d.notes }}</dd></div></div>
+            }
+          </dl>
+        </section>
+
+        <section class="panel">
+          <h2 class="ph"><i class="pi pi-history" aria-hidden="true"></i>{{ 'detail.history' | translate }}</h2>
+          <ol class="log">
+            @for (e of d.events; track $index) {
+              <li>{{ eventText(e) }}<small>{{ e.at | ldate: 'dateTime' }}</small></li>
+            }
+          </ol>
+        </section>
+
+        @if (d.canCancel) {
+          <section class="panel cancel">
+            <p>{{ 'detail.cancelUntil' | translate: { when: (d.cancelDeadline | ldate: 'dateTime') } }}</p>
+            <button type="button" class="btn-cancel" (click)="cancelOpen.set(true)"><i class="pi pi-times" aria-hidden="true"></i>{{ 'detail.cancel' | translate }}</button>
+          </section>
+        } @else if (['NEW', 'CONFIRMED', 'ASSIGNED'].includes(d.booking.status) && store.company()?.phone) {
+          <section class="panel"><p class="late">{{ 'detail.tooLate' | translate }} <a [href]="'tel:' + store.company()?.phone">{{ 'home.call' | translate }}</a></p></section>
+        }
+      </div>
+    </div>
+  } @else {
+    <div class="spinner"><i class="pi pi-spin pi-spinner"></i></div>
+  }
+</div>
+
+@if (cancelOpen()) {
+  <div class="backdrop" (click)="cancelOpen.set(false)">
+    <div class="dialog" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <h2>{{ 'detail.cancelTitle' | translate }}</h2>
+      <p class="muted" style="margin-top:0">{{ 'detail.cancelLead' | translate }}</p>
+      <div class="field">
+        <label for="rs">{{ 'detail.reasonOptional' | translate }}</label>
+        <textarea id="rs" class="input" rows="3" maxlength="500" [(ngModel)]="reason"></textarea>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn btn-quiet" (click)="cancelOpen.set(false)">{{ 'detail.keep' | translate }}</button>
+        <button type="button" class="btn btn-danger" [disabled]="busy()" (click)="cancel()">{{ 'detail.confirmCancel' | translate }}</button>
+      </div>
+    </div>
+  </div>
+}

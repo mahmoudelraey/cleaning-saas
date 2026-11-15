@@ -1,0 +1,16 @@
+.body { max-width: 520px; white-space: normal; }
+.err { color: var(--p-red-500); font-size: .8rem; }
+
+/* compact = card list embedded in the booking page */
+.list { display: flex; flex-direction: column; gap: .6rem; }
+.msg { display: flex; gap: .75rem; align-items: center; border: 1px solid var(--fo-border); border-radius: 12px; padding: .75rem .9rem; }
+.msg .txt { flex: 1; min-width: 0; }
+.msg .top { display: flex; align-items: center; gap: .5rem; justify-content: space-between; }
+.msg strong { font-size: .92rem; }
+.msg time { display: block; font-size: .75rem; color: var(--fo-muted); margin: .15rem 0 .3rem; }
+.msg .preview { font-size: .82rem; color: var(--fo-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.msg .ch { font-size: 1.35rem; color: var(--fo-muted); flex: none; }
+.msg .ch.pi-whatsapp { color: var(--brand-49); }
+.msg ::ng-deep .p-tag { font-size: .7rem; padding: .1rem .45rem; }
+.more { background: none; border: 0; padding: .25rem 0; cursor: pointer; color: var(--p-primary-600); font: inherit; font-size: .85rem; }
+.compact-empty { color: var(--fo-muted); font-size: .9rem; display: flex; align-items: center; gap: .5rem; padding: .25rem 0; }

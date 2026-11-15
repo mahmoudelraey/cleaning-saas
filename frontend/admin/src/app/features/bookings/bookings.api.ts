@@ -24,6 +24,8 @@ export interface BookingFilter {
   customerId?: string;
   technicianId?: string;
   order?: 'asc' | 'desc';
+  /** 'created': newest requests first; default: by visit time. */
+  sort?: 'created' | 'scheduled';
   page: number;
   size: number;
 }
@@ -35,6 +37,7 @@ export class BookingsApi {
 
   list(f: BookingFilter): Observable<Page<BookingSummary>> {
     let params = new HttpParams().set('page', f.page).set('size', f.size).set('order', f.order ?? 'desc');
+    if (f.sort) params = params.set('sort', f.sort);
     for (const s of f.status ?? []) {
       params = params.append('status', s);
     }

@@ -186,6 +186,8 @@
     "s1Focus": "Your service",
     "s1FocusLead": "Set the details and we'll get your space cleaner and more comfortable.",
     "addAnother": "Add another service",
+    "from": "From",
+    "chooseOption": "Choose the size / type",
     "steps": "Booking steps",
     "stepService": "Service",
     "stepSchedule": "Schedule",
@@ -196,7 +198,10 @@
     "k3": "Where should we come?",
     "k4": "Review and confirm",
     "selectedService": "Selected service",
-    "servicesN": "{{n}} services"
+    "servicesN": "{{n}} services",
+    "signInToContinue": "Sign in to continue",
+    "signInTitle": "Sign in to finish your booking",
+    "signInHint": "After signing in with your mobile number you'll pick the time and address."
   },
   "profile": {
     "details": "My details",
@@ -228,6 +233,8 @@
     "booking_not_found": "Booking not found.",
     "invoice_not_found": "Invoice not found.",
     "quantity_required": "Set the quantity for the service.",
+    "option_required": "Choose the size / type for each service",
+    "invalid_option": "That option is no longer available",
     "name_required": "Enter your name.",
     "validation_error": "Check what you entered.",
     "upstream_error": "The service is temporarily unavailable. Try again shortly.",
@@ -489,6 +496,7 @@
       "TECHNICIAN_ON_THE_WAY": "The team is on the way for visit #{{n}}",
       "VISIT_DONE": "Visit #{{n}} is done. How did it go?",
       "INVOICE_ISSUED": "Invoice #{{n}} is ready",
+      "QUOTE_SENT": "Quote #{{n}} is ready. Take a look and accept it",
       "TECHNICIAN_ASSIGNED": "{{actor}} will do your visit #{{n}}",
       "TECHNICIAN_ASSIGNED_NONAME": "A technician is assigned to your visit #{{n}}"
     }
@@ -508,5 +516,79 @@
     "remove": "Remove",
     "saved": "You save {{v}}",
     "discount": "Discount {{code}}"
+  },
+  "quote": {
+    "title": "Quote #{{n}}",
+    "issued": "Issued {{d}}",
+    "validUntil": "valid until {{d}}",
+    "subtotal": "Subtotal",
+    "discount": "Discount",
+    "vat": "VAT {{r}}%",
+    "vatIncluded": "Includes VAT {{r}}%",
+    "total": "Total",
+    "notes": "Notes",
+    "accept": "Accept the quote",
+    "reject": "Decline",
+    "acceptHint": "When you accept, your visit is updated with these prices.",
+    "acceptedNote": "You accepted this quote. Your visit has the new prices.",
+    "rejectedNote": "You declined this quote.",
+    "expiredNote": "This quote has expired. Contact us for a new one.",
+    "acceptedToast": "Quote accepted. Thank you!",
+    "rejectedToast": "Quote declined",
+    "viewVisit": "View the visit",
+    "notFound": "This quote is not available.",
+    "state": {
+      "SENT": "Awaiting your answer",
+      "ACCEPTED": "Accepted",
+      "REJECTED": "Declined",
+      "EXPIRED": "Expired",
+      "DRAFT": "Draft"
+    }
+  },
+  "invoiceDoc": {
+    "back": "Invoices",
+    "print": "Print",
+    "pdf": "Download PDF",
+    "notFound": "This invoice is not available.",
+    "address": "Address",
+    "phone": "Phone",
+    "vatNo": "VAT No.",
+    "cr": "CR",
+    "no": "No.:",
+    "issued": "Issue date",
+    "due": "Due date",
+    "billTo": "Bill to",
+    "mobile": "Mobile",
+    "cols": {
+      "desc": "Description",
+      "qty": "Qty",
+      "unit": "Unit price",
+      "amount": "Amount"
+    },
+    "subtotal": "Subtotal",
+    "discount": "Discount",
+    "taxable": "Taxable amount",
+    "vat": "VAT {{r}}%",
+    "paid": "Paid",
+    "balance": "Balance due",
+    "total": "Total (SAR)",
+    "notes": "Notes",
+    "voidReason": "Void reason",
+    "qr": "ZATCA QR code",
+    "viewVisit": "View the visit",
+    "kind": {
+      "plain": {
+        "ar": "فاتورة",
+        "en": "Invoice"
+      },
+      "simplified": {
+        "ar": "فاتورة ضريبية مبسطة",
+        "en": "Simplified Tax Invoice"
+      },
+      "tax": {
+        "ar": "فاتورة ضريبية",
+        "en": "Tax Invoice"
+      }
+    }
   }
 }

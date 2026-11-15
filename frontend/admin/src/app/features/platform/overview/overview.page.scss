@@ -1,0 +1,14 @@
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: .85rem; margin-bottom: 1rem; }
+a.kpi { display: grid; gap: .3rem; text-decoration: none; color: inherit; }
+a.kpi:hover { border-color: var(--p-primary-300); }
+.kpi span { color: var(--fo-muted); font-size: .85rem; }
+.kpi strong { font-size: 1.6rem; font-variant-numeric: tabular-nums; }
+.kpi.warn strong { color: var(--warning-37); } .kpi.bad strong { color: var(--danger-42); }
+.grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: .85rem; }
+@media (max-width: 900px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+h2 { font-size: 1rem; margin: 0 0 .75rem; }
+table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+th { text-align: start; color: var(--fo-muted); font-weight: 600; padding: .4rem .3rem; border-bottom: 1px solid var(--fo-border); }
+td { padding: .5rem .3rem; border-bottom: 1px solid var(--fo-border); }
+.num { text-align: end; font-variant-numeric: tabular-nums; }
+.bar { height: 6px; border-radius: 3px; background: var(--p-primary-400); margin-top: .3rem; }

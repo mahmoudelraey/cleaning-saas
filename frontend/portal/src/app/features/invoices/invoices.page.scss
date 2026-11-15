@@ -1,0 +1,9 @@
+.row .txt { flex: 1; min-width: 0; }
+.row .txt div { font-weight: 600; }
+.row .txt small { color: var(--ink-2); }
+.row .amt { text-align: end; line-height: 1.3; }
+.row .amt b { display: block; }
+.row .amt small { font-size: .78rem; font-weight: 600; }
+.paid { color: var(--leaf); }
+.due { color: var(--warning-42); }
+.void { color: var(--ink-3); }

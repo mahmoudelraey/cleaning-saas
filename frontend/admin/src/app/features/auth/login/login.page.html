@@ -1,0 +1,76 @@
+<app-auth-hero titleKey="auth.heroTitle" subtitleKey="auth.heroSubtitle" />
+
+<section class="form-side">
+  <div class="form-wrap">
+    <app-brand-logo class="logo" [size]="72" />
+    <h1>{{ 'auth.loginTitle' | translate }}</h1>
+    <p class="sub">{{ 'auth.loginSubtitle' | translate }}</p>
+
+    <div class="card">
+      @if (reason() === 'idle' && !error()) {
+        <p-message severity="warn">{{ 'auth.sessionExpired' | translate }}</p-message>
+      }
+      @if (error()) {
+        <p-message severity="error">{{ error() }}</p-message>
+      }
+
+      <form [formGroup]="form" (ngSubmit)="submit()">
+        <div class="field">
+          <label for="identifier">{{ 'auth.identifier' | translate }}</label>
+          <p-inputgroup>
+            <p-inputgroup-addon><i class="pi pi-phone"></i></p-inputgroup-addon>
+            <input
+              pInputText
+              id="identifier"
+              formControlName="identifier"
+              autocomplete="username"
+              dir="ltr"
+              [placeholder]="'05XXXXXXXX'"
+            />
+          </p-inputgroup>
+        </div>
+        <div class="field">
+          <label for="password">{{ 'auth.password' | translate }}</label>
+          <p-inputgroup>
+            <p-inputgroup-addon><i class="pi pi-lock"></i></p-inputgroup-addon>
+            <p-password
+              inputId="password"
+              formControlName="password"
+              [feedback]="false"
+              [toggleMask]="true"
+              autocomplete="current-password"
+              [fluid]="true"
+            />
+          </p-inputgroup>
+        </div>
+
+        <button type="button" class="forgot" (click)="showForgot.set(!showForgot())">
+          {{ 'auth.forgotPassword' | translate }}
+        </button>
+        @if (showForgot()) {
+          <p-message severity="info" size="small">{{ 'auth.forgotHint' | translate }}</p-message>
+        }
+
+        <p-button
+          class="submit"
+          type="submit"
+          icon="pi pi-sign-in"
+          [label]="'auth.login' | translate"
+          [loading]="loading()"
+          [disabled]="form.invalid"
+          [fluid]="true"
+        />
+      </form>
+
+      <div class="or">{{ 'auth.or' | translate }}</div>
+      <div class="switch">
+        {{ 'auth.noAccount' | translate }}
+        <a routerLink="/signup">{{ 'auth.startTrial' | translate }}</a>
+      </div>
+    </div>
+  </div>
+
+  <footer class="auth-footer">
+    <span dir="ltr">FieldOps © {{ year }}</span><span class="sep">|</span>{{ 'auth.footerTagline' | translate }}
+  </footer>
+</section>

@@ -1,0 +1,11 @@
+.screens { border: 1px solid var(--fo-border); border-radius: 12px; padding: .75rem 1rem 1rem; margin: .25rem 0 0; }
+.screens legend { font-weight: 600; padding: 0 .35rem; }
+.hint { margin: 0 0 .5rem; font-size: .85rem; }
+.group + .group { margin-top: .75rem; }
+.group-head { display: flex; align-items: center; gap: .75rem; margin-bottom: .35rem; }
+.group-head strong { font-size: .9rem; flex: 1; }
+.link { background: none; border: 0; padding: 0; cursor: pointer; color: var(--p-primary-600); font: inherit; font-size: .82rem; }
+.checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: .35rem .75rem; }
+.check { display: flex; align-items: center; gap: .45rem; font-size: .9rem; cursor: pointer; }
+.check input { width: 16px; height: 16px; accent-color: var(--p-primary-600); }
+.warn { color: var(--p-red-500); font-size: .85rem; margin: .5rem 0 0; }

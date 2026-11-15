@@ -245,16 +245,29 @@ export interface Service {
   basePriceHalalas: number;
   durationMin: number;
   addons: Addon[];
+  /** Sizes / types with their own price (e.g. small / medium / large car); when present, one must be chosen. */
+  options: ServiceOption[];
+}
+
+export interface ServiceOption {
+  id: string;
+  /** Arabic (main) name. */
+  name: string;
+  nameEn?: string;
+  priceHalalas: number;
+  /** Minutes per unit; null = the service's duration. */
+  durationMin?: number | null;
 }
 
 export interface Item {
   serviceId: string;
+  optionId?: string | null;
   quantity?: number | null;
   addonIds?: string[];
 }
 
 export interface Quote {
-  items: { serviceId?: string; addonId?: string; description: string; quantity: number; totalHalalas: number }[];
+  items: { serviceId?: string; addonId?: string; optionId?: string; description: string; quantity: number; totalHalalas: number }[];
   subtotalHalalas: number;
   durationMin: number;
   /** With a promo code: what it takes off, and what is left to pay (subtotal − discount). */
@@ -315,4 +328,57 @@ export interface InvoiceRow {
   status: InvoiceRef['status'];
   totalHalalas: number;
   paidHalalas: number;
+}
+
+/** A quote the company sent to the customer (portal quote page). */
+export interface QuoteDoc {
+  id: string;
+  number: number;
+  status: 'DRAFT' | 'SENT' | 'ACCEPTED' | 'REJECTED';
+  expired: boolean;
+  bookingId?: string;
+  createdAt: string;
+  validUntil: string;
+  pricesIncludeVat: boolean;
+  vatRateBp: number;
+  lines: { description: string; quantity: number; unitPriceHalalas: number; totalHalalas: number }[];
+  linesTotalHalalas: number;
+  discountHalalas: number;
+  taxableHalalas: number;
+  vatHalalas: number;
+  totalHalalas: number;
+  notes?: string;
+  respondedAt?: string;
+}
+
+/** One of the customer's invoices (portal invoice page). */
+export interface InvoiceDoc {
+  id: string;
+  number: number;
+  status: 'ISSUED' | 'PARTIALLY_PAID' | 'PAID' | 'VOID';
+  vatInvoice: boolean;
+  bookingId?: string;
+  customerName: string;
+  customerPhone: string;
+  customerVatNumber?: string;
+  sellerName: string;
+  sellerVatNumber?: string;
+  sellerAddress?: string;
+  sellerCr?: string;
+  issuedAt: string;
+  dueDate?: string;
+  pricesIncludeVat: boolean;
+  vatRateBp: number;
+  lines: { description: string; quantity: number; unitPriceHalalas: number; totalHalalas: number }[];
+  linesTotalHalalas: number;
+  discountHalalas: number;
+  taxableHalalas: number;
+  vatHalalas: number;
+  totalHalalas: number;
+  paidHalalas: number;
+  balanceHalalas: number;
+  notes?: string;
+  voidReason?: string;
+  /** ZATCA QR as an SVG path (tax invoices only). */
+  zatcaQrPath?: { size: number; d: string } | null;
 }

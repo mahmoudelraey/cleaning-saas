@@ -16,6 +16,7 @@ import { firstValueFrom } from 'rxjs';
 import { routes } from './app.routes';
 import { authInterceptor } from './core/auth/auth.interceptor';
 import { LanguageService } from './core/i18n/language.service';
+import { SessionTimeoutService } from './core/auth/session-timeout.service';
 import { FieldOpsPreset } from './theme';
 import { provideServiceWorker } from '@angular/service-worker';
 
@@ -44,6 +45,8 @@ export const appConfig: ApplicationConfig = {
     ConfirmationService,
     // Load translations and set <html dir> before the first screen renders (no LTR flash).
     provideAppInitializer(() => firstValueFrom(inject(LanguageService).init())),
+    // Sign out after a period without activity (and keep tabs in step).
+    provideAppInitializer(() => inject(SessionTimeoutService).start()),
     provideServiceWorker('ngsw-worker.js', {
       enabled: !isDevMode(),
       registrationStrategy: 'registerWhenStable:30000',

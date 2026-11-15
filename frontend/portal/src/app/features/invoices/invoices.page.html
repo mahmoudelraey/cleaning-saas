@@ -1,0 +1,25 @@
+<div class="page">
+  <h1 class="page-title">{{ 'invoices.title' | translate }}</h1>
+  <p class="page-sub">{{ 'invoices.lead' | translate }}</p>
+  @if (loading()) {
+    <div class="spinner"><i class="pi pi-spin pi-spinner"></i></div>
+  } @else if (rows().length) {
+    <div class="rows">
+      @for (i of rows(); track i.id) {
+        <button type="button" class="row" (click)="open(i)">
+          <span class="txt">
+            <div>{{ 'invoices.number' | translate: { n: i.number } }}</div>
+            <small>{{ i.issuedAt | ldate: 'dayShort' }}@if (i.bookingNumber) { — {{ 'invoices.forBooking' | translate: { n: i.bookingNumber } }} }</small>
+          </span>
+          <span class="amt">
+            <b class="ltr">{{ i.totalHalalas | sar }}</b>
+            <small [class]="i.status === 'PAID' ? 'paid' : i.status === 'VOID' ? 'void' : 'due'">{{ 'invoiceStatus.' + i.status | translate }}</small>
+          </span>
+          <i class="pi pi-chevron-left rtl-flip muted"></i>
+        </button>
+      }
+    </div>
+  } @else {
+    <div class="sheet empty"><i class="pi pi-receipt"></i><p>{{ 'invoices.none' | translate }}</p></div>
+  }
+</div>

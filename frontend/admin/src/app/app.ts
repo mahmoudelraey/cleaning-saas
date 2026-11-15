@@ -6,10 +6,6 @@ import { Toast } from 'primeng/toast';
 @Component({
   selector: 'app-root',
   imports: [RouterOutlet, Toast, ConfirmDialog],
-  template: `
-    <p-toast position="top-center" />
-    <p-confirmdialog />
-    <router-outlet />
-  `,
+  templateUrl: './app.html',
 })
 export class App {}

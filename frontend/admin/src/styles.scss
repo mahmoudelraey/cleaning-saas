@@ -1,17 +1,5 @@
-
-:root {
-  --fo-bg: #f3f8f8;
-  --fo-surface: #ffffff;
-  --fo-border: #e2eaec;
-  --fo-text: #10202a;
-  --fo-muted: #5f7480;
-  --fo-sidebar-bg: #0a4f4b;
-  --fo-sidebar-fg: #e6f4f3;
-  --fo-offcanvas: -100%;
-  --fo-radius: 16px;
-  --fo-shadow: 0 1px 2px rgba(16, 42, 46, 0.04), 0 10px 28px -18px rgba(16, 42, 46, 0.18);
-}
-
+// The palette and design tokens live in theme.scss (one place to change the theme).
+@use 'theme';
 html[dir='rtl'] {
   --fo-offcanvas: 100%;
 }
@@ -50,11 +38,11 @@ body {
   padding: 1.5rem 1.75rem;
   padding-inline-start: 290px; // room for the illustration
   border-radius: 24px;
-  border: 1px solid #dcefee;
+  border: 1px solid var(--brand-90);
   overflow: hidden;
   background:
-    radial-gradient(60% 120% at 0% 50%, rgba(178, 230, 226, 0.55) 0%, transparent 70%),
-    linear-gradient(90deg, #e9f7f6 0%, #f7fcfc 55%, #ffffff 100%);
+    radial-gradient(60% 120% at 0% 50%, rgba(var(--brand-80-rgb), 0.55) 0%, transparent 70%),
+    linear-gradient(90deg, var(--brand-94) 0%, var(--brand-98) 55%, var(--white) 100%);
   box-shadow: var(--fo-shadow);
 
   // The technician illustration on the start side.
@@ -309,8 +297,8 @@ body {
 }
 
 .p-datatable .p-datatable-thead > tr > th {
-  background: #f6fafa;
-  color: #10202a;
+  background: var(--brand-97-3);
+  color: var(--slate-11-2);
   font-weight: 700;
   padding-block: 1.1rem;
 }
@@ -366,7 +354,7 @@ body {
     border-radius: 50%;
     display: grid;
     place-items: center;
-    background: #e3f4f2;
+    background: var(--brand-92);
     color: var(--p-primary-600);
     font-size: 1.1rem;
   }
@@ -390,13 +378,13 @@ body {
   gap: 0.45rem;
   padding: 0.35rem 0.8rem;
   border-radius: 999px;
-  background: #eef4f6;
+  background: var(--slate-95-2);
   color: var(--fo-text);
   font-weight: 600;
   font-size: 0.9rem;
 
   i {
     font-size: 0.85rem;
-    color: #3b5560;
+    color: var(--slate-30);
   }
 }

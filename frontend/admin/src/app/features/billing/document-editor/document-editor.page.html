@@ -1,0 +1,136 @@
+<a [routerLink]="backLink()" class="back"><i class="pi pi-arrow-right rtl-flip"></i>{{ (kind() === 'invoice' ? 'invoices.title' : 'quotes.title') | translate }}</a>
+<div class="page-header">
+  <div>
+    <h1>{{ titleKey() | translate }}</h1>
+    @if (kind() === 'invoice') { <p>{{ 'invoices.issueHint' | translate }}</p> }
+  </div>
+</div>
+
+<div class="layout">
+  <div>
+    <div class="panel">
+      <h2>{{ 'bookings.customer' | translate }}</h2>
+      <div class="form-grid">
+        <div class="field full">
+          <label for="d-cust">{{ 'bookings.customer' | translate }}</label>
+          <p-autocomplete inputId="d-cust" [(ngModel)]="customerPick" [suggestions]="customerSuggestions()"
+                          (completeMethod)="searchCustomers($event)" (onSelect)="customer.set($event.value)"
+                          optionLabel="name" [forceSelection]="true" [placeholder]="'bookings.customerSearch' | translate" [fluid]="true">
+            <ng-template #item let-c>
+              <span class="cust-option">{{ c.name }}<small class="ltr">{{ c.phone | phone }}</small></span>
+            </ng-template>
+          </p-autocomplete>
+        </div>
+        @if (kind() === 'invoice') {
+          <div class="field">
+            <label for="d-cvat">{{ 'invoices.customerVat' | translate }}</label>
+            <input pInputText id="d-cvat" [(ngModel)]="customerVat" dir="ltr" placeholder="3XXXXXXXXXXXXX3" maxlength="15" />
+            <small class="hint">{{ 'invoices.customerVatHint' | translate }}</small>
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>{{ 'doc.lines' | translate }}</h2>
+      @for (line of lines(); track $index; let i = $index) {
+        <div class="line">
+          <div class="line-top">
+            <p-selectbutton [options]="modes()" [(ngModel)]="line.mode" (onChange)="touch()" optionLabel="label" optionValue="value" [allowEmpty]="false" size="small" />
+            <p-button icon="pi pi-trash" [text]="true" severity="danger" (onClick)="removeLine(i)" [disabled]="lines().length === 1" />
+          </div>
+          @if (line.mode === 'service') {
+            <div class="line-grid service">
+              <div class="field grow">
+                <label>{{ 'bookings.service' | translate }}</label>
+                <p-select [options]="services()" [(ngModel)]="line.serviceId" (onChange)="onServiceChange(line)" optionLabel="name" optionValue="id"
+                          [placeholder]="'bookings.chooseService' | translate" [filter]="true" filterBy="name" [fluid]="true" appendTo="body" />
+              </div>
+              <div class="field">
+                <label>{{ 'bookings.qty' | translate }}</label>
+                <p-inputnumber [(ngModel)]="line.quantity" (onInput)="touch()" [min]="0" [maxFractionDigits]="2" [useGrouping]="false" [fluid]="true" />
+              </div>
+            </div>
+            @if (serviceOf(line); as s) {
+              @if (activeOptions(s).length) {
+                <div class="field option">
+                  <label>{{ 'bookings.option' | translate }}</label>
+                  <p-select [options]="activeOptions(s)" [(ngModel)]="line.optionId" (onChange)="touch()" optionLabel="name" optionValue="id"
+                            [placeholder]="'bookings.chooseOption' | translate" [invalid]="!line.optionId" [fluid]="true" appendTo="body">
+                    <ng-template #item let-o>
+                      <span class="opt">{{ o.name }} <span class="muted ltr">{{ o.priceHalalas | sar }}</span></span>
+                    </ng-template>
+                  </p-select>
+                </div>
+              }
+              @if (activeAddons(s).length) {
+                <div class="addons">
+                  @for (a of activeAddons(s); track a.id) {
+                    <label><p-checkbox [value]="a.id" [(ngModel)]="line.addonIds" (onChange)="touch()" /> {{ a.name }} <span class="muted ltr">+{{ a.priceHalalas | sar }}</span></label>
+                  }
+                </div>
+              }
+            }
+          } @else {
+            <div class="line-grid">
+              <div class="field grow">
+                <label>{{ 'doc.description' | translate }}</label>
+                <input pInputText [(ngModel)]="line.description" (input)="touch()" maxlength="300" />
+              </div>
+              <div class="field">
+                <label>{{ 'bookings.qty' | translate }}</label>
+                <p-inputnumber [(ngModel)]="line.quantity" (onInput)="touch()" [min]="0" [maxFractionDigits]="2" [useGrouping]="false" [fluid]="true" />
+              </div>
+              <div class="field">
+                <label>{{ 'doc.unitPriceSar' | translate }}</label>
+                <p-inputnumber [(ngModel)]="line.unitPrice" (onInput)="touch()" [min]="0" [maxFractionDigits]="2" [fluid]="true" />
+              </div>
+            </div>
+          }
+          <div class="line-total ltr">{{ lineTotal(line) | sar }}</div>
+        </div>
+      }
+      <p-button icon="pi pi-plus" [text]="true" size="small" [label]="'doc.addLine' | translate" (onClick)="addLine()" />
+    </div>
+
+    <div class="panel">
+      <h2>{{ 'doc.details' | translate }}</h2>
+      <div class="form-grid">
+        <div class="field">
+          <label for="d-date">{{ (kind() === 'invoice' ? 'doc.dueDate' : 'doc.validUntil') | translate }}</label>
+          <p-datepicker inputId="d-date" [(ngModel)]="date" [minDate]="today" dateFormat="yy-mm-dd" [showIcon]="true" [showClear]="kind() === 'invoice'" [fluid]="true" />
+        </div>
+        <div class="field">
+          <label for="d-disc">{{ 'doc.discountSar' | translate }}</label>
+          <p-inputnumber inputId="d-disc" [(ngModel)]="discount" (onInput)="touch()" [min]="0" [maxFractionDigits]="2" [fluid]="true" />
+        </div>
+        <div class="field full">
+          <label for="d-notes">{{ 'doc.notes' | translate }}</label>
+          <textarea pTextarea id="d-notes" [(ngModel)]="notes" rows="3" maxlength="2000" [placeholder]="'doc.notesPlaceholder' | translate"></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sticky">
+    <div class="panel">
+      <h2>{{ 'doc.summary' | translate }}</h2>
+      @let t = totals();
+      <div class="summary-row"><span>{{ 'doc.subtotal' | translate }}</span><span class="ltr">{{ t.lines | sar }}</span></div>
+      @if (t.discount) { <div class="summary-row"><span>{{ 'doc.discount' | translate }}</span><span class="ltr">{{ -t.discount | sar }}</span></div> }
+      @if (vatRegistered()) {
+        <div class="summary-row"><span>{{ 'doc.taxable' | translate }}</span><span class="ltr">{{ t.taxable | sar }}</span></div>
+        <div class="summary-row"><span>{{ 'doc.vat' | translate: { rate: 15 } }}</span><span class="ltr">{{ t.vat | sar }}</span></div>
+      }
+      <div class="summary-row total"><span>{{ 'doc.total' | translate }}</span><span class="ltr">{{ t.total | sar }}</span></div>
+      <small class="hint">{{ (vatRegistered() ? (includeVat() ? 'invoices.vatInclusive' : 'invoices.vatExclusive') : 'invoices.noVatHint') | translate }}</small>
+
+      @if (kind() === 'invoice') {
+        <label class="check"><p-checkbox [(ngModel)]="sendAfter" [binary]="true" /> {{ 'invoices.sendAfter' | translate }}</label>
+      }
+      <div class="dialog-actions">
+        <p-button [label]="submitKey() | translate" icon="pi pi-check" [loading]="saving()" [disabled]="!canSubmit()" (onClick)="submit()" />
+      </div>
+    </div>
+  </div>
+</div>

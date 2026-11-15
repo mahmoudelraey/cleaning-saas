@@ -1,0 +1,10 @@
+.wrap { overflow-x: auto; }
+.grid { display: grid; gap: 3px; min-width: 560px; align-items: center; }
+.day { font-size: .78rem; color: var(--fo-muted); padding-inline-end: .4rem; white-space: nowrap; }
+.hour { font-size: .7rem; color: var(--fo-muted); text-align: center; }
+button.cell { all: unset; box-sizing: border-box; height: 26px; border-radius: 4px; cursor: pointer; background: var(--slate-96); }
+button.cell:focus-visible { outline: 2px solid var(--p-primary-600); outline-offset: 1px; }
+button.cell:hover { outline: 2px solid var(--p-primary-300); }
+button.cell.zero { cursor: default; }
+.scale { display: flex; align-items: center; gap: .4rem; font-size: .75rem; color: var(--fo-muted); margin-top: .6rem; }
+.scale span.sw { width: 18px; height: 10px; border-radius: 2px; display: inline-block; }

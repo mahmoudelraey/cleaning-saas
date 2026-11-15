@@ -1,0 +1,28 @@
+@if (missing()) {
+  <div class="gone">
+    <i class="pi pi-link"></i>
+    <h1 style="font-size:1.3rem; margin-top:12px">{{ 'shell.notFound' | translate }}</h1>
+    <p class="muted">{{ 'shell.notFoundHint' | translate }}</p>
+  </div>
+} @else {
+  <!-- The company's announced promo, on every page of its portal. -->
+  <pt-announcement-bar />
+  <pt-public-header [current]="section()" />
+  @if (showNav()) {
+    <nav class="tabs-nav" [attr.aria-label]="'shell.nav' | translate">
+      <div class="tabs">
+        <a [routerLink]="['/', slug(), 'bookings']" routerLinkActive="active">
+          <i class="pi pi-calendar"></i>{{ 'shell.bookings' | translate }}
+        </a>
+        <a [routerLink]="['/', slug(), 'invoices']" routerLinkActive="active">
+          <i class="pi pi-receipt"></i>{{ 'shell.invoices' | translate }}
+        </a>
+        <a [routerLink]="['/', slug(), 'profile']" routerLinkActive="active">
+          <i class="pi pi-user"></i>{{ 'shell.profile' | translate }}
+        </a>
+      </div>
+    </nav>
+  }
+  <div class="main"><router-outlet /></div>
+  <pt-public-footer />
+}

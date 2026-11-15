@@ -10,6 +10,7 @@ import {
   ContactRequest,
   GooglePlace,
   InboxItem,
+  InvoiceDoc,
   InvoiceRow,
   Item,
   MyReview,
@@ -20,6 +21,7 @@ import {
   PublicReviews,
   PublicStats,
   Quote,
+  QuoteDoc,
   Service,
   Session,
   Slot,
@@ -132,7 +134,23 @@ export class PortalApi {
     return this.http.get<InvoiceRow[]>(`${this.base(slug)}/invoices`);
   }
 
+  invoiceDoc(slug: string, id: string): Observable<InvoiceDoc> {
+    return this.http.get<InvoiceDoc>(`${this.base(slug)}/invoices/${id}`);
+  }
+
+  invoicePdf(slug: string, id: string): Observable<Blob> {
+    return this.http.get(`${this.base(slug)}/invoices/${id}/pdf`, { responseType: 'blob' });
+  }
+
   invoiceLink(slug: string, id: string): Observable<{ url: string }> {
     return this.http.post<{ url: string }>(`${this.base(slug)}/invoices/${id}/link`, {});
+  }
+
+  quoteDoc(slug: string, id: string): Observable<QuoteDoc> {
+    return this.http.get<QuoteDoc>(`${this.base(slug)}/quotes/${id}`);
+  }
+
+  respondToQuote(slug: string, id: string, accept: boolean): Observable<QuoteDoc> {
+    return this.http.post<QuoteDoc>(`${this.base(slug)}/quotes/${id}/${accept ? 'accept' : 'reject'}`, {});
   }
 }
