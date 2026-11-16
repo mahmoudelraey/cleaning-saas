@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -19,9 +20,14 @@ import com.fieldops.app.common.security.Role;
 import com.fieldops.app.common.util.PhoneNumbers;
 import com.fieldops.app.common.web.ApiException;
 import com.fieldops.app.notification.NotificationTemplate;
-import com.fieldops.app.notification.channel.MessageChannel;
-import com.fieldops.app.notification.channel.NotificationProperties;
-import com.fieldops.app.notification.channel.UnifonicSmsChannel;
+import com.fieldops.app.notification.channel.ChannelType;
+import com.fieldops.app.notification.provider.MessagingProviderService;
+import com.fieldops.app.notification.provider.NotificationProvider;
+import com.fieldops.app.notification.provider.NotificationProviders;
+import com.fieldops.app.notification.provider.ProviderConfig;
+import com.fieldops.app.notification.provider.ProviderException;
+import com.fieldops.app.notification.provider.ProviderField;
+import com.fieldops.app.notification.provider.ProviderType;
 import com.fieldops.app.tenant.Plan;
 import com.fieldops.app.tenant.PlanFeature;
 import com.fieldops.app.tenant.PlanFeatureService;
@@ -30,11 +36,9 @@ import com.fieldops.app.tenant.Tenant;
 import com.fieldops.app.tenant.TenantAccessService;
 import com.fieldops.app.tenant.TenantRepository;
 import com.fieldops.app.tenant.TenantStatus;
-import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
 /**
@@ -59,24 +63,24 @@ public class PlatformService {
     private final PlatformSettingsService settings;
     private final TenantAccessService access;
     private final PlanFeatureService planFeatures;
-    private final UnifonicSmsChannel sms;
+    private final NotificationProviders providers;
+    private final MessagingProviderService providerSettings;
     private final JdbcTemplate jdbc;
-    private final RestClient http;
     private final Clock clock;
 
     public PlatformService(TenantRepository tenants, PlanRepository plans, UserRepository users,
                            PlatformSettingsService settings, TenantAccessService access,
-                           PlanFeatureService planFeatures, UnifonicSmsChannel sms, JdbcTemplate jdbc,
-                           RestClient.Builder http, Clock clock) {
+                           PlanFeatureService planFeatures, NotificationProviders providers,
+                           MessagingProviderService providerSettings, JdbcTemplate jdbc, Clock clock) {
         this.tenants = tenants;
         this.plans = plans;
         this.users = users;
         this.settings = settings;
         this.access = access;
         this.planFeatures = planFeatures;
-        this.sms = sms;
+        this.providers = providers;
+        this.providerSettings = providerSettings;
         this.jdbc = jdbc;
-        this.http = http.build();
         this.clock = clock;
     }
 
@@ -126,21 +130,30 @@ public class PlatformService {
     public record Secret(boolean set, String hint) {
     }
 
-    public record MessagingView(boolean configured, boolean whatsappEnabled, String whatsappApiUrl,
-                                String whatsappApiVersion, String whatsappPhoneNumberId,
-                                String whatsappBusinessAccountId, Secret whatsappAccessToken,
-                                Secret whatsappAppSecret, Secret whatsappVerifyToken, String whatsappLanguage,
-                                Map<String, String> whatsappTemplates, boolean smsEnabled, String smsApiUrl,
-                                Secret smsAppSid, String smsSenderId, String webhookPath, List<String> templateKeys,
-                                boolean whatsappReady, boolean smsReady, Instant updatedAt) {
+    /** One setting of a provider; secrets carry only {@code saved} (masked), never the value. */
+    public record FieldView(String key, String label, boolean secret, boolean required, String placeholder,
+                            String value, Secret saved) {
     }
 
-    /** Secrets: null = keep the saved one, "" = clear, anything else = replace. */
-    public record MessagingData(boolean whatsappEnabled, String whatsappApiUrl, String whatsappApiVersion,
-                                String whatsappPhoneNumberId, String whatsappBusinessAccountId,
-                                String whatsappAccessToken, String whatsappAppSecret, String whatsappVerifyToken,
-                                String whatsappLanguage, Map<String, String> whatsappTemplates, boolean smsEnabled,
-                                String smsApiUrl, String smsAppSid, String smsSenderId) {
+    /**
+     * @param channels       what the provider can carry; {@code activeChannels} what it carries now (enabled + ready)
+     * @param saved          false: never saved in the console (Meta / Unifonic still use the environment variables)
+     * @param missing        required fields still empty
+     */
+    public record ProviderView(ProviderType type, String name, Set<ChannelType> channels,
+                               List<ChannelType> activeChannels, boolean enabled, int priority, boolean saved,
+                               boolean ready, List<String> missing, List<FieldView> fields, boolean usesTemplates,
+                               Map<String, String> templates, Instant updatedAt) {
+    }
+
+    /** @param order providers tried per channel right now, first to last */
+    public record MessagingView(List<ProviderView> providers, List<String> templateKeys, String webhookPath,
+                                Map<ChannelType, List<ProviderType>> order) {
+    }
+
+    /** {@code values}: a secret that is absent or null keeps the saved one, "" clears it. */
+    public record ProviderData(boolean enabled, Integer priority, Map<String, String> values,
+                               Map<String, String> templates) {
     }
 
     public record TestResult(boolean ok, String message) {
@@ -452,90 +465,176 @@ public class PlatformService {
     }
 
     public MessagingView messaging() {
-        PlatformSettingsService.Settings s = settings.get();
-        NotificationProperties.WhatsApp wa = settings.whatsapp();
-        NotificationProperties.Sms sm = settings.sms();
         List<String> keys = new ArrayList<>();
         for (NotificationTemplate t : NotificationTemplate.values()) {
             keys.add(t.name());
         }
-        Map<String, String> templates = new LinkedHashMap<>();
-        for (String k : keys) {
-            templates.put(k, wa.templateName(k));
+        Map<ProviderType, ProviderConfig> configs = providerSettings.all();
+        List<ProviderView> views = new ArrayList<>();
+        for (NotificationProvider p : providers.configurable()) {
+            views.add(view(p, configs.get(p.type()), keys));
         }
-        boolean waReady = wa.enabled() && notBlank(wa.accessToken()) && notBlank(wa.phoneNumberId());
-        boolean smsReady = sm.enabled() && notBlank(sm.appSid());
-        // Before the first save, show what the environment provides so the form starts from the running values.
-        return new MessagingView(s.messagingConfigured(), wa.enabled(), wa.url(), wa.version(), wa.phoneNumberId(),
-                s.whatsappBusinessAccountId(), mask(wa.accessToken()), mask(wa.appSecret()), mask(wa.verifyToken()),
-                wa.language() == null ? "ar" : wa.language(), templates, sm.enabled(), sm.url(), mask(sm.appSid()),
-                sm.senderId(), "/api/v1/webhooks/whatsapp", keys, waReady, smsReady, s.updatedAt());
+        views.sort((a, b) -> a.priority() != b.priority() ? Integer.compare(a.priority(), b.priority())
+                : a.type().compareTo(b.type()));
+        Map<ChannelType, List<ProviderType>> order = new LinkedHashMap<>();
+        for (ChannelType ch : List.of(ChannelType.WHATSAPP, ChannelType.SMS)) {
+            order.put(ch, providers.ready(ch).stream().map(a -> a.provider().type()).toList());
+        }
+        return new MessagingView(views, keys, "/api/v1/webhooks/whatsapp", order);
     }
 
-    @Transactional
-    public MessagingView updateMessaging(MessagingData d) {
-        PlatformSettingsService.Settings s = settings.get();
-        // First save from the console: secrets left empty in the form keep the environment's values.
-        NotificationProperties.WhatsApp wa = settings.whatsapp();
-        NotificationProperties.Sms sm = settings.sms();
-        boolean first = !s.messagingConfigured();
-        Map<String, String> templates = new LinkedHashMap<>();
-        if (d.whatsappTemplates() != null) {
-            d.whatsappTemplates().forEach((k, v) -> {
-                if (v != null && !v.isBlank()) {
-                    templates.put(k, v.trim());
-                }
-            });
+    private static ProviderView view(NotificationProvider p, ProviderConfig c, List<String> keys) {
+        List<FieldView> fields = new ArrayList<>();
+        for (ProviderField f : p.fields()) {
+            fields.add(new FieldView(f.key(), f.label(), f.secret(), f.required(), f.placeholder(),
+                    f.secret() ? null : c.get(f.key()), f.secret() ? mask(c.get(f.key())) : null));
         }
-        String url = validUrl(d.whatsappApiUrl(), "whatsapp_api_url");
-        String smsUrl = validUrl(d.smsApiUrl(), "sms_api_url");
-        settings.updateMessaging(d.whatsappEnabled(), url, blankToNull(d.whatsappApiVersion()),
-                blankToNull(d.whatsappPhoneNumberId()), blankToNull(d.whatsappBusinessAccountId()),
-                keepOrEnv(d.whatsappAccessToken(), first, wa.accessToken()),
-                keepOrEnv(d.whatsappAppSecret(), first, wa.appSecret()),
-                keepOrEnv(d.whatsappVerifyToken(), first, wa.verifyToken()), blankToNull(d.whatsappLanguage()),
-                templates, d.smsEnabled(), smsUrl, keepOrEnv(d.smsAppSid(), first, sm.appSid()),
-                blankToNull(d.smsSenderId()), CurrentUser.idOrNull());
-        audit(null, "MESSAGING_UPDATED", "WhatsApp " + (d.whatsappEnabled() ? "on" : "off") + ", SMS "
-                + (d.smsEnabled() ? "on" : "off"));
+        List<ChannelType> active = new ArrayList<>();
+        boolean ready = false;
+        for (ChannelType ch : p.type().channels()) {
+            if (p.supports(ch, c)) {
+                ready = true;
+                if (c.enabled()) {
+                    active.add(ch);
+                }
+            }
+        }
+        Map<String, String> templates = new LinkedHashMap<>();
+        if (p.type().usesTemplates()) {
+            for (String k : keys) {
+                templates.put(k, c.templates().getOrDefault(k, ""));
+            }
+        }
+        return new ProviderView(p.type(), p.type().displayName(), p.type().channels(), active, c.enabled(),
+                c.priority(), c.saved(), ready, p.missing(c), fields, p.type().usesTemplates(), templates,
+                c.updatedAt());
+    }
+
+    /** Saves one provider's settings, on/off and priority. Secrets left empty keep the saved (or environment) value. */
+    @Transactional
+    public MessagingView saveProvider(ProviderType type, ProviderData d) {
+        NotificationProvider p = configurable(type);
+        ProviderConfig cur = providerSettings.config(type);
+        Map<String, String> incoming = d.values() == null ? Map.of() : d.values();
+        Map<String, String> plain = new LinkedHashMap<>();
+        Map<String, String> secrets = new LinkedHashMap<>();
+        for (ProviderField f : p.fields()) {
+            String v = incoming.get(f.key());
+            if (f.secret()) {
+                String kept = v == null ? cur.get(f.key()) : blankToNull(v);
+                if (kept != null) {
+                    secrets.put(f.key(), kept);
+                }
+            } else {
+                String value = blankToNull(v);
+                if (value != null && value.length() > 500) {
+                    throw ApiException.badRequest("invalid_value", f.label() + " is too long");
+                }
+                if (ProviderField.API_URL.equals(f.key())) {
+                    value = validUrl(value, f.label());
+                }
+                if (value != null) {
+                    plain.put(f.key(), value);
+                }
+            }
+        }
+        Map<String, String> templates = new LinkedHashMap<>();
+        if (type.usesTemplates() && d.templates() != null) {
+            for (NotificationTemplate t : NotificationTemplate.values()) {
+                String v = blankToNull(d.templates().get(t.name()));
+                if (v != null) {
+                    templates.put(t.name(), v);
+                }
+            }
+        }
+        int priority = d.priority() == null ? cur.priority() : d.priority();
+        if (priority < 1 || priority > 999) {
+            throw ApiException.badRequest("invalid_priority", "Order must be between 1 and 999");
+        }
+        Map<String, String> merged = new LinkedHashMap<>(plain);
+        merged.putAll(secrets);
+        if (d.enabled()) {
+            requireReady(p, new ProviderConfig(type, true, priority, true, merged, templates, null));
+        }
+        providerSettings.save(type, d.enabled(), priority, plain, secrets, templates, CurrentUser.idOrNull());
+        audit(null, "MESSAGING_PROVIDER_UPDATED", type.displayName() + (d.enabled() ? " on" : " off")
+                + ", order " + priority);
+        return messaging();
+    }
+
+    /** Switches one provider on or off, keeping its settings. */
+    @Transactional
+    public MessagingView setProviderEnabled(ProviderType type, boolean enabled) {
+        NotificationProvider p = configurable(type);
+        ProviderConfig cur = providerSettings.config(type);
+        if (enabled) {
+            requireReady(p, cur);
+        }
+        Map<String, String> plain = new LinkedHashMap<>();
+        Map<String, String> secrets = new LinkedHashMap<>();
+        for (ProviderField f : p.fields()) {
+            String v = cur.get(f.key());
+            if (v != null) {
+                (f.secret() ? secrets : plain).put(f.key(), v);
+            }
+        }
+        providerSettings.save(type, enabled, cur.priority(), plain, secrets,
+                type.usesTemplates() ? cur.templates() : Map.of(), CurrentUser.idOrNull());
+        audit(null, enabled ? "MESSAGING_PROVIDER_ENABLED" : "MESSAGING_PROVIDER_DISABLED", type.displayName());
         return messaging();
     }
 
     /**
-     * Sends a test: SMS with a short text, WhatsApp with Meta's built-in "hello_world" template (exists on every
-     * WhatsApp Business account, so it tests the credentials without approved templates).
+     * Sends a test through one provider with its saved settings (even when it is switched off, so it can be tried
+     * before going live). SMS sends a short text; Meta sends its built-in "hello_world" template; Gupshup and Twilio
+     * WhatsApp send the template mapped to OTP with the code 123456.
      */
-    public TestResult test(String channel, String rawPhone) {
+    public TestResult testProvider(ProviderType type, ChannelType channel, String rawPhone) {
+        NotificationProvider p = configurable(type);
         String phone = PhoneNumbers.normalizeSaudiMobile(rawPhone)
                 .orElseThrow(() -> ApiException.badRequest("invalid_phone", "Enter a Saudi mobile number"));
+        ChannelType ch = channel != null ? channel : type.channels().iterator().next();
+        if (!type.channels().contains(ch)) {
+            throw ApiException.badRequest("invalid_channel", type.displayName() + " does not send " + ch);
+        }
+        ProviderConfig c = providerSettings.config(type);
+        if (!p.supports(ch, c)) {
+            List<String> missing = labels(p, c);
+            return new TestResult(false, "Not configured for " + ch + ": fill in "
+                    + (missing.isEmpty() ? "the " + ch + " sender" : String.join(", ", missing)));
+        }
         try {
-            if ("SMS".equals(channel)) {
-                if (!sms.isEnabled()) {
-                    return new TestResult(false, "SMS is off or the AppSid is missing");
-                }
-                String id = sms.send(phone, NotificationTemplate.OTP, "FieldOps: رسالة تجريبية / test message", List.of());
-                return new TestResult(true, "Sent (id " + id + ")");
-            }
-            NotificationProperties.WhatsApp wa = settings.whatsapp();
-            if (!wa.enabled() || !notBlank(wa.accessToken()) || !notBlank(wa.phoneNumberId())) {
-                return new TestResult(false, "WhatsApp is off or the token / phone number ID is missing");
-            }
-            Map<?, ?> res = http.post()
-                    .uri(wa.url() + "/{v}/{id}/messages", wa.version(), wa.phoneNumberId())
-                    .header("Authorization", "Bearer " + wa.accessToken())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("messaging_product", "whatsapp", "to", phone.replace("+", ""), "type", "template",
-                            "template", Map.of("name", "hello_world", "language", Map.of("code", "en_US"))))
-                    .retrieve()
-                    .body(Map.class);
-            return new TestResult(true, "Sent: " + (res == null ? "" : String.valueOf(res.get("messages"))));
-        } catch (MessageChannel.ChannelException e) {
+            return new TestResult(true, "Sent (id " + p.sendTest(ch, c, phone) + ")");
+        } catch (ProviderException e) {
             return new TestResult(false, e.getMessage());
         } catch (RestClientResponseException e) {
             return new TestResult(false, e.getStatusCode().value() + ": " + e.getResponseBodyAsString());
         } catch (RuntimeException e) {
             return new TestResult(false, e.getMessage());
         }
+    }
+
+    private NotificationProvider configurable(ProviderType type) {
+        if (type == null || type == ProviderType.LOG) {
+            throw ApiException.notFound("provider");
+        }
+        return providers.get(type);
+    }
+
+    /** A provider can be switched on only when it can carry at least one of its channels. */
+    private static void requireReady(NotificationProvider p, ProviderConfig c) {
+        boolean any = p.type().channels().stream().anyMatch(ch -> p.supports(ch, c));
+        if (!any) {
+            List<String> missing = labels(p, c);
+            throw ApiException.conflict("provider_incomplete", "Fill in " + (missing.isEmpty()
+                    ? "a sender for at least one channel" : String.join(", ", missing)) + " before switching on "
+                    + p.type().displayName());
+        }
+    }
+
+    private static List<String> labels(NotificationProvider p, ProviderConfig c) {
+        List<String> missing = p.missing(c);
+        return p.fields().stream().filter(f -> missing.contains(f.key())).map(ProviderField::label).toList();
     }
 
     // =============================================================================================
@@ -596,17 +695,10 @@ public class PlatformService {
         return new Secret(true, s.length() <= 4 ? "••••" : "••••" + s.substring(s.length() - 4));
     }
 
-    private static String keepOrEnv(String incoming, boolean first, String envValue) {
-        if (incoming == null && first) {
-            return envValue;
-        }
-        return incoming;
-    }
-
     private static String validUrl(String url, String field) {
         String u = blankToNull(url);
         if (u != null && !u.matches("https://[^\\s]+")) {
-            throw ApiException.badRequest("invalid_url", "The " + field + " must start with https://");
+            throw ApiException.badRequest("invalid_url", field + " must start with https://");
         }
         return u;
     }

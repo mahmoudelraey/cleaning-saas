@@ -10,7 +10,10 @@ import java.util.UUID;
 
 import com.fieldops.app.common.tenant.TenantContext;
 import com.fieldops.app.notification.channel.ChannelType;
-import com.fieldops.app.notification.channel.MessageChannel;
+import com.fieldops.app.notification.provider.NotificationProviders;
+import com.fieldops.app.notification.provider.OutgoingMessage;
+import com.fieldops.app.notification.provider.ProviderException;
+import com.fieldops.app.notification.provider.ProviderType;
 import com.fieldops.app.tenant.PlanFeature;
 import com.fieldops.app.tenant.PlanFeatureService;
 import com.fieldops.app.tenant.Tenant;
@@ -23,9 +26,11 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Sends due outbox rows. WhatsApp first; on a permanent WhatsApp failure (not on WhatsApp, template
- * rejected) it falls back to SMS immediately; temporary failures retry with back-off. With no provider
- * configured, messages go to the log channel so development works without accounts.
+ * Sends due outbox rows through the providers the platform admin enabled (Platform → Settings → Messaging).
+ * Status messages try every ready WhatsApp provider in priority order, then every SMS provider; OTP codes go
+ * SMS first. Any failure moves on to the next provider immediately; when all fail, the message is retried later
+ * with back-off unless every provider refused it for good (not on WhatsApp, template rejected, bad number).
+ * With no provider enabled, messages go to the log so development works without accounts.
  */
 @Component
 public class NotificationDispatcher {
@@ -36,20 +41,20 @@ public class NotificationDispatcher {
     private final NotificationRepository notifications;
     private final NotificationRefRepository refs;
     private final TenantRepository tenants;
-    private final List<MessageChannel> channels;
+    private final NotificationProviders providers;
     private final TransactionTemplate tx;
     private final Clock clock;
     private final PlanFeatureService features;
     private final int limitedMonthlyCap;
 
     public NotificationDispatcher(NotificationRepository notifications, NotificationRefRepository refs,
-                                  TenantRepository tenants, List<MessageChannel> channels, TransactionTemplate tx,
+                                  TenantRepository tenants, NotificationProviders providers, TransactionTemplate tx,
                                   Clock clock, PlanFeatureService features,
                                   @Value("${app.plans.limited-whatsapp-monthly:100}") int limitedMonthlyCap) {
         this.notifications = notifications;
         this.refs = refs;
         this.tenants = tenants;
-        this.channels = channels;
+        this.providers = providers;
         this.tx = tx;
         this.clock = clock;
         this.features = features;
@@ -98,31 +103,38 @@ public class NotificationDispatcher {
             n.markSkipped("monthly_limit");
             return false;
         }
-        List<MessageChannel> chain = chainFor(n.getTemplate());
+        List<Step> chain = chainFor(n.getTemplate());
+        OutgoingMessage message = new OutgoingMessage(n.getToPhone(), n.getTemplate(), n.getBody(), n.getParams());
         Instant now = Instant.now(clock);
-        for (int i = 0; i < chain.size(); i++) {
-            MessageChannel channel = chain.get(i);
+        List<String> errors = new ArrayList<>();
+        boolean allPermanent = true;
+        Step last = null;
+        for (Step step : chain) {
+            last = step;
+            ProviderType provider = step.active().provider().type();
             try {
-                String providerId = channel.send(n.getToPhone(), n.getTemplate(), n.getBody(), n.getParams());
-                n.markSent(channel.type(), providerId, now);
-                if (channel.type() != ChannelType.LOG && providerId != null) {
+                String providerId = step.active().provider().send(step.channel(), step.active().config(), message);
+                n.markSent(step.channel(), provider, providerId, now);
+                if (provider != ProviderType.LOG && providerId != null) {
                     refs.save(new NotificationRef(providerId, tenantId, n.getId()));
                 }
                 return true;
-            } catch (MessageChannel.ChannelException e) {
-                boolean hasFallback = i < chain.size() - 1;
-                log.warn("Notification {} via {} failed (permanent={}): {}", n.getId(), channel.type(), e.isPermanent(),
-                        e.getMessage());
-                if (e.isPermanent() && hasFallback) {
-                    continue; // try the next channel right away
-                }
-                n.markFailed(channel.type(), e.getMessage(), e.isPermanent(), now);
-                return false;
+            } catch (ProviderException e) {
+                log.warn("Notification {} via {}/{} failed (permanent={}): {}", n.getId(), provider, step.channel(),
+                        e.isPermanent(), e.getMessage());
+                errors.add(provider + ": " + e.getMessage());
+                allPermanent &= e.isPermanent();
             } catch (RuntimeException e) {
-                log.error("Unexpected error sending notification {}", n.getId(), e);
-                n.markFailed(channel.type(), e.getClass().getSimpleName(), false, now);
-                return false;
+                log.error("Unexpected error sending notification {} via {}", n.getId(), provider, e);
+                errors.add(provider + ": " + e.getClass().getSimpleName());
+                allPermanent = false;
             }
+            // Next provider right away. A timeout after the provider accepted the message can rarely mean the
+            // customer gets it twice; preferred over not delivering while one provider is down.
+        }
+        if (last != null) {
+            // Retry later (whole chain again) unless every provider refused for good.
+            n.markFailed(last.channel(), last.active().provider().type(), String.join(" | ", errors), allPermanent, now);
         }
         return false;
     }
@@ -137,31 +149,24 @@ public class NotificationDispatcher {
         return LocalDate.now(clock.withZone(zone)).withDayOfMonth(1).atStartOfDay(zone).toInstant();
     }
 
+    /** One attempt: a provider on a channel (Twilio can appear twice, once for WhatsApp and once for SMS). */
+    record Step(ChannelType channel, NotificationProviders.Active active) {
+    }
+
     /** OTP prefers SMS (WhatsApp needs a special authentication template); everything else prefers WhatsApp. */
-    List<MessageChannel> chainFor(NotificationTemplate template) {
-        MessageChannel whatsapp = find(ChannelType.WHATSAPP);
-        MessageChannel sms = find(ChannelType.SMS);
-        List<MessageChannel> chain = new ArrayList<>();
-        if (template == NotificationTemplate.OTP) {
-            add(chain, sms);
-            add(chain, whatsapp);
-        } else {
-            add(chain, whatsapp);
-            add(chain, sms);
+    List<Step> chainFor(NotificationTemplate template) {
+        List<Step> chain = new ArrayList<>();
+        List<ChannelType> order = template == NotificationTemplate.OTP
+                ? List.of(ChannelType.SMS, ChannelType.WHATSAPP)
+                : List.of(ChannelType.WHATSAPP, ChannelType.SMS);
+        for (ChannelType channel : order) {
+            for (NotificationProviders.Active a : providers.ready(channel)) {
+                chain.add(new Step(channel, a));
+            }
         }
         if (chain.isEmpty()) {
-            chain.add(find(ChannelType.LOG));
+            chain.add(new Step(ChannelType.LOG, providers.log()));
         }
         return chain;
-    }
-
-    private MessageChannel find(ChannelType type) {
-        return channels.stream().filter(c -> c.type() == type).findFirst().orElse(null);
-    }
-
-    private static void add(List<MessageChannel> chain, MessageChannel c) {
-        if (c != null && c.isEnabled()) {
-            chain.add(c);
-        }
     }
 }

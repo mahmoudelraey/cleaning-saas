@@ -41,120 +41,156 @@
 
 @if (msg(); as m) {
   <div class="panel">
-    <h2>
-      {{ 'platform.settings.messaging' | translate }}
-      @if (!m.configured) { <p-tag severity="info" [value]="'platform.settings.fromEnv' | translate" /> }
-    </h2>
-    <p class="sub">{{ 'platform.settings.messagingHint' | translate }}
-      @if (m.updatedAt && m.configured) { · {{ 'platform.settings.updated' | translate }} {{ m.updatedAt | ldate: 'medium' }} }</p>
+    <h2>{{ 'platform.settings.messaging' | translate }}</h2>
+    <p class="sub">{{ 'platform.settings.providersHint' | translate }}</p>
 
-    <h3>
-      <i class="pi pi-whatsapp"></i> WhatsApp Cloud API
-      <p-tag [severity]="m.whatsappReady ? 'success' : 'secondary'" [value]="(m.whatsappReady ? 'platform.settings.ready' : 'platform.settings.notReady') | translate" />
-    </h3>
-    <div class="form-grid">
-      <div class="field">
-        <label for="w-on">{{ 'platform.settings.enabled' | translate }}</label>
-        <p-toggleswitch inputId="w-on" [(ngModel)]="form.whatsappEnabled" />
-      </div>
-      <div class="field">
-        <label for="w-lang">{{ 'platform.settings.language' | translate }}</label>
-        <input pInputText id="w-lang" [(ngModel)]="form.whatsappLanguage" dir="ltr" placeholder="ar" maxlength="10" />
-      </div>
-      <div class="field">
-        <label for="w-url">{{ 'platform.settings.apiUrl' | translate }}</label>
-        <input pInputText id="w-url" [(ngModel)]="form.whatsappApiUrl" dir="ltr" placeholder="https://graph.facebook.com" />
-      </div>
-      <div class="field">
-        <label for="w-ver">{{ 'platform.settings.apiVersion' | translate }}</label>
-        <input pInputText id="w-ver" [(ngModel)]="form.whatsappApiVersion" dir="ltr" placeholder="v21.0" maxlength="20" />
-      </div>
-      <div class="field">
-        <label for="w-pid">Phone number ID</label>
-        <input pInputText id="w-pid" [(ngModel)]="form.whatsappPhoneNumberId" dir="ltr" />
-      </div>
-      <div class="field">
-        <label for="w-waba">WhatsApp Business Account ID</label>
-        <input pInputText id="w-waba" [(ngModel)]="form.whatsappBusinessAccountId" dir="ltr" />
-        <small class="hint">{{ 'platform.settings.wabaHint' | translate }}</small>
-      </div>
-      @for (k of waSecrets; track k.key) {
-        <div class="field">
-          <label [for]="'w-' + k.key">{{ k.label }}</label>
-          <div class="secret">
-            <p-password [inputId]="'w-' + k.key" [(ngModel)]="secrets[k.key]" [feedback]="false" [toggleMask]="true" [fluid]="true"
-                        [placeholder]="placeholder(m[k.key])" autocomplete="off" />
-            @if (m[k.key].set) {
-              <p-button icon="pi pi-times" [text]="true" severity="danger" (onClick)="secrets[k.key] = ''" [ariaLabel]="'platform.settings.clear' | translate" />
-            }
-          </div>
-          @if (secrets[k.key] === '' && m[k.key].set) { <small class="hint">{{ 'platform.settings.willClear' | translate }}</small> }
-        </div>
-      }
-      <div class="field full">
-        <label>{{ 'platform.settings.webhook' | translate }}</label>
-        <div class="copy"><span>{{ webhookUrl() }}</span>
-          <p-button icon="pi pi-copy" [text]="true" size="small" (onClick)="copy(webhookUrl())" [ariaLabel]="'common.copy' | translate" /></div>
-        <small class="hint">{{ 'platform.settings.webhookHint' | translate }}</small>
-      </div>
-    </div>
-
-    <h3>{{ 'platform.settings.templates' | translate }}</h3>
-    <p class="note">{{ 'platform.settings.templatesHint' | translate }}</p>
-    <div class="templates">
-      @for (t of m.templateKeys; track t) {
-        <div class="field">
-          <label [for]="'t-' + t">{{ t }}</label>
-          <input pInputText [id]="'t-' + t" [(ngModel)]="form.whatsappTemplates[t]" dir="ltr" />
-        </div>
-      }
-    </div>
-
-    <h3>
-      <i class="pi pi-comment"></i> SMS (Unifonic)
-      <p-tag [severity]="m.smsReady ? 'success' : 'secondary'" [value]="(m.smsReady ? 'platform.settings.ready' : 'platform.settings.notReady') | translate" />
-    </h3>
-    <div class="form-grid">
-      <div class="field">
-        <label for="s-on">{{ 'platform.settings.enabled' | translate }}</label>
-        <p-toggleswitch inputId="s-on" [(ngModel)]="form.smsEnabled" />
-      </div>
-      <div class="field">
-        <label for="s-sender">Sender ID</label>
-        <input pInputText id="s-sender" [(ngModel)]="form.smsSenderId" dir="ltr" maxlength="20" />
-        <small class="hint">{{ 'platform.settings.senderHint' | translate }}</small>
-      </div>
-      <div class="field">
-        <label for="s-url">{{ 'platform.settings.apiUrl' | translate }}</label>
-        <input pInputText id="s-url" [(ngModel)]="form.smsApiUrl" dir="ltr" placeholder="https://el.cloud.unifonic.com" />
-      </div>
-      <div class="field">
-        <label for="s-sid">AppSid</label>
-        <div class="secret">
-          <p-password inputId="s-sid" [(ngModel)]="secrets.smsAppSid" [feedback]="false" [toggleMask]="true" [fluid]="true" [placeholder]="placeholder(m.smsAppSid)" autocomplete="off" />
-          @if (m.smsAppSid.set) {
-            <p-button icon="pi pi-times" [text]="true" severity="danger" (onClick)="secrets.smsAppSid = ''" [ariaLabel]="'platform.settings.clear' | translate" />
+    <div class="order">
+      @for (ch of channels; track ch) {
+        <div class="order-row">
+          <span class="order-ch"><i [class]="ch === 'WHATSAPP' ? 'pi pi-whatsapp' : 'pi pi-comment'"></i> {{ 'platform.settings.channel.' + ch | translate }}</span>
+          @if (m.order[ch]?.length) {
+            <span class="chain">
+              @for (t of m.order[ch]; track t; let last = $last) {
+                <span class="fo-pill">{{ name(t) }}</span>
+                @if (!last) { <i class="pi pi-arrow-right arrow"></i> }
+              }
+            </span>
+          } @else {
+            <span class="fo-muted">{{ 'platform.settings.orderNone' | translate }}</span>
           }
         </div>
-      </div>
+      }
+    </div>
+
+    <div class="providers">
+      @for (p of m.providers; track p.type + ':' + rev()) {
+        @let st = status(p);
+        <div class="provider" [class.on]="p.enabled">
+          <span class="p-ico"><i [class]="icons[p.type]"></i></span>
+          <div class="p-main">
+            <div class="p-name">
+              {{ p.name }}
+              <p-tag [severity]="st.severity" [value]="st.key | translate" />
+              @if (!p.saved) { <p-tag severity="info" [value]="'platform.settings.fromEnv' | translate" /> }
+            </div>
+            <div class="p-meta">
+              @for (ch of p.channels; track ch) {
+                <span class="ch" [class.active]="p.activeChannels.includes(ch)">{{ 'platform.settings.channel.' + ch | translate }}</span>
+              }
+              <span class="fo-muted">· {{ 'platform.settings.order' | translate }} {{ p.priority }}</span>
+              @if (p.updatedAt && p.saved) { <span class="fo-muted">· {{ 'platform.settings.updated' | translate }} {{ p.updatedAt | ldate: 'short' }}</span> }
+            </div>
+          </div>
+          <p-button icon="pi pi-cog" [text]="true" severity="secondary" [label]="'platform.settings.configure' | translate" (onClick)="configure(p)" />
+          <p-toggleswitch [ngModel]="p.enabled" (ngModelChange)="toggle(p, $event)" [disabled]="toggling() === p.type"
+                          [ariaLabel]="'platform.settings.enabled' | translate" />
+        </div>
+      }
     </div>
     <p class="note"><i class="pi pi-info-circle"></i> {{ 'platform.settings.otpNote' | translate }}</p>
-
-    <div class="save">
-      <p-button [label]="'platform.settings.saveMessaging' | translate" icon="pi pi-check" [loading]="savingMsg()" (onClick)="saveMessaging()" />
-    </div>
-
-    <h3><i class="pi pi-send"></i> {{ 'platform.settings.test' | translate }}</h3>
-    <div class="test">
-      <input pInputText [(ngModel)]="testPhone" dir="ltr" placeholder="05XXXXXXXX" />
-      <p-button [outlined]="true" icon="pi pi-whatsapp" label="WhatsApp" [loading]="testing() === 'WHATSAPP'" (onClick)="test('WHATSAPP')" />
-      <p-button [outlined]="true" icon="pi pi-comment" label="SMS" [loading]="testing() === 'SMS'" (onClick)="test('SMS')" />
-    </div>
-    <p class="note">{{ 'platform.settings.testHint' | translate }}</p>
-    @if (testResult(); as r) {
-      <div class="result" [class.ok]="r.ok" [class.bad]="!r.ok">{{ r.message }}</div>
-    }
   </div>
+
+  <app-dialog [(visible)]="dialogOpen" [title]="editing()?.name ?? ''" [subtitle]="'platform.settings.dialogSub' | translate"
+              [icon]="editing() ? icons[editing()!.type] : 'pi pi-send'" width="760px">
+    @if (editing(); as p) {
+      <div class="fo-dlg-body">
+        <div class="fo-sec">
+          <div class="fo-sec-head">
+            <span class="num">1</span>
+            <div>
+              <h3>{{ 'platform.settings.connection' | translate }}</h3>
+              <p>{{ 'platform.settings.connectionHint' | translate }}</p>
+            </div>
+          </div>
+          @if (!p.saved) { <p class="note env"><i class="pi pi-info-circle"></i> {{ 'platform.settings.envNote' | translate }}</p> }
+          <div class="fo-card form-grid">
+            @for (f of p.fields; track f.key) {
+              <div class="field">
+                <label [for]="'pf-' + f.key">{{ f.label }} @if (f.required) { <span class="req">*</span> }</label>
+                @if (f.secret) {
+                  <div class="secret">
+                    <p-password [inputId]="'pf-' + f.key" [(ngModel)]="secrets[f.key]" (ngModelChange)="touch()" [feedback]="false"
+                                [toggleMask]="true" [fluid]="true" [placeholder]="placeholder(f)" autocomplete="off" />
+                    @if (f.saved?.set) {
+                      <p-button icon="pi pi-times" [text]="true" severity="danger" (onClick)="clearSecret(f.key)" [ariaLabel]="'platform.settings.clear' | translate" />
+                    }
+                  </div>
+                  @if (secrets[f.key] === '' && f.saved?.set) { <small class="hint">{{ 'platform.settings.willClear' | translate }}</small> }
+                } @else {
+                  <input pInputText [id]="'pf-' + f.key" [(ngModel)]="values[f.key]" (ngModelChange)="touch()" dir="ltr"
+                         [placeholder]="f.placeholder ?? ''" maxlength="500" />
+                }
+              </div>
+            }
+            <div class="field">
+              <label for="pf-order">{{ 'platform.settings.order' | translate }}</label>
+              <p-inputnumber inputId="pf-order" [(ngModel)]="priority" (ngModelChange)="touch()" [min]="1" [max]="999" />
+              <small class="hint">{{ 'platform.settings.orderHint' | translate }}</small>
+            </div>
+            @if (p.type === 'TWILIO') {
+              <div class="field full"><small class="hint">{{ 'platform.settings.twilioNote' | translate }}</small></div>
+            }
+            @if (p.type === 'META_WHATSAPP') {
+              <div class="field full">
+                <label>{{ 'platform.settings.webhook' | translate }}</label>
+                <div class="copy"><span>{{ webhookUrl() }}</span>
+                  <p-button icon="pi pi-copy" [text]="true" size="small" (onClick)="copy(webhookUrl())" [ariaLabel]="'common.copy' | translate" /></div>
+                <small class="hint">{{ 'platform.settings.webhookHint' | translate }}</small>
+              </div>
+            }
+          </div>
+        </div>
+
+        @if (p.usesTemplates) {
+          <div class="fo-sec">
+            <div class="fo-sec-head">
+              <span class="num">2</span>
+              <div>
+                <h3>{{ 'platform.settings.templates' | translate }}</h3>
+                <p>{{ 'platform.settings.templatesHint_' + p.type | translate }}</p>
+              </div>
+            </div>
+            <div class="fo-card templates">
+              @for (t of m.templateKeys; track t) {
+                <div class="field">
+                  <label [for]="'pt-' + t">{{ t }}</label>
+                  <input pInputText [id]="'pt-' + t" [(ngModel)]="templates[t]" (ngModelChange)="touch()" dir="ltr" maxlength="200" />
+                </div>
+              }
+            </div>
+          </div>
+        }
+
+        <div class="fo-sec">
+          <div class="fo-sec-head">
+            <span class="num">{{ p.usesTemplates ? 3 : 2 }}</span>
+            <div>
+              <h3>{{ 'platform.settings.test' | translate }}</h3>
+              <p>{{ 'platform.settings.testHint' | translate }}</p>
+            </div>
+          </div>
+          <div class="fo-card">
+            <div class="test">
+              <input pInputText [(ngModel)]="testPhone" dir="ltr" placeholder="05XXXXXXXX" />
+              @for (ch of p.channels; track ch) {
+                <p-button [outlined]="true" [icon]="ch === 'WHATSAPP' ? 'pi pi-whatsapp' : 'pi pi-comment'"
+                          [label]="'platform.settings.channel.' + ch | translate" [loading]="testing() === ch"
+                          [disabled]="!testPhone || dirty" (onClick)="test(ch)" />
+              }
+            </div>
+            @if (dirty) { <small class="hint">{{ 'platform.settings.saveFirst' | translate }}</small> }
+            @if (testResult(); as r) {
+              <div class="result" [class.ok]="r.ok" [class.bad]="!r.ok">{{ r.message }}</div>
+            }
+          </div>
+        </div>
+      </div>
+      <div class="fo-dlg-foot">
+        <p-button [text]="true" severity="secondary" [label]="'common.close' | translate" (onClick)="dialogOpen = false" />
+        <p-button icon="pi pi-check" [label]="'common.save' | translate" [loading]="saving()" (onClick)="save()" />
+      </div>
+    }
+  </app-dialog>
 } @else {
   <div class="panel"><i class="pi pi-spin pi-spinner"></i></div>
 }

@@ -7,12 +7,14 @@ import java.util.UUID;
 import com.fieldops.app.platform.PlatformService.CompanyDetail;
 import com.fieldops.app.platform.PlatformService.CompanyRow;
 import com.fieldops.app.platform.PlatformService.General;
-import com.fieldops.app.platform.PlatformService.MessagingData;
 import com.fieldops.app.platform.PlatformService.MessagingView;
 import com.fieldops.app.platform.PlatformService.Overview;
 import com.fieldops.app.platform.PlatformService.PlanData;
 import com.fieldops.app.platform.PlatformService.PlanRow;
+import com.fieldops.app.platform.PlatformService.ProviderData;
 import com.fieldops.app.platform.PlatformService.TestResult;
+import com.fieldops.app.notification.channel.ChannelType;
+import com.fieldops.app.notification.provider.ProviderType;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -135,14 +137,21 @@ public class PlatformController {
         return platform.messaging();
     }
 
-    @PutMapping("/messaging")
-    public MessagingView updateMessaging(@RequestBody MessagingData req) {
-        return platform.updateMessaging(req);
+    /** Saves a provider's settings, on/off and order. */
+    @PutMapping("/messaging/providers/{type}")
+    public MessagingView saveProvider(@PathVariable ProviderType type, @RequestBody ProviderData req) {
+        return platform.saveProvider(type, req);
     }
 
-    @PostMapping("/messaging/test")
-    public TestResult test(@RequestBody TestRequest req) {
-        return platform.test(req.channel(), req.phone());
+    /** Switches a provider on or off without touching its settings. */
+    @PutMapping("/messaging/providers/{type}/enabled")
+    public MessagingView setProviderEnabled(@PathVariable ProviderType type, @RequestBody Toggle req) {
+        return platform.setProviderEnabled(type, req.enabled());
+    }
+
+    @PostMapping("/messaging/providers/{type}/test")
+    public TestResult testProvider(@PathVariable ProviderType type, @RequestBody TestRequest req) {
+        return platform.testProvider(type, req.channel(), req.phone());
     }
 
     public record PlanChange(String planId) {
@@ -160,6 +169,9 @@ public class PlatformController {
     public record PlansView(List<PlanRow> plans, List<String> features) {
     }
 
-    public record TestRequest(String channel, String phone) {
+    public record TestRequest(ChannelType channel, String phone) {
+    }
+
+    public record Toggle(boolean enabled) {
     }
 }

@@ -14,6 +14,7 @@ import jakarta.persistence.Table;
 
 import com.fieldops.app.common.persistence.TenantScopedEntity;
 import com.fieldops.app.notification.channel.ChannelType;
+import com.fieldops.app.notification.provider.ProviderType;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -39,6 +40,10 @@ public class Notification extends TenantScopedEntity {
 
     @Enumerated(EnumType.STRING)
     private ChannelType channel;
+
+    /** Who carried (or last tried) the message. */
+    @Enumerated(EnumType.STRING)
+    private ProviderType provider;
 
     @Column(name = "to_phone", nullable = false, updatable = false)
     private String toPhone;
@@ -84,8 +89,9 @@ public class Notification extends TenantScopedEntity {
         this.nextAttemptAt = notBefore;
     }
 
-    public void markSent(ChannelType channel, String providerMessageId, Instant at) {
+    public void markSent(ChannelType channel, ProviderType provider, String providerMessageId, Instant at) {
         this.channel = channel;
+        this.provider = provider;
         this.providerMessageId = providerMessageId;
         this.status = Status.SENT;
         this.sentAt = at;
@@ -94,8 +100,9 @@ public class Notification extends TenantScopedEntity {
     }
 
     /** @return true if another attempt is scheduled */
-    public boolean markFailed(ChannelType channel, String error, boolean permanent, Instant now) {
+    public boolean markFailed(ChannelType channel, ProviderType provider, String error, boolean permanent, Instant now) {
         this.channel = channel;
+        this.provider = provider;
         this.attempts++;
         this.error = error == null ? null : error.substring(0, Math.min(error.length(), 500));
         if (permanent || attempts > BACKOFF.size()) {
@@ -138,6 +145,10 @@ public class Notification extends TenantScopedEntity {
 
     public ChannelType getChannel() {
         return channel;
+    }
+
+    public ProviderType getProvider() {
+        return provider;
     }
 
     public String getToPhone() {

@@ -12,18 +12,39 @@ import { ToggleSwitch } from 'primeng/toggleswitch';
 
 import { errorMessage } from '../../../core/http/api-error';
 import { LanguageService } from '../../../core/i18n/language.service';
+import { AppDialog } from '../../../shared/dialog/dialog';
 import { LocalDatePipe } from '../../../shared/local-date.pipe';
-import { GeneralSettings, MessagingInput, MessagingView, PlanRow, PlatformApi, Secret } from '../platform.api';
+import {
+  GeneralSettings,
+  MessageChannel,
+  MessagingView,
+  PlanRow,
+  PlatformApi,
+  ProviderFieldView,
+  ProviderType,
+  ProviderView,
+  Secret,
+  TestResult,
+} from '../platform.api';
 
-type SecretKey = 'whatsappAccessToken' | 'whatsappAppSecret' | 'whatsappVerifyToken' | 'smsAppSid';
+type Severity = 'success' | 'info' | 'warn' | 'danger' | 'secondary';
+
+const ICONS: Record<ProviderType, string> = {
+  META_WHATSAPP: 'pi pi-whatsapp',
+  GUPSHUP_WHATSAPP: 'pi pi-whatsapp',
+  TWILIO: 'pi pi-send',
+  TAQNYAT_SMS: 'pi pi-comment',
+  UNIFONIC_SMS: 'pi pi-comment',
+};
 
 /**
  * Platform settings: trial length and plan for new signups, grace period after a paid period ends, the support
- * contact companies see, and the platform's WhatsApp Cloud API and Unifonic SMS credentials and URLs.
+ * contact companies see, and the message providers (Meta WhatsApp, Gupshup, Twilio, Taqnyat, Unifonic): switched
+ * on and off from the list, configured and tested in a dialog.
  */
 @Component({
   selector: 'app-platform-settings',
-  imports: [FormsModule, TranslatePipe, Button, InputNumber, InputText, Password, Select, Tag, ToggleSwitch, LocalDatePipe],
+  imports: [FormsModule, TranslatePipe, AppDialog, Button, InputNumber, InputText, Password, Select, Tag, ToggleSwitch, LocalDatePipe],
   styleUrl: './settings.page.scss',
   templateUrl: './settings.page.html',
 })
@@ -37,21 +58,29 @@ export class PlatformSettingsPage {
   protected readonly msg = signal<MessagingView | null>(null);
   protected readonly plans = signal<PlanRow[]>([]);
   protected readonly savingGeneral = signal(false);
-  protected readonly savingMsg = signal(false);
-  protected readonly testing = signal<'WHATSAPP' | 'SMS' | null>(null);
-  protected readonly testResult = signal<{ ok: boolean; message: string } | null>(null);
-  protected testPhone = '';
+  protected readonly toggling = signal<ProviderType | null>(null);
+  /** Bumped to rebuild the list rows (puts a switch back after a refused toggle). */
+  protected readonly rev = signal(0);
 
-  /** Editable copy of the non-secret messaging fields. */
-  protected form: MessagingInput = emptyForm();
+  // ---- provider dialog ----
+  protected dialogOpen = false;
+  protected readonly editing = signal<ProviderView | null>(null);
+  protected readonly saving = signal(false);
+  protected priority = 10;
+  /** Non-secret fields as typed. */
+  protected values: Record<string, string | null> = {};
   /** Typed secrets: undefined = keep, '' = clear, text = replace. */
-  protected secrets: Partial<Record<SecretKey, string>> = {};
+  protected secrets: Record<string, string | undefined> = {};
+  protected templates: Record<string, string> = {};
+  /** Typed since opening (tests use the saved settings). */
+  protected dirty = false;
 
-  protected readonly waSecrets: { key: Exclude<SecretKey, 'smsAppSid'>; label: string }[] = [
-    { key: 'whatsappAccessToken', label: 'Access token' },
-    { key: 'whatsappAppSecret', label: 'App secret' },
-    { key: 'whatsappVerifyToken', label: 'Webhook verify token' },
-  ];
+  protected testPhone = '';
+  protected readonly testing = signal<MessageChannel | null>(null);
+  protected readonly testResult = signal<TestResult | null>(null);
+
+  protected readonly channels: MessageChannel[] = ['WHATSAPP', 'SMS'];
+  protected readonly icons = ICONS;
 
   protected readonly planOptions = computed(() =>
     this.plans().filter((p) => p.active).map((p) => ({ value: p.id, label: this.lang.current() === 'ar' ? p.nameAr : p.nameEn })),
@@ -61,32 +90,7 @@ export class PlatformSettingsPage {
   constructor() {
     this.api.general().subscribe({ next: (g) => this.general.set(g), error: (e) => this.fail(e) });
     this.api.plans().subscribe({ next: (p) => this.plans.set(p.plans), error: () => {} });
-    this.api.messaging().subscribe({ next: (m) => this.setMessaging(m), error: (e) => this.fail(e) });
-  }
-
-  private setMessaging(m: MessagingView): void {
-    this.msg.set(m);
-    this.secrets = {};
-    this.form = {
-      whatsappEnabled: m.whatsappEnabled,
-      whatsappApiUrl: m.whatsappApiUrl,
-      whatsappApiVersion: m.whatsappApiVersion,
-      whatsappPhoneNumberId: m.whatsappPhoneNumberId,
-      whatsappBusinessAccountId: m.whatsappBusinessAccountId,
-      whatsappAccessToken: null,
-      whatsappAppSecret: null,
-      whatsappVerifyToken: null,
-      whatsappLanguage: m.whatsappLanguage,
-      whatsappTemplates: { ...m.whatsappTemplates },
-      smsEnabled: m.smsEnabled,
-      smsApiUrl: m.smsApiUrl,
-      smsAppSid: null,
-      smsSenderId: m.smsSenderId,
-    };
-  }
-
-  protected placeholder(s: Secret): string {
-    return s.set ? this.translate.instant('platform.settings.savedKeep', { h: s.hint ?? '' }) : this.translate.instant('platform.settings.notSet');
+    this.api.messaging().subscribe({ next: (m) => this.msg.set(m), error: (e) => this.fail(e) });
   }
 
   protected saveGeneral(g: GeneralSettings): void {
@@ -104,32 +108,99 @@ export class PlatformSettingsPage {
     });
   }
 
-  protected saveMessaging(): void {
-    const body: MessagingInput = {
-      ...this.form,
-      whatsappAccessToken: this.secrets.whatsappAccessToken ?? null,
-      whatsappAppSecret: this.secrets.whatsappAppSecret ?? null,
-      whatsappVerifyToken: this.secrets.whatsappVerifyToken ?? null,
-      smsAppSid: this.secrets.smsAppSid ?? null,
-    };
-    this.savingMsg.set(true);
-    this.api.saveMessaging(body).subscribe({
+  // ---- list ----
+
+  protected name(type: ProviderType): string {
+    return this.msg()?.providers.find((p) => p.type === type)?.name ?? type;
+  }
+
+  protected status(p: ProviderView): { key: string; severity: Severity } {
+    if (p.enabled && p.activeChannels.length) return { key: 'platform.settings.status.sending', severity: 'success' };
+    if (p.enabled) return { key: 'platform.settings.status.missing', severity: 'danger' };
+    if (p.ready) return { key: 'platform.settings.status.off', severity: 'secondary' };
+    return { key: 'platform.settings.status.notConfigured', severity: 'warn' };
+  }
+
+  /** Switch on/off from the list; the server refuses to switch on a provider that is not configured. */
+  protected toggle(p: ProviderView, enabled: boolean): void {
+    this.toggling.set(p.type);
+    this.api.setProviderEnabled(p.type, enabled).subscribe({
       next: (m) => {
-        this.setMessaging(m);
-        this.savingMsg.set(false);
-        this.messages.add({ severity: 'success', summary: this.translate.instant('common.saved') });
+        this.msg.set(m);
+        this.toggling.set(null);
+        this.messages.add({
+          severity: 'success',
+          summary: this.translate.instant(enabled ? 'platform.settings.turnedOn' : 'platform.settings.turnedOff', { name: p.name }),
+        });
       },
       error: (e) => {
-        this.savingMsg.set(false);
+        this.toggling.set(null);
+        this.rev.update((r) => r + 1); // put the switch back
         this.fail(e);
       },
     });
   }
 
-  protected test(channel: 'WHATSAPP' | 'SMS'): void {
+  // ---- dialog ----
+
+  protected configure(p: ProviderView): void {
+    this.editing.set(p);
+    this.priority = p.priority;
+    this.values = {};
+    for (const f of p.fields) {
+      if (!f.secret) this.values[f.key] = f.value;
+    }
+    this.secrets = {};
+    this.templates = { ...p.templates };
+    this.dirty = false;
+    this.testResult.set(null);
+    this.dialogOpen = true;
+  }
+
+  protected placeholder(f: ProviderFieldView): string {
+    const s: Secret | null = f.saved;
+    if (s?.set) return this.translate.instant('platform.settings.savedKeep', { h: s.hint ?? '' });
+    return this.translate.instant('platform.settings.notSet');
+  }
+
+  protected touch(): void {
+    this.dirty = true;
+  }
+
+  protected clearSecret(key: string): void {
+    this.secrets[key] = '';
+    this.dirty = true;
+  }
+
+  protected save(): void {
+    const p = this.editing();
+    if (!p) return;
+    const values: Record<string, string | null> = { ...this.values };
+    for (const f of p.fields) {
+      if (f.secret) values[f.key] = this.secrets[f.key] ?? null;
+    }
+    this.saving.set(true);
+    this.api.saveProvider(p.type, { enabled: p.enabled, priority: this.priority, values, templates: this.templates }).subscribe({
+      next: (m) => {
+        this.msg.set(m);
+        this.saving.set(false);
+        const fresh = m.providers.find((x) => x.type === p.type);
+        if (fresh) this.configure(fresh); // stays open so it can be tested
+        this.messages.add({ severity: 'success', summary: this.translate.instant('common.saved') });
+      },
+      error: (e) => {
+        this.saving.set(false);
+        this.fail(e);
+      },
+    });
+  }
+
+  protected test(channel: MessageChannel): void {
+    const p = this.editing();
+    if (!p) return;
     this.testing.set(channel);
     this.testResult.set(null);
-    this.api.test(channel, this.testPhone).subscribe({
+    this.api.testProvider(p.type, channel, this.testPhone).subscribe({
       next: (r) => {
         this.testing.set(null);
         this.testResult.set(r);
@@ -148,23 +219,4 @@ export class PlatformSettingsPage {
   private fail(e: unknown): void {
     this.messages.add({ severity: 'error', summary: errorMessage(e, this.translate) });
   }
-}
-
-function emptyForm(): MessagingInput {
-  return {
-    whatsappEnabled: false,
-    whatsappApiUrl: null,
-    whatsappApiVersion: null,
-    whatsappPhoneNumberId: null,
-    whatsappBusinessAccountId: null,
-    whatsappAccessToken: null,
-    whatsappAppSecret: null,
-    whatsappVerifyToken: null,
-    whatsappLanguage: 'ar',
-    whatsappTemplates: {},
-    smsEnabled: false,
-    smsApiUrl: null,
-    smsAppSid: null,
-    smsSenderId: null,
-  };
 }

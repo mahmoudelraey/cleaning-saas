@@ -13,7 +13,8 @@ import jakarta.validation.constraints.Size;
 
 import com.fieldops.app.common.web.PageResponse;
 import com.fieldops.app.notification.channel.ChannelType;
-import com.fieldops.app.notification.channel.MessageChannel;
+import com.fieldops.app.notification.provider.NotificationProviders;
+import com.fieldops.app.notification.provider.ProviderType;
 import com.fieldops.app.common.web.ApiException;
 import com.fieldops.app.tenant.Tenant;
 import com.fieldops.app.tenant.TenantRepository;
@@ -36,16 +37,16 @@ public class NotificationController {
 
     private final NotificationService notifications;
     private final TenantService tenants;
-    private final java.util.List<MessageChannel> channels;
+    private final NotificationProviders providers;
     private final TenantRepository tenantRepo;
     private final AuditNames audits;
 
     public NotificationController(NotificationService notifications, TenantService tenants,
-                                  java.util.List<MessageChannel> channels, TenantRepository tenantRepo, AuditNames audits) {
+                                  NotificationProviders providers, TenantRepository tenantRepo, AuditNames audits) {
         this.audits = audits;
         this.notifications = notifications;
         this.tenants = tenants;
-        this.channels = channels;
+        this.providers = providers;
         this.tenantRepo = tenantRepo;
     }
 
@@ -72,7 +73,7 @@ public class NotificationController {
     @GetMapping("/api/v1/tenant/notification-settings")
     @PreAuthorize("hasAnyRole('OWNER','COORDINATOR')")
     public SettingsDto settings() {
-        return SettingsDto.of(tenants.current(), channels);
+        return SettingsDto.of(tenants.current(), providers);
     }
 
     // Which customer messages a company sends is decided by the platform admin only (Platform → Companies);
@@ -82,7 +83,7 @@ public class NotificationController {
     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     @Transactional(readOnly = true)
     public SettingsDto companySettings(@PathVariable UUID id) {
-        return SettingsDto.of(company(id), channels);
+        return SettingsDto.of(company(id), providers);
     }
 
     @PutMapping("/api/platform/companies/{id}/customer-messages")
@@ -92,7 +93,7 @@ public class NotificationController {
         Tenant t = company(id);
         t.updateNotificationSettings(req.confirmation(), req.reminder(), req.onTheWay(), req.completed(),
                 req.cancelled(), req.reminderHours());
-        return SettingsDto.of(t, channels);
+        return SettingsDto.of(t, providers);
     }
 
     private Tenant company(UUID id) {
@@ -105,19 +106,20 @@ public class NotificationController {
 
     public record SettingsDto(boolean confirmation, boolean reminder, boolean onTheWay, boolean completed,
                               boolean cancelled, int reminderHours, boolean whatsappConfigured, boolean smsConfigured) {
-        static SettingsDto of(Tenant t, java.util.List<MessageChannel> channels) {
-            boolean wa = channels.stream().anyMatch(c -> c.type() == ChannelType.WHATSAPP && c.isEnabled());
-            boolean sms = channels.stream().anyMatch(c -> c.type() == ChannelType.SMS && c.isEnabled());
+        static SettingsDto of(Tenant t, NotificationProviders providers) {
+            boolean wa = providers.available(ChannelType.WHATSAPP);
+            boolean sms = providers.available(ChannelType.SMS);
             return new SettingsDto(t.isNotifyConfirmation(), t.isNotifyReminder(), t.isNotifyOnTheWay(),
                     t.isNotifyCompleted(), t.isNotifyCancelled(), t.getReminderHours(), wa, sms);
         }
     }
 
     public record NotificationDto(UUID id, UUID bookingId, NotificationTemplate template, ChannelType channel,
-                                  String toPhone, String body, Notification.Status status, String error, int attempts,
+                                  ProviderType provider, String toPhone, String body, Notification.Status status, String error, int attempts,
                                   Instant createdAt, Instant sentAt, Instant deliveredAt) {
         static NotificationDto of(Notification n) {
-            return new NotificationDto(n.getId(), n.getBookingId(), n.getTemplate(), n.getChannel(), n.getToPhone(),
+            return new NotificationDto(n.getId(), n.getBookingId(), n.getTemplate(), n.getChannel(), n.getProvider(),
+                    n.getToPhone(),
                     n.getTemplate() == NotificationTemplate.OTP ? "••••" : n.getBody(), n.getStatus(), n.getError(),
                     n.getAttempts(), n.getCreatedAt(), n.getSentAt(), n.getDeliveredAt());
         }

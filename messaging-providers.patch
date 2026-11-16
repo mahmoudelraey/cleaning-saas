@@ -1,0 +1,3260 @@
+diff --git a/backend/admin/src/main/java/com/fieldops/app/notification/NotificationController.java b/backend/admin/src/main/java/com/fieldops/app/notification/NotificationController.java
+index 448fa9a..7ee50b6 100644
+--- a/backend/admin/src/main/java/com/fieldops/app/notification/NotificationController.java
++++ b/backend/admin/src/main/java/com/fieldops/app/notification/NotificationController.java
+@@ -13,7 +13,8 @@ import jakarta.validation.constraints.Size;
+ 
+ import com.fieldops.app.common.web.PageResponse;
+ import com.fieldops.app.notification.channel.ChannelType;
+-import com.fieldops.app.notification.channel.MessageChannel;
++import com.fieldops.app.notification.provider.NotificationProviders;
++import com.fieldops.app.notification.provider.ProviderType;
+ import com.fieldops.app.common.web.ApiException;
+ import com.fieldops.app.tenant.Tenant;
+ import com.fieldops.app.tenant.TenantRepository;
+@@ -36,16 +37,16 @@ public class NotificationController {
+ 
+     private final NotificationService notifications;
+     private final TenantService tenants;
+-    private final java.util.List<MessageChannel> channels;
++    private final NotificationProviders providers;
+     private final TenantRepository tenantRepo;
+     private final AuditNames audits;
+ 
+     public NotificationController(NotificationService notifications, TenantService tenants,
+-                                  java.util.List<MessageChannel> channels, TenantRepository tenantRepo, AuditNames audits) {
++                                  NotificationProviders providers, TenantRepository tenantRepo, AuditNames audits) {
+         this.audits = audits;
+         this.notifications = notifications;
+         this.tenants = tenants;
+-        this.channels = channels;
++        this.providers = providers;
+         this.tenantRepo = tenantRepo;
+     }
+ 
+@@ -72,7 +73,7 @@ public class NotificationController {
+     @GetMapping("/api/v1/tenant/notification-settings")
+     @PreAuthorize("hasAnyRole('OWNER','COORDINATOR')")
+     public SettingsDto settings() {
+-        return SettingsDto.of(tenants.current(), channels);
++        return SettingsDto.of(tenants.current(), providers);
+     }
+ 
+     // Which customer messages a company sends is decided by the platform admin only (Platform → Companies);
+@@ -82,7 +83,7 @@ public class NotificationController {
+     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+     @Transactional(readOnly = true)
+     public SettingsDto companySettings(@PathVariable UUID id) {
+-        return SettingsDto.of(company(id), channels);
++        return SettingsDto.of(company(id), providers);
+     }
+ 
+     @PutMapping("/api/platform/companies/{id}/customer-messages")
+@@ -92,7 +93,7 @@ public class NotificationController {
+         Tenant t = company(id);
+         t.updateNotificationSettings(req.confirmation(), req.reminder(), req.onTheWay(), req.completed(),
+                 req.cancelled(), req.reminderHours());
+-        return SettingsDto.of(t, channels);
++        return SettingsDto.of(t, providers);
+     }
+ 
+     private Tenant company(UUID id) {
+@@ -105,19 +106,20 @@ public class NotificationController {
+ 
+     public record SettingsDto(boolean confirmation, boolean reminder, boolean onTheWay, boolean completed,
+                               boolean cancelled, int reminderHours, boolean whatsappConfigured, boolean smsConfigured) {
+-        static SettingsDto of(Tenant t, java.util.List<MessageChannel> channels) {
+-            boolean wa = channels.stream().anyMatch(c -> c.type() == ChannelType.WHATSAPP && c.isEnabled());
+-            boolean sms = channels.stream().anyMatch(c -> c.type() == ChannelType.SMS && c.isEnabled());
++        static SettingsDto of(Tenant t, NotificationProviders providers) {
++            boolean wa = providers.available(ChannelType.WHATSAPP);
++            boolean sms = providers.available(ChannelType.SMS);
+             return new SettingsDto(t.isNotifyConfirmation(), t.isNotifyReminder(), t.isNotifyOnTheWay(),
+                     t.isNotifyCompleted(), t.isNotifyCancelled(), t.getReminderHours(), wa, sms);
+         }
+     }
+ 
+     public record NotificationDto(UUID id, UUID bookingId, NotificationTemplate template, ChannelType channel,
+-                                  String toPhone, String body, Notification.Status status, String error, int attempts,
++                                  ProviderType provider, String toPhone, String body, Notification.Status status, String error, int attempts,
+                                   Instant createdAt, Instant sentAt, Instant deliveredAt) {
+         static NotificationDto of(Notification n) {
+-            return new NotificationDto(n.getId(), n.getBookingId(), n.getTemplate(), n.getChannel(), n.getToPhone(),
++            return new NotificationDto(n.getId(), n.getBookingId(), n.getTemplate(), n.getChannel(), n.getProvider(),
++                    n.getToPhone(),
+                     n.getTemplate() == NotificationTemplate.OTP ? "••••" : n.getBody(), n.getStatus(), n.getError(),
+                     n.getAttempts(), n.getCreatedAt(), n.getSentAt(), n.getDeliveredAt());
+         }
+diff --git a/backend/admin/src/main/java/com/fieldops/app/notification/WhatsAppWebhookController.java b/backend/admin/src/main/java/com/fieldops/app/notification/WhatsAppWebhookController.java
+index dccaf10..6197854 100644
+--- a/backend/admin/src/main/java/com/fieldops/app/notification/WhatsAppWebhookController.java
++++ b/backend/admin/src/main/java/com/fieldops/app/notification/WhatsAppWebhookController.java
+@@ -12,8 +12,9 @@ import javax.crypto.spec.SecretKeySpec;
+ import com.fasterxml.jackson.databind.JsonNode;
+ import com.fasterxml.jackson.databind.ObjectMapper;
+ import com.fieldops.app.common.tenant.TenantContext;
+-import com.fieldops.app.notification.channel.NotificationProperties;
+-import com.fieldops.app.platform.PlatformSettingsService;
++import com.fieldops.app.notification.provider.MessagingProviderService;
++import com.fieldops.app.notification.provider.MetaWhatsAppProvider;
++import com.fieldops.app.notification.provider.ProviderType;
+ import org.slf4j.Logger;
+ import org.slf4j.LoggerFactory;
+ import org.springframework.http.HttpStatus;
+@@ -28,7 +29,7 @@ import org.springframework.web.bind.annotation.RequestParam;
+ import org.springframework.web.bind.annotation.RestController;
+ 
+ /**
+- * Delivery receipts from Meta (plan endpoint {@code /api/v1/webhooks/whatsapp}). Every POST must carry a
++ * Delivery receipts from Meta WhatsApp Cloud API (plan endpoint {@code /api/v1/webhooks/whatsapp}). Every POST must carry a
+  * valid {@code X-Hub-Signature-256} HMAC of the raw body; unsigned or forged calls are rejected.
+  */
+ @RestController
+@@ -42,15 +43,15 @@ public class WhatsAppWebhookController {
+             "read", Notification.Status.READ,
+             "failed", Notification.Status.FAILED);
+ 
+-    private final PlatformSettingsService settings;
++    private final MessagingProviderService providers;
+     private final NotificationRefRepository refs;
+     private final NotificationRepository notifications;
+     private final TransactionTemplate tx;
+     private final ObjectMapper json;
+ 
+-    public WhatsAppWebhookController(PlatformSettingsService settings, NotificationRefRepository refs,
++    public WhatsAppWebhookController(MessagingProviderService providers, NotificationRefRepository refs,
+                                      NotificationRepository notifications, TransactionTemplate tx, ObjectMapper json) {
+-        this.settings = settings;
++        this.providers = providers;
+         this.refs = refs;
+         this.notifications = notifications;
+         this.tx = tx;
+@@ -62,9 +63,9 @@ public class WhatsAppWebhookController {
+     public ResponseEntity<String> verify(@RequestParam(name = "hub.mode", required = false) String mode,
+                                          @RequestParam(name = "hub.verify_token", required = false) String token,
+                                          @RequestParam(name = "hub.challenge", required = false) String challenge) {
+-        NotificationProperties.WhatsApp config = settings.whatsapp();
+-        if ("subscribe".equals(mode) && config.verifyToken() != null && !config.verifyToken().isBlank()
+-                && MessageDigest.isEqual(config.verifyToken().getBytes(StandardCharsets.UTF_8),
++        String verifyToken = providers.config(ProviderType.META_WHATSAPP).get(MetaWhatsAppProvider.VERIFY_TOKEN);
++        if ("subscribe".equals(mode) && verifyToken != null
++                && MessageDigest.isEqual(verifyToken.getBytes(StandardCharsets.UTF_8),
+                 String.valueOf(token).getBytes(StandardCharsets.UTF_8))) {
+             return ResponseEntity.ok(challenge);
+         }
+@@ -104,7 +105,7 @@ public class WhatsAppWebhookController {
+     }
+ 
+     private boolean validSignature(byte[] body, String header) {
+-        String secret = settings.whatsapp().appSecret();
++        String secret = providers.config(ProviderType.META_WHATSAPP).get(MetaWhatsAppProvider.APP_SECRET);
+         if (secret == null || secret.isBlank() || header == null || !header.startsWith("sha256=")) {
+             return false;
+         }
+diff --git a/backend/admin/src/main/java/com/fieldops/app/platform/PlatformController.java b/backend/admin/src/main/java/com/fieldops/app/platform/PlatformController.java
+index a278ba7..d7f1d68 100644
+--- a/backend/admin/src/main/java/com/fieldops/app/platform/PlatformController.java
++++ b/backend/admin/src/main/java/com/fieldops/app/platform/PlatformController.java
+@@ -7,12 +7,14 @@ import java.util.UUID;
+ import com.fieldops.app.platform.PlatformService.CompanyDetail;
+ import com.fieldops.app.platform.PlatformService.CompanyRow;
+ import com.fieldops.app.platform.PlatformService.General;
+-import com.fieldops.app.platform.PlatformService.MessagingData;
+ import com.fieldops.app.platform.PlatformService.MessagingView;
+ import com.fieldops.app.platform.PlatformService.Overview;
+ import com.fieldops.app.platform.PlatformService.PlanData;
+ import com.fieldops.app.platform.PlatformService.PlanRow;
++import com.fieldops.app.platform.PlatformService.ProviderData;
+ import com.fieldops.app.platform.PlatformService.TestResult;
++import com.fieldops.app.notification.channel.ChannelType;
++import com.fieldops.app.notification.provider.ProviderType;
+ import org.springframework.http.HttpStatus;
+ import org.springframework.http.ResponseEntity;
+ import org.springframework.security.access.prepost.PreAuthorize;
+@@ -135,14 +137,21 @@ public class PlatformController {
+         return platform.messaging();
+     }
+ 
+-    @PutMapping("/messaging")
+-    public MessagingView updateMessaging(@RequestBody MessagingData req) {
+-        return platform.updateMessaging(req);
++    /** Saves a provider's settings, on/off and order. */
++    @PutMapping("/messaging/providers/{type}")
++    public MessagingView saveProvider(@PathVariable ProviderType type, @RequestBody ProviderData req) {
++        return platform.saveProvider(type, req);
+     }
+ 
+-    @PostMapping("/messaging/test")
+-    public TestResult test(@RequestBody TestRequest req) {
+-        return platform.test(req.channel(), req.phone());
++    /** Switches a provider on or off without touching its settings. */
++    @PutMapping("/messaging/providers/{type}/enabled")
++    public MessagingView setProviderEnabled(@PathVariable ProviderType type, @RequestBody Toggle req) {
++        return platform.setProviderEnabled(type, req.enabled());
++    }
++
++    @PostMapping("/messaging/providers/{type}/test")
++    public TestResult testProvider(@PathVariable ProviderType type, @RequestBody TestRequest req) {
++        return platform.testProvider(type, req.channel(), req.phone());
+     }
+ 
+     public record PlanChange(String planId) {
+@@ -160,6 +169,9 @@ public class PlatformController {
+     public record PlansView(List<PlanRow> plans, List<String> features) {
+     }
+ 
+-    public record TestRequest(String channel, String phone) {
++    public record TestRequest(ChannelType channel, String phone) {
++    }
++
++    public record Toggle(boolean enabled) {
+     }
+ }
+diff --git a/backend/admin/src/main/java/com/fieldops/app/platform/PlatformService.java b/backend/admin/src/main/java/com/fieldops/app/platform/PlatformService.java
+index 26313ae..ec91aec 100644
+--- a/backend/admin/src/main/java/com/fieldops/app/platform/PlatformService.java
++++ b/backend/admin/src/main/java/com/fieldops/app/platform/PlatformService.java
+@@ -10,6 +10,7 @@ import java.util.ArrayList;
+ import java.util.LinkedHashMap;
+ import java.util.List;
+ import java.util.Map;
++import java.util.Set;
+ import java.util.UUID;
+ import java.util.regex.Pattern;
+ 
+@@ -19,9 +20,14 @@ import com.fieldops.app.common.security.Role;
+ import com.fieldops.app.common.util.PhoneNumbers;
+ import com.fieldops.app.common.web.ApiException;
+ import com.fieldops.app.notification.NotificationTemplate;
+-import com.fieldops.app.notification.channel.MessageChannel;
+-import com.fieldops.app.notification.channel.NotificationProperties;
+-import com.fieldops.app.notification.channel.UnifonicSmsChannel;
++import com.fieldops.app.notification.channel.ChannelType;
++import com.fieldops.app.notification.provider.MessagingProviderService;
++import com.fieldops.app.notification.provider.NotificationProvider;
++import com.fieldops.app.notification.provider.NotificationProviders;
++import com.fieldops.app.notification.provider.ProviderConfig;
++import com.fieldops.app.notification.provider.ProviderException;
++import com.fieldops.app.notification.provider.ProviderField;
++import com.fieldops.app.notification.provider.ProviderType;
+ import com.fieldops.app.tenant.Plan;
+ import com.fieldops.app.tenant.PlanFeature;
+ import com.fieldops.app.tenant.PlanFeatureService;
+@@ -30,11 +36,9 @@ import com.fieldops.app.tenant.Tenant;
+ import com.fieldops.app.tenant.TenantAccessService;
+ import com.fieldops.app.tenant.TenantRepository;
+ import com.fieldops.app.tenant.TenantStatus;
+-import org.springframework.http.MediaType;
+ import org.springframework.jdbc.core.JdbcTemplate;
+ import org.springframework.stereotype.Service;
+ import org.springframework.transaction.annotation.Transactional;
+-import org.springframework.web.client.RestClient;
+ import org.springframework.web.client.RestClientResponseException;
+ 
+ /**
+@@ -59,24 +63,24 @@ public class PlatformService {
+     private final PlatformSettingsService settings;
+     private final TenantAccessService access;
+     private final PlanFeatureService planFeatures;
+-    private final UnifonicSmsChannel sms;
++    private final NotificationProviders providers;
++    private final MessagingProviderService providerSettings;
+     private final JdbcTemplate jdbc;
+-    private final RestClient http;
+     private final Clock clock;
+ 
+     public PlatformService(TenantRepository tenants, PlanRepository plans, UserRepository users,
+                            PlatformSettingsService settings, TenantAccessService access,
+-                           PlanFeatureService planFeatures, UnifonicSmsChannel sms, JdbcTemplate jdbc,
+-                           RestClient.Builder http, Clock clock) {
++                           PlanFeatureService planFeatures, NotificationProviders providers,
++                           MessagingProviderService providerSettings, JdbcTemplate jdbc, Clock clock) {
+         this.tenants = tenants;
+         this.plans = plans;
+         this.users = users;
+         this.settings = settings;
+         this.access = access;
+         this.planFeatures = planFeatures;
+-        this.sms = sms;
++        this.providers = providers;
++        this.providerSettings = providerSettings;
+         this.jdbc = jdbc;
+-        this.http = http.build();
+         this.clock = clock;
+     }
+ 
+@@ -126,21 +130,30 @@ public class PlatformService {
+     public record Secret(boolean set, String hint) {
+     }
+ 
+-    public record MessagingView(boolean configured, boolean whatsappEnabled, String whatsappApiUrl,
+-                                String whatsappApiVersion, String whatsappPhoneNumberId,
+-                                String whatsappBusinessAccountId, Secret whatsappAccessToken,
+-                                Secret whatsappAppSecret, Secret whatsappVerifyToken, String whatsappLanguage,
+-                                Map<String, String> whatsappTemplates, boolean smsEnabled, String smsApiUrl,
+-                                Secret smsAppSid, String smsSenderId, String webhookPath, List<String> templateKeys,
+-                                boolean whatsappReady, boolean smsReady, Instant updatedAt) {
++    /** One setting of a provider; secrets carry only {@code saved} (masked), never the value. */
++    public record FieldView(String key, String label, boolean secret, boolean required, String placeholder,
++                            String value, Secret saved) {
+     }
+ 
+-    /** Secrets: null = keep the saved one, "" = clear, anything else = replace. */
+-    public record MessagingData(boolean whatsappEnabled, String whatsappApiUrl, String whatsappApiVersion,
+-                                String whatsappPhoneNumberId, String whatsappBusinessAccountId,
+-                                String whatsappAccessToken, String whatsappAppSecret, String whatsappVerifyToken,
+-                                String whatsappLanguage, Map<String, String> whatsappTemplates, boolean smsEnabled,
+-                                String smsApiUrl, String smsAppSid, String smsSenderId) {
++    /**
++     * @param channels       what the provider can carry; {@code activeChannels} what it carries now (enabled + ready)
++     * @param saved          false: never saved in the console (Meta / Unifonic still use the environment variables)
++     * @param missing        required fields still empty
++     */
++    public record ProviderView(ProviderType type, String name, Set<ChannelType> channels,
++                               List<ChannelType> activeChannels, boolean enabled, int priority, boolean saved,
++                               boolean ready, List<String> missing, List<FieldView> fields, boolean usesTemplates,
++                               Map<String, String> templates, Instant updatedAt) {
++    }
++
++    /** @param order providers tried per channel right now, first to last */
++    public record MessagingView(List<ProviderView> providers, List<String> templateKeys, String webhookPath,
++                                Map<ChannelType, List<ProviderType>> order) {
++    }
++
++    /** {@code values}: a secret that is absent or null keeps the saved one, "" clears it. */
++    public record ProviderData(boolean enabled, Integer priority, Map<String, String> values,
++                               Map<String, String> templates) {
+     }
+ 
+     public record TestResult(boolean ok, String message) {
+@@ -452,84 +465,147 @@ public class PlatformService {
+     }
+ 
+     public MessagingView messaging() {
+-        PlatformSettingsService.Settings s = settings.get();
+-        NotificationProperties.WhatsApp wa = settings.whatsapp();
+-        NotificationProperties.Sms sm = settings.sms();
+         List<String> keys = new ArrayList<>();
+         for (NotificationTemplate t : NotificationTemplate.values()) {
+             keys.add(t.name());
+         }
++        Map<ProviderType, ProviderConfig> configs = providerSettings.all();
++        List<ProviderView> views = new ArrayList<>();
++        for (NotificationProvider p : providers.configurable()) {
++            views.add(view(p, configs.get(p.type()), keys));
++        }
++        views.sort((a, b) -> a.priority() != b.priority() ? Integer.compare(a.priority(), b.priority())
++                : a.type().compareTo(b.type()));
++        Map<ChannelType, List<ProviderType>> order = new LinkedHashMap<>();
++        for (ChannelType ch : List.of(ChannelType.WHATSAPP, ChannelType.SMS)) {
++            order.put(ch, providers.ready(ch).stream().map(a -> a.provider().type()).toList());
++        }
++        return new MessagingView(views, keys, "/api/v1/webhooks/whatsapp", order);
++    }
++
++    private static ProviderView view(NotificationProvider p, ProviderConfig c, List<String> keys) {
++        List<FieldView> fields = new ArrayList<>();
++        for (ProviderField f : p.fields()) {
++            fields.add(new FieldView(f.key(), f.label(), f.secret(), f.required(), f.placeholder(),
++                    f.secret() ? null : c.get(f.key()), f.secret() ? mask(c.get(f.key())) : null));
++        }
++        List<ChannelType> active = new ArrayList<>();
++        boolean ready = false;
++        for (ChannelType ch : p.type().channels()) {
++            if (p.supports(ch, c)) {
++                ready = true;
++                if (c.enabled()) {
++                    active.add(ch);
++                }
++            }
++        }
+         Map<String, String> templates = new LinkedHashMap<>();
+-        for (String k : keys) {
+-            templates.put(k, wa.templateName(k));
++        if (p.type().usesTemplates()) {
++            for (String k : keys) {
++                templates.put(k, c.templates().getOrDefault(k, ""));
++            }
+         }
+-        boolean waReady = wa.enabled() && notBlank(wa.accessToken()) && notBlank(wa.phoneNumberId());
+-        boolean smsReady = sm.enabled() && notBlank(sm.appSid());
+-        // Before the first save, show what the environment provides so the form starts from the running values.
+-        return new MessagingView(s.messagingConfigured(), wa.enabled(), wa.url(), wa.version(), wa.phoneNumberId(),
+-                s.whatsappBusinessAccountId(), mask(wa.accessToken()), mask(wa.appSecret()), mask(wa.verifyToken()),
+-                wa.language() == null ? "ar" : wa.language(), templates, sm.enabled(), sm.url(), mask(sm.appSid()),
+-                sm.senderId(), "/api/v1/webhooks/whatsapp", keys, waReady, smsReady, s.updatedAt());
++        return new ProviderView(p.type(), p.type().displayName(), p.type().channels(), active, c.enabled(),
++                c.priority(), c.saved(), ready, p.missing(c), fields, p.type().usesTemplates(), templates,
++                c.updatedAt());
+     }
+ 
++    /** Saves one provider's settings, on/off and priority. Secrets left empty keep the saved (or environment) value. */
+     @Transactional
+-    public MessagingView updateMessaging(MessagingData d) {
+-        PlatformSettingsService.Settings s = settings.get();
+-        // First save from the console: secrets left empty in the form keep the environment's values.
+-        NotificationProperties.WhatsApp wa = settings.whatsapp();
+-        NotificationProperties.Sms sm = settings.sms();
+-        boolean first = !s.messagingConfigured();
++    public MessagingView saveProvider(ProviderType type, ProviderData d) {
++        NotificationProvider p = configurable(type);
++        ProviderConfig cur = providerSettings.config(type);
++        Map<String, String> incoming = d.values() == null ? Map.of() : d.values();
++        Map<String, String> plain = new LinkedHashMap<>();
++        Map<String, String> secrets = new LinkedHashMap<>();
++        for (ProviderField f : p.fields()) {
++            String v = incoming.get(f.key());
++            if (f.secret()) {
++                String kept = v == null ? cur.get(f.key()) : blankToNull(v);
++                if (kept != null) {
++                    secrets.put(f.key(), kept);
++                }
++            } else {
++                String value = blankToNull(v);
++                if (value != null && value.length() > 500) {
++                    throw ApiException.badRequest("invalid_value", f.label() + " is too long");
++                }
++                if (ProviderField.API_URL.equals(f.key())) {
++                    value = validUrl(value, f.label());
++                }
++                if (value != null) {
++                    plain.put(f.key(), value);
++                }
++            }
++        }
+         Map<String, String> templates = new LinkedHashMap<>();
+-        if (d.whatsappTemplates() != null) {
+-            d.whatsappTemplates().forEach((k, v) -> {
+-                if (v != null && !v.isBlank()) {
+-                    templates.put(k, v.trim());
++        if (type.usesTemplates() && d.templates() != null) {
++            for (NotificationTemplate t : NotificationTemplate.values()) {
++                String v = blankToNull(d.templates().get(t.name()));
++                if (v != null) {
++                    templates.put(t.name(), v);
+                 }
+-            });
+-        }
+-        String url = validUrl(d.whatsappApiUrl(), "whatsapp_api_url");
+-        String smsUrl = validUrl(d.smsApiUrl(), "sms_api_url");
+-        settings.updateMessaging(d.whatsappEnabled(), url, blankToNull(d.whatsappApiVersion()),
+-                blankToNull(d.whatsappPhoneNumberId()), blankToNull(d.whatsappBusinessAccountId()),
+-                keepOrEnv(d.whatsappAccessToken(), first, wa.accessToken()),
+-                keepOrEnv(d.whatsappAppSecret(), first, wa.appSecret()),
+-                keepOrEnv(d.whatsappVerifyToken(), first, wa.verifyToken()), blankToNull(d.whatsappLanguage()),
+-                templates, d.smsEnabled(), smsUrl, keepOrEnv(d.smsAppSid(), first, sm.appSid()),
+-                blankToNull(d.smsSenderId()), CurrentUser.idOrNull());
+-        audit(null, "MESSAGING_UPDATED", "WhatsApp " + (d.whatsappEnabled() ? "on" : "off") + ", SMS "
+-                + (d.smsEnabled() ? "on" : "off"));
++            }
++        }
++        int priority = d.priority() == null ? cur.priority() : d.priority();
++        if (priority < 1 || priority > 999) {
++            throw ApiException.badRequest("invalid_priority", "Order must be between 1 and 999");
++        }
++        Map<String, String> merged = new LinkedHashMap<>(plain);
++        merged.putAll(secrets);
++        if (d.enabled()) {
++            requireReady(p, new ProviderConfig(type, true, priority, true, merged, templates, null));
++        }
++        providerSettings.save(type, d.enabled(), priority, plain, secrets, templates, CurrentUser.idOrNull());
++        audit(null, "MESSAGING_PROVIDER_UPDATED", type.displayName() + (d.enabled() ? " on" : " off")
++                + ", order " + priority);
++        return messaging();
++    }
++
++    /** Switches one provider on or off, keeping its settings. */
++    @Transactional
++    public MessagingView setProviderEnabled(ProviderType type, boolean enabled) {
++        NotificationProvider p = configurable(type);
++        ProviderConfig cur = providerSettings.config(type);
++        if (enabled) {
++            requireReady(p, cur);
++        }
++        Map<String, String> plain = new LinkedHashMap<>();
++        Map<String, String> secrets = new LinkedHashMap<>();
++        for (ProviderField f : p.fields()) {
++            String v = cur.get(f.key());
++            if (v != null) {
++                (f.secret() ? secrets : plain).put(f.key(), v);
++            }
++        }
++        providerSettings.save(type, enabled, cur.priority(), plain, secrets,
++                type.usesTemplates() ? cur.templates() : Map.of(), CurrentUser.idOrNull());
++        audit(null, enabled ? "MESSAGING_PROVIDER_ENABLED" : "MESSAGING_PROVIDER_DISABLED", type.displayName());
+         return messaging();
+     }
+ 
+     /**
+-     * Sends a test: SMS with a short text, WhatsApp with Meta's built-in "hello_world" template (exists on every
+-     * WhatsApp Business account, so it tests the credentials without approved templates).
++     * Sends a test through one provider with its saved settings (even when it is switched off, so it can be tried
++     * before going live). SMS sends a short text; Meta sends its built-in "hello_world" template; Gupshup and Twilio
++     * WhatsApp send the template mapped to OTP with the code 123456.
+      */
+-    public TestResult test(String channel, String rawPhone) {
++    public TestResult testProvider(ProviderType type, ChannelType channel, String rawPhone) {
++        NotificationProvider p = configurable(type);
+         String phone = PhoneNumbers.normalizeSaudiMobile(rawPhone)
+                 .orElseThrow(() -> ApiException.badRequest("invalid_phone", "Enter a Saudi mobile number"));
++        ChannelType ch = channel != null ? channel : type.channels().iterator().next();
++        if (!type.channels().contains(ch)) {
++            throw ApiException.badRequest("invalid_channel", type.displayName() + " does not send " + ch);
++        }
++        ProviderConfig c = providerSettings.config(type);
++        if (!p.supports(ch, c)) {
++            List<String> missing = labels(p, c);
++            return new TestResult(false, "Not configured for " + ch + ": fill in "
++                    + (missing.isEmpty() ? "the " + ch + " sender" : String.join(", ", missing)));
++        }
+         try {
+-            if ("SMS".equals(channel)) {
+-                if (!sms.isEnabled()) {
+-                    return new TestResult(false, "SMS is off or the AppSid is missing");
+-                }
+-                String id = sms.send(phone, NotificationTemplate.OTP, "FieldOps: رسالة تجريبية / test message", List.of());
+-                return new TestResult(true, "Sent (id " + id + ")");
+-            }
+-            NotificationProperties.WhatsApp wa = settings.whatsapp();
+-            if (!wa.enabled() || !notBlank(wa.accessToken()) || !notBlank(wa.phoneNumberId())) {
+-                return new TestResult(false, "WhatsApp is off or the token / phone number ID is missing");
+-            }
+-            Map<?, ?> res = http.post()
+-                    .uri(wa.url() + "/{v}/{id}/messages", wa.version(), wa.phoneNumberId())
+-                    .header("Authorization", "Bearer " + wa.accessToken())
+-                    .contentType(MediaType.APPLICATION_JSON)
+-                    .body(Map.of("messaging_product", "whatsapp", "to", phone.replace("+", ""), "type", "template",
+-                            "template", Map.of("name", "hello_world", "language", Map.of("code", "en_US"))))
+-                    .retrieve()
+-                    .body(Map.class);
+-            return new TestResult(true, "Sent: " + (res == null ? "" : String.valueOf(res.get("messages"))));
+-        } catch (MessageChannel.ChannelException e) {
++            return new TestResult(true, "Sent (id " + p.sendTest(ch, c, phone) + ")");
++        } catch (ProviderException e) {
+             return new TestResult(false, e.getMessage());
+         } catch (RestClientResponseException e) {
+             return new TestResult(false, e.getStatusCode().value() + ": " + e.getResponseBodyAsString());
+@@ -538,6 +614,29 @@ public class PlatformService {
+         }
+     }
+ 
++    private NotificationProvider configurable(ProviderType type) {
++        if (type == null || type == ProviderType.LOG) {
++            throw ApiException.notFound("provider");
++        }
++        return providers.get(type);
++    }
++
++    /** A provider can be switched on only when it can carry at least one of its channels. */
++    private static void requireReady(NotificationProvider p, ProviderConfig c) {
++        boolean any = p.type().channels().stream().anyMatch(ch -> p.supports(ch, c));
++        if (!any) {
++            List<String> missing = labels(p, c);
++            throw ApiException.conflict("provider_incomplete", "Fill in " + (missing.isEmpty()
++                    ? "a sender for at least one channel" : String.join(", ", missing)) + " before switching on "
++                    + p.type().displayName());
++        }
++    }
++
++    private static List<String> labels(NotificationProvider p, ProviderConfig c) {
++        List<String> missing = p.missing(c);
++        return p.fields().stream().filter(f -> missing.contains(f.key())).map(ProviderField::label).toList();
++    }
++
+     // =============================================================================================
+     // Helpers
+     // =============================================================================================
+@@ -596,17 +695,10 @@ public class PlatformService {
+         return new Secret(true, s.length() <= 4 ? "••••" : "••••" + s.substring(s.length() - 4));
+     }
+ 
+-    private static String keepOrEnv(String incoming, boolean first, String envValue) {
+-        if (incoming == null && first) {
+-            return envValue;
+-        }
+-        return incoming;
+-    }
+-
+     private static String validUrl(String url, String field) {
+         String u = blankToNull(url);
+         if (u != null && !u.matches("https://[^\\s]+")) {
+-            throw ApiException.badRequest("invalid_url", "The " + field + " must start with https://");
++            throw ApiException.badRequest("invalid_url", field + " must start with https://");
+         }
+         return u;
+     }
+diff --git a/backend/admin/src/main/resources/db/migration/V35__messaging_providers.sql b/backend/admin/src/main/resources/db/migration/V35__messaging_providers.sql
+new file mode 100644
+index 0000000..b1fe4ec
+--- /dev/null
++++ b/backend/admin/src/main/resources/db/migration/V35__messaging_providers.sql
+@@ -0,0 +1,72 @@
++-- Message providers the platform admin switches on and off (Platform → Settings → Messaging): Meta WhatsApp Cloud
++-- API, Gupshup WhatsApp, Twilio (WhatsApp + SMS), Taqnyat SMS, Unifonic SMS. One row per provider.
++--   enabled    : switched on by the platform admin
++--   priority   : lower is tried first among the providers ready for a channel (WhatsApp, SMS)
++--   saved      : false until saved once in the console; Meta and Unifonic then keep using the environment variables
++--   settings   : non-secret fields {"phoneNumberId": "...", "apiUrl": "..."}
++--   secrets    : secret fields, each value AES-GCM encrypted with SETTINGS_ENCRYPTION_KEY ("enc:v1:...")
++--   templates  : provider template name / id per message type {"BOOKING_CONFIRMED": "booking_confirmed"}
++-- The WhatsApp / SMS columns of platform_settings move here and are dropped.
++CREATE TABLE messaging_providers (
++    provider   VARCHAR(30)  PRIMARY KEY,
++    enabled    BOOLEAN      NOT NULL DEFAULT FALSE,
++    priority   INT          NOT NULL DEFAULT 100,
++    saved      BOOLEAN      NOT NULL DEFAULT FALSE,
++    settings   JSONB        NOT NULL DEFAULT '{}'::jsonb,
++    secrets    JSONB        NOT NULL DEFAULT '{}'::jsonb,
++    templates  JSONB        NOT NULL DEFAULT '{}'::jsonb,
++    updated_at TIMESTAMPTZ  NOT NULL DEFAULT now(),
++    updated_by UUID
++);
++
++-- Existing Meta WhatsApp settings (secrets are already encrypted with the same key, so they are copied as they are).
++INSERT INTO messaging_providers (provider, enabled, priority, saved, settings, secrets, templates, updated_at, updated_by)
++SELECT 'META_WHATSAPP', whatsapp_enabled, 10, messaging_configured,
++       jsonb_strip_nulls(jsonb_build_object(
++           'apiUrl', whatsapp_api_url, 'apiVersion', whatsapp_api_version,
++           'phoneNumberId', whatsapp_phone_number_id, 'businessAccountId', whatsapp_business_account_id,
++           'language', whatsapp_language)),
++       jsonb_strip_nulls(jsonb_build_object(
++           'accessToken', whatsapp_access_token, 'appSecret', whatsapp_app_secret,
++           'verifyToken', whatsapp_verify_token)),
++       COALESCE(whatsapp_templates, '{}'::jsonb), updated_at, updated_by
++FROM platform_settings WHERE id = 1;
++
++-- Existing Unifonic SMS settings.
++INSERT INTO messaging_providers (provider, enabled, priority, saved, settings, secrets, updated_at, updated_by)
++SELECT 'UNIFONIC_SMS', sms_enabled, 50, messaging_configured,
++       jsonb_strip_nulls(jsonb_build_object('apiUrl', sms_api_url, 'senderId', sms_sender_id)),
++       jsonb_strip_nulls(jsonb_build_object('appSid', sms_app_sid)),
++       updated_at, updated_by
++FROM platform_settings WHERE id = 1;
++
++-- New providers start switched off.
++INSERT INTO messaging_providers (provider, priority) VALUES
++    ('META_WHATSAPP', 10), ('GUPSHUP_WHATSAPP', 20), ('TWILIO', 30), ('TAQNYAT_SMS', 40), ('UNIFONIC_SMS', 50)
++ON CONFLICT (provider) DO NOTHING;
++
++GRANT SELECT, INSERT, UPDATE ON messaging_providers TO fieldops_app;
++
++ALTER TABLE platform_settings
++    DROP COLUMN messaging_configured,
++    DROP COLUMN whatsapp_enabled,
++    DROP COLUMN whatsapp_api_url,
++    DROP COLUMN whatsapp_api_version,
++    DROP COLUMN whatsapp_phone_number_id,
++    DROP COLUMN whatsapp_business_account_id,
++    DROP COLUMN whatsapp_access_token,
++    DROP COLUMN whatsapp_app_secret,
++    DROP COLUMN whatsapp_verify_token,
++    DROP COLUMN whatsapp_language,
++    DROP COLUMN whatsapp_templates,
++    DROP COLUMN sms_enabled,
++    DROP COLUMN sms_api_url,
++    DROP COLUMN sms_app_sid,
++    DROP COLUMN sms_sender_id;
++
++-- Which provider carried (or last tried) each message.
++ALTER TABLE notifications ADD COLUMN provider VARCHAR(30);
++UPDATE notifications SET provider = CASE channel WHEN 'WHATSAPP' THEN 'META_WHATSAPP'
++                                                 WHEN 'SMS' THEN 'UNIFONIC_SMS'
++                                                 WHEN 'LOG' THEN 'LOG' END
++WHERE channel IS NOT NULL;
+diff --git a/backend/core/src/main/java/com/fieldops/app/notification/Notification.java b/backend/core/src/main/java/com/fieldops/app/notification/Notification.java
+index 29593c8..ad884ac 100644
+--- a/backend/core/src/main/java/com/fieldops/app/notification/Notification.java
++++ b/backend/core/src/main/java/com/fieldops/app/notification/Notification.java
+@@ -14,6 +14,7 @@ import jakarta.persistence.Table;
+ 
+ import com.fieldops.app.common.persistence.TenantScopedEntity;
+ import com.fieldops.app.notification.channel.ChannelType;
++import com.fieldops.app.notification.provider.ProviderType;
+ import org.hibernate.annotations.JdbcTypeCode;
+ import org.hibernate.type.SqlTypes;
+ 
+@@ -40,6 +41,10 @@ public class Notification extends TenantScopedEntity {
+     @Enumerated(EnumType.STRING)
+     private ChannelType channel;
+ 
++    /** Who carried (or last tried) the message. */
++    @Enumerated(EnumType.STRING)
++    private ProviderType provider;
++
+     @Column(name = "to_phone", nullable = false, updatable = false)
+     private String toPhone;
+ 
+@@ -84,8 +89,9 @@ public class Notification extends TenantScopedEntity {
+         this.nextAttemptAt = notBefore;
+     }
+ 
+-    public void markSent(ChannelType channel, String providerMessageId, Instant at) {
++    public void markSent(ChannelType channel, ProviderType provider, String providerMessageId, Instant at) {
+         this.channel = channel;
++        this.provider = provider;
+         this.providerMessageId = providerMessageId;
+         this.status = Status.SENT;
+         this.sentAt = at;
+@@ -94,8 +100,9 @@ public class Notification extends TenantScopedEntity {
+     }
+ 
+     /** @return true if another attempt is scheduled */
+-    public boolean markFailed(ChannelType channel, String error, boolean permanent, Instant now) {
++    public boolean markFailed(ChannelType channel, ProviderType provider, String error, boolean permanent, Instant now) {
+         this.channel = channel;
++        this.provider = provider;
+         this.attempts++;
+         this.error = error == null ? null : error.substring(0, Math.min(error.length(), 500));
+         if (permanent || attempts > BACKOFF.size()) {
+@@ -140,6 +147,10 @@ public class Notification extends TenantScopedEntity {
+         return channel;
+     }
+ 
++    public ProviderType getProvider() {
++        return provider;
++    }
++
+     public String getToPhone() {
+         return toPhone;
+     }
+diff --git a/backend/core/src/main/java/com/fieldops/app/notification/NotificationDispatcher.java b/backend/core/src/main/java/com/fieldops/app/notification/NotificationDispatcher.java
+index d166c5f..1189f3d 100644
+--- a/backend/core/src/main/java/com/fieldops/app/notification/NotificationDispatcher.java
++++ b/backend/core/src/main/java/com/fieldops/app/notification/NotificationDispatcher.java
+@@ -10,7 +10,10 @@ import java.util.UUID;
+ 
+ import com.fieldops.app.common.tenant.TenantContext;
+ import com.fieldops.app.notification.channel.ChannelType;
+-import com.fieldops.app.notification.channel.MessageChannel;
++import com.fieldops.app.notification.provider.NotificationProviders;
++import com.fieldops.app.notification.provider.OutgoingMessage;
++import com.fieldops.app.notification.provider.ProviderException;
++import com.fieldops.app.notification.provider.ProviderType;
+ import com.fieldops.app.tenant.PlanFeature;
+ import com.fieldops.app.tenant.PlanFeatureService;
+ import com.fieldops.app.tenant.Tenant;
+@@ -23,9 +26,11 @@ import org.springframework.stereotype.Component;
+ import org.springframework.transaction.support.TransactionTemplate;
+ 
+ /**
+- * Sends due outbox rows. WhatsApp first; on a permanent WhatsApp failure (not on WhatsApp, template
+- * rejected) it falls back to SMS immediately; temporary failures retry with back-off. With no provider
+- * configured, messages go to the log channel so development works without accounts.
++ * Sends due outbox rows through the providers the platform admin enabled (Platform → Settings → Messaging).
++ * Status messages try every ready WhatsApp provider in priority order, then every SMS provider; OTP codes go
++ * SMS first. Any failure moves on to the next provider immediately; when all fail, the message is retried later
++ * with back-off unless every provider refused it for good (not on WhatsApp, template rejected, bad number).
++ * With no provider enabled, messages go to the log so development works without accounts.
+  */
+ @Component
+ public class NotificationDispatcher {
+@@ -36,20 +41,20 @@ public class NotificationDispatcher {
+     private final NotificationRepository notifications;
+     private final NotificationRefRepository refs;
+     private final TenantRepository tenants;
+-    private final List<MessageChannel> channels;
++    private final NotificationProviders providers;
+     private final TransactionTemplate tx;
+     private final Clock clock;
+     private final PlanFeatureService features;
+     private final int limitedMonthlyCap;
+ 
+     public NotificationDispatcher(NotificationRepository notifications, NotificationRefRepository refs,
+-                                  TenantRepository tenants, List<MessageChannel> channels, TransactionTemplate tx,
++                                  TenantRepository tenants, NotificationProviders providers, TransactionTemplate tx,
+                                   Clock clock, PlanFeatureService features,
+                                   @Value("${app.plans.limited-whatsapp-monthly:100}") int limitedMonthlyCap) {
+         this.notifications = notifications;
+         this.refs = refs;
+         this.tenants = tenants;
+-        this.channels = channels;
++        this.providers = providers;
+         this.tx = tx;
+         this.clock = clock;
+         this.features = features;
+@@ -98,31 +103,38 @@ public class NotificationDispatcher {
+             n.markSkipped("monthly_limit");
+             return false;
+         }
+-        List<MessageChannel> chain = chainFor(n.getTemplate());
++        List<Step> chain = chainFor(n.getTemplate());
++        OutgoingMessage message = new OutgoingMessage(n.getToPhone(), n.getTemplate(), n.getBody(), n.getParams());
+         Instant now = Instant.now(clock);
+-        for (int i = 0; i < chain.size(); i++) {
+-            MessageChannel channel = chain.get(i);
++        List<String> errors = new ArrayList<>();
++        boolean allPermanent = true;
++        Step last = null;
++        for (Step step : chain) {
++            last = step;
++            ProviderType provider = step.active().provider().type();
+             try {
+-                String providerId = channel.send(n.getToPhone(), n.getTemplate(), n.getBody(), n.getParams());
+-                n.markSent(channel.type(), providerId, now);
+-                if (channel.type() != ChannelType.LOG && providerId != null) {
++                String providerId = step.active().provider().send(step.channel(), step.active().config(), message);
++                n.markSent(step.channel(), provider, providerId, now);
++                if (provider != ProviderType.LOG && providerId != null) {
+                     refs.save(new NotificationRef(providerId, tenantId, n.getId()));
+                 }
+                 return true;
+-            } catch (MessageChannel.ChannelException e) {
+-                boolean hasFallback = i < chain.size() - 1;
+-                log.warn("Notification {} via {} failed (permanent={}): {}", n.getId(), channel.type(), e.isPermanent(),
+-                        e.getMessage());
+-                if (e.isPermanent() && hasFallback) {
+-                    continue; // try the next channel right away
+-                }
+-                n.markFailed(channel.type(), e.getMessage(), e.isPermanent(), now);
+-                return false;
++            } catch (ProviderException e) {
++                log.warn("Notification {} via {}/{} failed (permanent={}): {}", n.getId(), provider, step.channel(),
++                        e.isPermanent(), e.getMessage());
++                errors.add(provider + ": " + e.getMessage());
++                allPermanent &= e.isPermanent();
+             } catch (RuntimeException e) {
+-                log.error("Unexpected error sending notification {}", n.getId(), e);
+-                n.markFailed(channel.type(), e.getClass().getSimpleName(), false, now);
+-                return false;
++                log.error("Unexpected error sending notification {} via {}", n.getId(), provider, e);
++                errors.add(provider + ": " + e.getClass().getSimpleName());
++                allPermanent = false;
+             }
++            // Next provider right away. A timeout after the provider accepted the message can rarely mean the
++            // customer gets it twice; preferred over not delivering while one provider is down.
++        }
++        if (last != null) {
++            // Retry later (whole chain again) unless every provider refused for good.
++            n.markFailed(last.channel(), last.active().provider().type(), String.join(" | ", errors), allPermanent, now);
+         }
+         return false;
+     }
+@@ -137,31 +149,24 @@ public class NotificationDispatcher {
+         return LocalDate.now(clock.withZone(zone)).withDayOfMonth(1).atStartOfDay(zone).toInstant();
+     }
+ 
++    /** One attempt: a provider on a channel (Twilio can appear twice, once for WhatsApp and once for SMS). */
++    record Step(ChannelType channel, NotificationProviders.Active active) {
++    }
++
+     /** OTP prefers SMS (WhatsApp needs a special authentication template); everything else prefers WhatsApp. */
+-    List<MessageChannel> chainFor(NotificationTemplate template) {
+-        MessageChannel whatsapp = find(ChannelType.WHATSAPP);
+-        MessageChannel sms = find(ChannelType.SMS);
+-        List<MessageChannel> chain = new ArrayList<>();
+-        if (template == NotificationTemplate.OTP) {
+-            add(chain, sms);
+-            add(chain, whatsapp);
+-        } else {
+-            add(chain, whatsapp);
+-            add(chain, sms);
++    List<Step> chainFor(NotificationTemplate template) {
++        List<Step> chain = new ArrayList<>();
++        List<ChannelType> order = template == NotificationTemplate.OTP
++                ? List.of(ChannelType.SMS, ChannelType.WHATSAPP)
++                : List.of(ChannelType.WHATSAPP, ChannelType.SMS);
++        for (ChannelType channel : order) {
++            for (NotificationProviders.Active a : providers.ready(channel)) {
++                chain.add(new Step(channel, a));
++            }
+         }
+         if (chain.isEmpty()) {
+-            chain.add(find(ChannelType.LOG));
++            chain.add(new Step(ChannelType.LOG, providers.log()));
+         }
+         return chain;
+     }
+-
+-    private MessageChannel find(ChannelType type) {
+-        return channels.stream().filter(c -> c.type() == type).findFirst().orElse(null);
+-    }
+-
+-    private static void add(List<MessageChannel> chain, MessageChannel c) {
+-        if (c != null && c.isEnabled()) {
+-            chain.add(c);
+-        }
+-    }
+ }
+diff --git a/backend/core/src/main/java/com/fieldops/app/notification/channel/LogMessageChannel.java b/backend/core/src/main/java/com/fieldops/app/notification/channel/LogMessageChannel.java
+deleted file mode 100644
+index 4c7439b..0000000
+--- a/backend/core/src/main/java/com/fieldops/app/notification/channel/LogMessageChannel.java
++++ /dev/null
+@@ -1,38 +0,0 @@
+-package com.fieldops.app.notification.channel;
+-
+-import java.util.List;
+-import java.util.UUID;
+-
+-import com.fieldops.app.notification.NotificationTemplate;
+-import org.slf4j.Logger;
+-import org.slf4j.LoggerFactory;
+-import org.springframework.stereotype.Component;
+-
+-/** Default in development: prints the message instead of sending it. Always enabled, used last. */
+-@Component
+-public class LogMessageChannel implements MessageChannel {
+-
+-    private static final Logger log = LoggerFactory.getLogger(LogMessageChannel.class);
+-
+-    @Override
+-    public ChannelType type() {
+-        return ChannelType.LOG;
+-    }
+-
+-    @Override
+-    public boolean isEnabled() {
+-        return true;
+-    }
+-
+-    @Override
+-    public String send(String toE164, NotificationTemplate template, String body, List<String> params) {
+-        String id = "log-" + UUID.randomUUID();
+-        log.info("[notification:{}] to {} — {}", template, mask(toE164), body);
+-        return id;
+-    }
+-
+-    /** Keeps logs free of full customer phone numbers. */
+-    static String mask(String phone) {
+-        return phone == null || phone.length() < 6 ? "***" : phone.substring(0, 6) + "****" + phone.substring(phone.length() - 2);
+-    }
+-}
+diff --git a/backend/core/src/main/java/com/fieldops/app/notification/channel/MessageChannel.java b/backend/core/src/main/java/com/fieldops/app/notification/channel/MessageChannel.java
+deleted file mode 100644
+index ea61d88..0000000
+--- a/backend/core/src/main/java/com/fieldops/app/notification/channel/MessageChannel.java
++++ /dev/null
+@@ -1,36 +0,0 @@
+-package com.fieldops.app.notification.channel;
+-
+-import java.util.List;
+-
+-import com.fieldops.app.notification.NotificationTemplate;
+-
+-/** A way to reach the customer's phone. Implementations must be safe to call from the dispatcher thread. */
+-public interface MessageChannel {
+-
+-    ChannelType type();
+-
+-    /** Configured with credentials and switched on? */
+-    boolean isEnabled();
+-
+-    /**
+-     * @param toE164 phone in E.164, e.g. +966551234567
+-     * @param body   rendered Arabic text (SMS uses it as-is)
+-     * @param params template parameters in {@link NotificationTemplate#params()} order (WhatsApp templates)
+-     * @return provider message id
+-     * @throws ChannelException on failure; {@link ChannelException#isPermanent()} decides retry vs. fallback
+-     */
+-    String send(String toE164, NotificationTemplate template, String body, List<String> params);
+-
+-    class ChannelException extends RuntimeException {
+-        private final boolean permanent;
+-
+-        public ChannelException(String message, boolean permanent, Throwable cause) {
+-            super(message, cause);
+-            this.permanent = permanent;
+-        }
+-
+-        public boolean isPermanent() {
+-            return permanent;
+-        }
+-    }
+-}
+diff --git a/backend/core/src/main/java/com/fieldops/app/notification/channel/UnifonicSmsChannel.java b/backend/core/src/main/java/com/fieldops/app/notification/channel/UnifonicSmsChannel.java
+deleted file mode 100644
+index f2e7ded..0000000
+--- a/backend/core/src/main/java/com/fieldops/app/notification/channel/UnifonicSmsChannel.java
++++ /dev/null
+@@ -1,76 +0,0 @@
+-package com.fieldops.app.notification.channel;
+-
+-import com.fieldops.app.platform.PlatformSettingsService;
+-
+-import java.util.List;
+-import java.util.Map;
+-
+-import com.fieldops.app.notification.NotificationTemplate;
+-import org.springframework.http.MediaType;
+-import org.springframework.stereotype.Component;
+-import org.springframework.util.LinkedMultiValueMap;
+-import org.springframework.util.MultiValueMap;
+-import org.springframework.web.client.ResourceAccessException;
+-import org.springframework.web.client.RestClient;
+-import org.springframework.web.client.RestClientResponseException;
+-
+-/**
+- * SMS through Unifonic (a common Saudi provider). Verify the endpoint and field names against your
+- * Unifonic account's API docs; swap this class for Taqnyat/Msegat by implementing {@link MessageChannel}.
+- * Note: the sender id must be registered with the provider (CITC rules for Saudi numbers).
+- */
+-@Component
+-public class UnifonicSmsChannel implements MessageChannel {
+-
+-    private final PlatformSettingsService settings;
+-    private final RestClient http;
+-
+-    /** Credentials and URL are read per message (Platform → Messaging), so changes apply without a restart. */
+-    public UnifonicSmsChannel(PlatformSettingsService settings, RestClient.Builder builder) {
+-        this.settings = settings;
+-        this.http = builder.build();
+-    }
+-
+-    @Override
+-    public ChannelType type() {
+-        return ChannelType.SMS;
+-    }
+-
+-    @Override
+-    public boolean isEnabled() {
+-        NotificationProperties.Sms config = settings.sms();
+-        return config.enabled() && config.appSid() != null && !config.appSid().isBlank();
+-    }
+-
+-    @Override
+-    @SuppressWarnings("unchecked")
+-    public String send(String toE164, NotificationTemplate template, String body, List<String> params) {
+-        NotificationProperties.Sms config = settings.sms();
+-        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+-        form.add("AppSid", config.appSid());
+-        form.add("SenderID", config.senderId());
+-        form.add("Recipient", toE164.replace("+", ""));
+-        form.add("Body", body);
+-        form.add("responseType", "JSON");
+-        try {
+-            Map<String, Object> response = http.post()
+-                    .uri(config.url() + "/rest/SMS/messages")
+-                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+-                    .body(form)
+-                    .retrieve()
+-                    .body(Map.class);
+-            if (response == null || !Boolean.TRUE.equals(response.get("success"))) {
+-                throw new ChannelException("SMS rejected: " + response, true, null);
+-            }
+-            Object data = response.get("data");
+-            Object id = data instanceof Map<?, ?> m ? m.get("MessageID") : null;
+-            return id == null ? "sms-unknown" : String.valueOf(id);
+-        } catch (RestClientResponseException e) {
+-            int status = e.getStatusCode().value();
+-            throw new ChannelException("SMS " + status + ": " + e.getResponseBodyAsString(),
+-                    status >= 400 && status < 500 && status != 429, e);
+-        } catch (ResourceAccessException e) {
+-            throw new ChannelException("SMS provider unreachable: " + e.getMessage(), false, e);
+-        }
+-    }
+-}
+diff --git a/backend/core/src/main/java/com/fieldops/app/notification/channel/WhatsAppCloudChannel.java b/backend/core/src/main/java/com/fieldops/app/notification/channel/WhatsAppCloudChannel.java
+deleted file mode 100644
+index a5d719f..0000000
+--- a/backend/core/src/main/java/com/fieldops/app/notification/channel/WhatsAppCloudChannel.java
++++ /dev/null
+@@ -1,86 +0,0 @@
+-package com.fieldops.app.notification.channel;
+-
+-import com.fieldops.app.platform.PlatformSettingsService;
+-
+-import java.util.ArrayList;
+-import java.util.List;
+-import java.util.Map;
+-
+-import com.fieldops.app.notification.NotificationTemplate;
+-import org.springframework.http.MediaType;
+-import org.springframework.stereotype.Component;
+-import org.springframework.web.client.ResourceAccessException;
+-import org.springframework.web.client.RestClient;
+-import org.springframework.web.client.RestClientResponseException;
+-
+-/**
+- * WhatsApp Business Cloud API (Meta). Business-initiated messages must use approved templates, so this
+- * channel sends the template mapped to each {@link NotificationTemplate} with its parameters.
+- * Docs: developers.facebook.com/docs/whatsapp/cloud-api
+- */
+-@Component
+-public class WhatsAppCloudChannel implements MessageChannel {
+-
+-    private final PlatformSettingsService settings;
+-    private final RestClient http;
+-
+-    /** Credentials and URL are read per message (Platform → Messaging), so changes apply without a restart. */
+-    public WhatsAppCloudChannel(PlatformSettingsService settings, RestClient.Builder builder) {
+-        this.settings = settings;
+-        this.http = builder.build();
+-    }
+-
+-    @Override
+-    public ChannelType type() {
+-        return ChannelType.WHATSAPP;
+-    }
+-
+-    @Override
+-    public boolean isEnabled() {
+-        NotificationProperties.WhatsApp config = settings.whatsapp();
+-        return config.enabled() && notBlank(config.accessToken()) && notBlank(config.phoneNumberId());
+-    }
+-
+-    @Override
+-    @SuppressWarnings("unchecked")
+-    public String send(String toE164, NotificationTemplate template, String body, List<String> params) {
+-        NotificationProperties.WhatsApp config = settings.whatsapp();
+-        List<Map<String, Object>> parameters = new ArrayList<>();
+-        for (String p : params) {
+-            parameters.add(Map.of("type", "text", "text", p == null || p.isBlank() ? "-" : p));
+-        }
+-        Map<String, Object> payload = Map.of(
+-                "messaging_product", "whatsapp",
+-                "to", toE164.replace("+", ""),
+-                "type", "template",
+-                "template", Map.of(
+-                        "name", config.templateName(template.name()),
+-                        "language", Map.of("code", config.language() == null ? "ar" : config.language()),
+-                        "components", List.of(Map.of("type", "body", "parameters", parameters))));
+-        try {
+-            Map<String, Object> response = http.post()
+-                    .uri(config.url() + "/{version}/{phoneId}/messages", config.version(), config.phoneNumberId())
+-                    .header("Authorization", "Bearer " + config.accessToken())
+-                    .contentType(MediaType.APPLICATION_JSON)
+-                    .body(payload)
+-                    .retrieve()
+-                    .body(Map.class);
+-            List<Map<String, Object>> messages = response == null ? null : (List<Map<String, Object>>) response.get("messages");
+-            if (messages == null || messages.isEmpty()) {
+-                throw new ChannelException("WhatsApp returned no message id", false, null);
+-            }
+-            return String.valueOf(messages.get(0).get("id"));
+-        } catch (RestClientResponseException e) {
+-            int status = e.getStatusCode().value();
+-            // 4xx (bad number, template not approved, user not on WhatsApp) will not fix itself → fall back to SMS.
+-            boolean permanent = status >= 400 && status < 500 && status != 429;
+-            throw new ChannelException("WhatsApp " + status + ": " + e.getResponseBodyAsString(), permanent, e);
+-        } catch (ResourceAccessException e) {
+-            throw new ChannelException("WhatsApp unreachable: " + e.getMessage(), false, e);
+-        }
+-    }
+-
+-    private static boolean notBlank(String s) {
+-        return s != null && !s.isBlank();
+-    }
+-}
+diff --git a/backend/core/src/main/java/com/fieldops/app/notification/provider/GupshupWhatsAppProvider.java b/backend/core/src/main/java/com/fieldops/app/notification/provider/GupshupWhatsAppProvider.java
+new file mode 100644
+index 0000000..13c4d50
+--- /dev/null
++++ b/backend/core/src/main/java/com/fieldops/app/notification/provider/GupshupWhatsAppProvider.java
+@@ -0,0 +1,99 @@
++package com.fieldops.app.notification.provider;
++
++import java.util.ArrayList;
++import java.util.List;
++import java.util.Map;
++
++import com.fasterxml.jackson.core.JsonProcessingException;
++import com.fasterxml.jackson.databind.ObjectMapper;
++import com.fieldops.app.notification.channel.ChannelType;
++import org.springframework.http.MediaType;
++import org.springframework.stereotype.Component;
++import org.springframework.util.LinkedMultiValueMap;
++import org.springframework.util.MultiValueMap;
++import org.springframework.web.client.ResourceAccessException;
++import org.springframework.web.client.RestClient;
++import org.springframework.web.client.RestClientResponseException;
++
++/**
++ * WhatsApp through Gupshup (a Meta business solution provider). Sends approved templates by their Gupshup
++ * template ID: {@code POST /wa/api/v1/template/msg} with the {@code apikey} header.
++ * Docs: docs.gupshup.io/docs/template-messages
++ */
++@Component
++public class GupshupWhatsAppProvider implements NotificationProvider {
++
++    static final String API_KEY = "apiKey";
++    static final String SOURCE = "source";
++    static final String APP_NAME = "appName";
++
++    private static final List<ProviderField> FIELDS = List.of(
++            ProviderField.secret(API_KEY, "API key", true),
++            ProviderField.text(SOURCE, "Source WhatsApp number", true, "9665XXXXXXXX"),
++            ProviderField.text(APP_NAME, "App name (src.name)", true, null),
++            ProviderField.apiUrl("https://api.gupshup.io"));
++
++    private final RestClient http;
++    private final ObjectMapper json;
++
++    public GupshupWhatsAppProvider(RestClient.Builder builder, ObjectMapper json) {
++        this.http = builder.build();
++        this.json = json;
++    }
++
++    @Override
++    public ProviderType type() {
++        return ProviderType.GUPSHUP_WHATSAPP;
++    }
++
++    @Override
++    public List<ProviderField> fields() {
++        return FIELDS;
++    }
++
++    @Override
++    @SuppressWarnings("unchecked")
++    public String send(ChannelType channel, ProviderConfig config, OutgoingMessage message) {
++        String templateId = config.template(message.template());
++        if (templateId == null) {
++            throw ProviderException.missingTemplate("Gupshup", message.template().name());
++        }
++        List<String> params = new ArrayList<>();
++        for (String p : message.params()) {
++            params.add(p == null || p.isBlank() ? "-" : p);
++        }
++        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
++        form.add("channel", "whatsapp");
++        form.add("source", config.get(SOURCE).replace("+", ""));
++        form.add("destination", message.digits());
++        form.add("src.name", config.get(APP_NAME));
++        form.add("template", toJson(Map.of("id", templateId, "params", params)));
++        try {
++            Map<String, Object> response = http.post()
++                    .uri(config.url("https://api.gupshup.io") + "/wa/api/v1/template/msg")
++                    .header("apikey", config.get(API_KEY))
++                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
++                    .body(form)
++                    .retrieve()
++                    .body(Map.class);
++            // Gupshup can answer 2xx with {"status":"error","message":...}.
++            Object status = response == null ? null : response.get("status");
++            if (!"submitted".equals(status) || response.get("messageId") == null) {
++                throw new ProviderException("Gupshup rejected: " + response, true, null);
++            }
++            return String.valueOf(response.get("messageId"));
++        } catch (RestClientResponseException e) {
++            throw ProviderException.of("Gupshup", e);
++        } catch (ResourceAccessException e) {
++            throw ProviderException.unreachable("Gupshup", e);
++        }
++    }
++
++    private String toJson(Object value) {
++        try {
++            return json.writeValueAsString(value);
++        } catch (JsonProcessingException e) {
++            throw new ProviderException("Gupshup: could not encode template", true, e);
++        }
++    }
++}
+diff --git a/backend/core/src/main/java/com/fieldops/app/notification/provider/LogProvider.java b/backend/core/src/main/java/com/fieldops/app/notification/provider/LogProvider.java
+new file mode 100644
+index 0000000..7a3143c
+--- /dev/null
++++ b/backend/core/src/main/java/com/fieldops/app/notification/provider/LogProvider.java
+@@ -0,0 +1,38 @@
++package com.fieldops.app.notification.provider;
++
++import java.util.List;
++import java.util.UUID;
++
++import com.fieldops.app.notification.channel.ChannelType;
++import org.slf4j.Logger;
++import org.slf4j.LoggerFactory;
++import org.springframework.stereotype.Component;
++
++/** Used only when no provider is enabled (development): prints the message instead of sending it. */
++@Component
++public class LogProvider implements NotificationProvider {
++
++    private static final Logger log = LoggerFactory.getLogger(LogProvider.class);
++
++    @Override
++    public ProviderType type() {
++        return ProviderType.LOG;
++    }
++
++    @Override
++    public List<ProviderField> fields() {
++        return List.of();
++    }
++
++    @Override
++    public String send(ChannelType channel, ProviderConfig config, OutgoingMessage message) {
++        String id = "log-" + UUID.randomUUID();
++        log.info("[notification:{}] to {} — {}", message.template(), mask(message.toE164()), message.body());
++        return id;
++    }
++
++    /** Keeps logs free of full customer phone numbers. */
++    static String mask(String phone) {
++        return phone == null || phone.length() < 6 ? "***" : phone.substring(0, 6) + "****" + phone.substring(phone.length() - 2);
++    }
++}
+diff --git a/backend/core/src/main/java/com/fieldops/app/notification/provider/MessagingProviderService.java b/backend/core/src/main/java/com/fieldops/app/notification/provider/MessagingProviderService.java
+new file mode 100644
+index 0000000..8c04459
+--- /dev/null
++++ b/backend/core/src/main/java/com/fieldops/app/notification/provider/MessagingProviderService.java
+@@ -0,0 +1,209 @@
++package com.fieldops.app.notification.provider;
++
++import java.sql.ResultSet;
++import java.sql.SQLException;
++import java.sql.Timestamp;
++import java.time.Clock;
++import java.time.Duration;
++import java.time.Instant;
++import java.util.EnumMap;
++import java.util.HashMap;
++import java.util.LinkedHashMap;
++import java.util.Map;
++import java.util.UUID;
++
++import com.fasterxml.jackson.core.type.TypeReference;
++import com.fasterxml.jackson.databind.ObjectMapper;
++import com.fieldops.app.notification.NotificationTemplate;
++import com.fieldops.app.notification.channel.NotificationProperties;
++import com.fieldops.app.platform.SettingsCipher;
++import org.springframework.dao.DataAccessException;
++import org.springframework.jdbc.core.JdbcTemplate;
++import org.springframework.stereotype.Service;
++
++/**
++ * Settings of every message provider, edited by the platform admin (Platform → Settings → Messaging) and stored in
++ * {@code messaging_providers} (V35): on/off, priority, non-secret settings, encrypted secrets, template mapping.
++ *
++ * <p>Read with plain JDBC (no tenant, no RLS) and cached for a few seconds, so the dispatcher and the webhook in
++ * either app process pick up changes without a restart. Until Meta / Unifonic are saved once in the console their
++ * {@code app.notifications.*} environment settings apply, as before.
++ */
++@Service
++public class MessagingProviderService {
++
++    private static final Duration TTL = Duration.ofSeconds(20);
++    private static final TypeReference<Map<String, String>> MAP = new TypeReference<>() { };
++
++    private final JdbcTemplate jdbc;
++    private final SettingsCipher cipher;
++    private final NotificationProperties env;
++    private final ObjectMapper json;
++    private final Clock clock;
++
++    private volatile Snapshot cached;
++
++    private record Snapshot(Map<ProviderType, ProviderConfig> configs, Instant validUntil) {
++    }
++
++    public MessagingProviderService(JdbcTemplate jdbc, SettingsCipher cipher, NotificationProperties env,
++                                    ObjectMapper json, Clock clock) {
++        this.jdbc = jdbc;
++        this.cipher = cipher;
++        this.env = env;
++        this.json = json;
++        this.clock = clock;
++    }
++
++    public ProviderConfig config(ProviderType type) {
++        return all().get(type);
++    }
++
++    /** Every provider's settings in effect (a provider never saved gets defaults, or the environment's). */
++    public Map<ProviderType, ProviderConfig> all() {
++        Snapshot s = cached;
++        Instant now = Instant.now(clock);
++        if (s == null || !now.isBefore(s.validUntil())) {
++            Map<ProviderType, ProviderConfig> stored;
++            try {
++                stored = load();
++            } catch (DataAccessException e) {
++                // Table not there yet (the other app started before the admin migration): defaults / environment.
++                stored = Map.of();
++            }
++            Map<ProviderType, ProviderConfig> effective = new EnumMap<>(ProviderType.class);
++            for (ProviderType t : ProviderType.values()) {
++                ProviderConfig c = stored.get(t);
++                effective.put(t, withEnvironment(c == null ? unsaved(t) : c));
++            }
++            s = new Snapshot(effective, now.plus(TTL));
++            cached = s;
++        }
++        return s.configs();
++    }
++
++    public void evict() {
++        cached = null;
++    }
++
++    /**
++     * Saves one provider (insert or replace). Values are already merged by the caller: {@code secrets} holds the
++     * plain secrets to keep (each encrypted here), {@code settings} the non-secret fields.
++     */
++    public void save(ProviderType type, boolean enabled, int priority, Map<String, String> settings,
++                     Map<String, String> secrets, Map<String, String> templates, UUID actor) {
++        Map<String, String> encrypted = new LinkedHashMap<>();
++        secrets.forEach((k, v) -> {
++            String e = cipher.encrypt(v);
++            if (e != null) {
++                encrypted.put(k, e);
++            }
++        });
++        jdbc.update("""
++                insert into messaging_providers (provider, enabled, priority, saved, settings, secrets, templates,
++                                                 updated_at, updated_by)
++                values (?, ?, ?, true, cast(? as jsonb), cast(? as jsonb), cast(? as jsonb), now(), ?)
++                on conflict (provider) do update set enabled = excluded.enabled, priority = excluded.priority,
++                       saved = true, settings = excluded.settings, secrets = excluded.secrets,
++                       templates = excluded.templates, updated_at = now(), updated_by = excluded.updated_by""",
++                type.name(), enabled, priority, write(settings), write(encrypted), write(templates), actor);
++        evict();
++    }
++
++    // ---------------------------------------------------------------------------------------------
++
++    private Map<ProviderType, ProviderConfig> load() {
++        Map<ProviderType, ProviderConfig> result = new EnumMap<>(ProviderType.class);
++        jdbc.query("select * from messaging_providers", (ResultSet rs) -> {
++            ProviderType type;
++            try {
++                type = ProviderType.valueOf(rs.getString("provider"));
++            } catch (IllegalArgumentException e) {
++                return; // a provider removed from the code
++            }
++            result.put(type, row(type, rs));
++        });
++        return result;
++    }
++
++    private ProviderConfig row(ProviderType type, ResultSet rs) throws SQLException {
++        Map<String, String> values = new HashMap<>(read(rs.getString("settings")));
++        read(rs.getString("secrets")).forEach((k, v) -> {
++            String plain = cipher.decrypt(v);
++            if (plain != null) {
++                values.put(k, plain);
++            }
++        });
++        Timestamp updated = rs.getTimestamp("updated_at");
++        return new ProviderConfig(type, rs.getBoolean("enabled"), rs.getInt("priority"), rs.getBoolean("saved"),
++                values, read(rs.getString("templates")), updated == null ? null : updated.toInstant());
++    }
++
++    private static ProviderConfig unsaved(ProviderType type) {
++        return new ProviderConfig(type, type == ProviderType.LOG, type.defaultPriority(), false, Map.of(), Map.of(),
++                null);
++    }
++
++    /** Meta and Unifonic keep working from the environment variables until they are saved in the console. */
++    private ProviderConfig withEnvironment(ProviderConfig c) {
++        if (c.type() == ProviderType.META_WHATSAPP) {
++            Map<String, String> templates = c.templates();
++            if (templates.isEmpty()) {
++                // Saved without template names (or never saved): the YAML defaults.
++                templates = new LinkedHashMap<>();
++                for (NotificationTemplate t : NotificationTemplate.values()) {
++                    templates.put(t.name(), env.whatsapp().templateName(t.name()));
++                }
++            }
++            if (c.saved()) {
++                return new ProviderConfig(c.type(), c.enabled(), c.priority(), true, c.values(), templates,
++                        c.updatedAt());
++            }
++            NotificationProperties.WhatsApp wa = env.whatsapp();
++            Map<String, String> v = new HashMap<>();
++            put(v, MetaWhatsAppProvider.PHONE_NUMBER_ID, wa.phoneNumberId());
++            put(v, MetaWhatsAppProvider.ACCESS_TOKEN, wa.accessToken());
++            put(v, MetaWhatsAppProvider.APP_SECRET, wa.appSecret());
++            put(v, MetaWhatsAppProvider.VERIFY_TOKEN, wa.verifyToken());
++            put(v, MetaWhatsAppProvider.LANGUAGE, wa.language());
++            put(v, MetaWhatsAppProvider.API_VERSION, wa.apiVersion());
++            put(v, ProviderField.API_URL, wa.apiUrl());
++            return new ProviderConfig(c.type(), wa.enabled(), c.priority(), false, v, templates, null);
++        }
++        if (c.type() == ProviderType.UNIFONIC_SMS && !c.saved()) {
++            NotificationProperties.Sms sms = env.sms();
++            Map<String, String> v = new HashMap<>();
++            put(v, UnifonicSmsProvider.APP_SID, sms.appSid());
++            put(v, UnifonicSmsProvider.SENDER_ID, sms.senderId());
++            put(v, ProviderField.API_URL, sms.baseUrl());
++            return new ProviderConfig(c.type(), sms.enabled(), c.priority(), false, v, Map.of(), null);
++        }
++        return c;
++    }
++
++    private static void put(Map<String, String> m, String k, String v) {
++        if (v != null && !v.isBlank()) {
++            m.put(k, v);
++        }
++    }
++
++    private Map<String, String> read(String text) {
++        if (text == null || text.isBlank()) {
++            return Map.of();
++        }
++        try {
++            Map<String, String> m = json.readValue(text, MAP);
++            return m == null ? Map.of() : m;
++        } catch (Exception e) {
++            return Map.of();
++        }
++    }
++
++    private String write(Map<String, String> m) {
++        try {
++            return json.writeValueAsString(m == null ? Map.of() : m);
++        } catch (Exception e) {
++            throw new IllegalArgumentException("Invalid provider settings", e);
++        }
++    }
++}
+diff --git a/backend/core/src/main/java/com/fieldops/app/notification/provider/MetaWhatsAppProvider.java b/backend/core/src/main/java/com/fieldops/app/notification/provider/MetaWhatsAppProvider.java
+new file mode 100644
+index 0000000..23a4fcb
+--- /dev/null
++++ b/backend/core/src/main/java/com/fieldops/app/notification/provider/MetaWhatsAppProvider.java
+@@ -0,0 +1,108 @@
++package com.fieldops.app.notification.provider;
++
++import java.util.ArrayList;
++import java.util.List;
++import java.util.Map;
++
++import com.fieldops.app.notification.channel.ChannelType;
++import org.springframework.http.MediaType;
++import org.springframework.stereotype.Component;
++import org.springframework.web.client.ResourceAccessException;
++import org.springframework.web.client.RestClient;
++import org.springframework.web.client.RestClientResponseException;
++
++/**
++ * WhatsApp Business Cloud API (Meta). Business-initiated messages must use approved templates, so each message
++ * sends the template mapped to its {@code NotificationTemplate} with the parameters in order.
++ * Delivery receipts arrive at {@code /api/v1/webhooks/whatsapp} (needs the app secret and verify token).
++ * Docs: developers.facebook.com/docs/whatsapp/cloud-api
++ */
++@Component
++public class MetaWhatsAppProvider implements NotificationProvider {
++
++    static final String PHONE_NUMBER_ID = "phoneNumberId";
++    static final String ACCESS_TOKEN = "accessToken";
++    public static final String APP_SECRET = "appSecret";
++    public static final String VERIFY_TOKEN = "verifyToken";
++    static final String API_VERSION = "apiVersion";
++    static final String LANGUAGE = "language";
++    static final String BUSINESS_ACCOUNT_ID = "businessAccountId";
++
++    private static final List<ProviderField> FIELDS = List.of(
++            ProviderField.text(PHONE_NUMBER_ID, "Phone number ID", true, null),
++            ProviderField.secret(ACCESS_TOKEN, "Access token", true),
++            ProviderField.secret(APP_SECRET, "App secret (webhook signature)", false),
++            ProviderField.secret(VERIFY_TOKEN, "Webhook verify token", false),
++            ProviderField.text(LANGUAGE, "Template language", false, "ar"),
++            ProviderField.text(BUSINESS_ACCOUNT_ID, "WhatsApp Business Account ID", false, null),
++            ProviderField.text(API_VERSION, "Graph API version", false, "v21.0"),
++            ProviderField.apiUrl("https://graph.facebook.com"));
++
++    private final RestClient http;
++
++    public MetaWhatsAppProvider(RestClient.Builder builder) {
++        this.http = builder.build();
++    }
++
++    @Override
++    public ProviderType type() {
++        return ProviderType.META_WHATSAPP;
++    }
++
++    @Override
++    public List<ProviderField> fields() {
++        return FIELDS;
++    }
++
++    @Override
++    public String send(ChannelType channel, ProviderConfig config, OutgoingMessage message) {
++        String name = config.template(message.template());
++        if (name == null) {
++            name = message.template().name().toLowerCase();
++        }
++        List<Map<String, Object>> parameters = new ArrayList<>();
++        for (String p : message.params()) {
++            parameters.add(Map.of("type", "text", "text", p == null || p.isBlank() ? "-" : p));
++        }
++        Map<String, Object> template = Map.of(
++                "name", name,
++                "language", Map.of("code", config.get(LANGUAGE, "ar")),
++                "components", List.of(Map.of("type", "body", "parameters", parameters)));
++        return post(config, message.digits(), template);
++    }
++
++    /** Meta's built-in "hello_world" template exists on every account, so the test needs no approved template. */
++    @Override
++    public String sendTest(ChannelType channel, ProviderConfig config, String toE164) {
++        return post(config, toE164.replace("+", ""),
++                Map.of("name", "hello_world", "language", Map.of("code", "en_US")));
++    }
++
++    @SuppressWarnings("unchecked")
++    private String post(ProviderConfig config, String to, Map<String, Object> template) {
++        Map<String, Object> payload = Map.of(
++                "messaging_product", "whatsapp",
++                "to", to,
++                "type", "template",
++                "template", template);
++        try {
++            Map<String, Object> response = http.post()
++                    .uri(config.url("https://graph.facebook.com") + "/{version}/{phoneId}/messages",
++                            config.get(API_VERSION, "v21.0"), config.get(PHONE_NUMBER_ID))
++                    .header("Authorization", "Bearer " + config.get(ACCESS_TOKEN))
++                    .contentType(MediaType.APPLICATION_JSON)
++                    .body(payload)
++                    .retrieve()
++                    .body(Map.class);
++            List<Map<String, Object>> messages = response == null ? null : (List<Map<String, Object>>) response.get("messages");
++            if (messages == null || messages.isEmpty()) {
++                throw new ProviderException("Meta WhatsApp returned no message id", false, null);
++            }
++            return String.valueOf(messages.get(0).get("id"));
++        } catch (RestClientResponseException e) {
++            throw ProviderException.of("Meta WhatsApp", e);
++        } catch (ResourceAccessException e) {
++            throw ProviderException.unreachable("Meta WhatsApp", e);
++        }
++    }
++}
+diff --git a/backend/core/src/main/java/com/fieldops/app/notification/provider/NotificationProvider.java b/backend/core/src/main/java/com/fieldops/app/notification/provider/NotificationProvider.java
+new file mode 100644
+index 0000000..887e32d
+--- /dev/null
++++ b/backend/core/src/main/java/com/fieldops/app/notification/provider/NotificationProvider.java
+@@ -0,0 +1,44 @@
++package com.fieldops.app.notification.provider;
++
++import java.util.List;
++
++import com.fieldops.app.notification.NotificationTemplate;
++import com.fieldops.app.notification.channel.ChannelType;
++
++/**
++ * A company that delivers messages (Meta, Gupshup, Twilio, Taqnyat, Unifonic). Implementations are stateless:
++ * credentials arrive with every call from {@link MessagingProviderService}, so console changes apply without a
++ * restart. Must be safe to call from the dispatcher thread.
++ */
++public interface NotificationProvider {
++
++    ProviderType type();
++
++    /** Settings shown in the console, in display order. */
++    List<ProviderField> fields();
++
++    /** Can this provider carry the channel with these settings (required fields present)? */
++    default boolean supports(ChannelType channel, ProviderConfig config) {
++        return type().channels().contains(channel) && missing(config).isEmpty();
++    }
++
++    /** Required fields that are still empty. */
++    default List<String> missing(ProviderConfig config) {
++        return fields().stream().filter(f -> f.required() && !config.has(f.key())).map(ProviderField::key).toList();
++    }
++
++    /**
++     * @return the provider's message id
++     * @throws ProviderException on failure
++     */
++    String send(ChannelType channel, ProviderConfig config, OutgoingMessage message);
++
++    /**
++     * Console "Send a test". SMS sends a short text; WhatsApp sends the template mapped to OTP with a dummy code
++     * (providers with a built-in test template override this).
++     */
++    default String sendTest(ChannelType channel, ProviderConfig config, String toE164) {
++        return send(channel, config, new OutgoingMessage(toE164, NotificationTemplate.OTP,
++                "FieldOps: رسالة تجريبية / test message", List.of("123456", "FieldOps")));
++    }
++}
+diff --git a/backend/core/src/main/java/com/fieldops/app/notification/provider/NotificationProviders.java b/backend/core/src/main/java/com/fieldops/app/notification/provider/NotificationProviders.java
+new file mode 100644
+index 0000000..06c05ac
+--- /dev/null
++++ b/backend/core/src/main/java/com/fieldops/app/notification/provider/NotificationProviders.java
+@@ -0,0 +1,60 @@
++package com.fieldops.app.notification.provider;
++
++import java.util.Comparator;
++import java.util.EnumMap;
++import java.util.List;
++import java.util.Map;
++
++import com.fieldops.app.notification.channel.ChannelType;
++import org.springframework.stereotype.Component;
++
++/** All provider beans plus their settings: which providers may carry a channel right now, in priority order. */
++@Component
++public class NotificationProviders {
++
++    /** A provider together with the settings it sends with. */
++    public record Active(NotificationProvider provider, ProviderConfig config) {
++    }
++
++    private final Map<ProviderType, NotificationProvider> providers = new EnumMap<>(ProviderType.class);
++    private final MessagingProviderService settings;
++
++    public NotificationProviders(List<NotificationProvider> beans, MessagingProviderService settings) {
++        for (NotificationProvider p : beans) {
++            providers.put(p.type(), p);
++        }
++        this.settings = settings;
++    }
++
++    public NotificationProvider get(ProviderType type) {
++        NotificationProvider p = providers.get(type);
++        if (p == null) {
++            throw new IllegalArgumentException("No provider bean for " + type);
++        }
++        return p;
++    }
++
++    /** Providers shown in the console (everything except the development log). */
++    public List<NotificationProvider> configurable() {
++        return providers.values().stream().filter(p -> p.type() != ProviderType.LOG).toList();
++    }
++
++    /** Enabled providers that are configured for the channel, lowest priority number first. */
++    public List<Active> ready(ChannelType channel) {
++        return settings.all().values().stream()
++                .filter(c -> c.type() != ProviderType.LOG && c.enabled())
++                .filter(c -> providers.containsKey(c.type()) && providers.get(c.type()).supports(channel, c))
++                .sorted(Comparator.comparingInt(ProviderConfig::priority).thenComparing(ProviderConfig::type))
++                .map(c -> new Active(providers.get(c.type()), c))
++                .toList();
++    }
++
++    public boolean available(ChannelType channel) {
++        return !ready(channel).isEmpty();
++    }
++
++    /** The development fallback used when nothing is enabled. */
++    public Active log() {
++        return new Active(get(ProviderType.LOG), settings.config(ProviderType.LOG));
++    }
++}
+diff --git a/backend/core/src/main/java/com/fieldops/app/notification/provider/OutgoingMessage.java b/backend/core/src/main/java/com/fieldops/app/notification/provider/OutgoingMessage.java
+new file mode 100644
+index 0000000..9850ced
+--- /dev/null
++++ b/backend/core/src/main/java/com/fieldops/app/notification/provider/OutgoingMessage.java
+@@ -0,0 +1,23 @@
++package com.fieldops.app.notification.provider;
++
++import java.util.List;
++
++import com.fieldops.app.notification.NotificationTemplate;
++
++/**
++ * @param toE164   phone in E.164, e.g. +966551234567
++ * @param template which message this is (WhatsApp providers send the template mapped to it)
++ * @param body     rendered Arabic text (SMS sends it as-is)
++ * @param params   template parameters in {@link NotificationTemplate#params()} order
++ */
++public record OutgoingMessage(String toE164, NotificationTemplate template, String body, List<String> params) {
++
++    public OutgoingMessage {
++        params = params == null ? List.of() : params;
++    }
++
++    /** Digits only, no "+" (what most providers expect). */
++    public String digits() {
++        return toE164.replace("+", "");
++    }
++}
+diff --git a/backend/core/src/main/java/com/fieldops/app/notification/provider/ProviderConfig.java b/backend/core/src/main/java/com/fieldops/app/notification/provider/ProviderConfig.java
+new file mode 100644
+index 0000000..bb87c4e
+--- /dev/null
++++ b/backend/core/src/main/java/com/fieldops/app/notification/provider/ProviderConfig.java
+@@ -0,0 +1,61 @@
++package com.fieldops.app.notification.provider;
++
++import java.time.Instant;
++import java.util.Map;
++
++import com.fieldops.app.notification.NotificationTemplate;
++
++/**
++ * A provider's settings in effect (secrets decrypted).
++ *
++ * @param saved     false until the platform admin saves this provider once; Meta and Unifonic then still use the
++ *                  {@code app.notifications.*} environment settings
++ * @param values    fields and secrets by {@link ProviderField#key()}
++ * @param templates provider template name / id per {@link NotificationTemplate} name (WhatsApp providers)
++ */
++public record ProviderConfig(ProviderType type, boolean enabled, int priority, boolean saved,
++                             Map<String, String> values, Map<String, String> templates, Instant updatedAt) {
++
++    public ProviderConfig {
++        values = clean(values);
++        templates = clean(templates);
++    }
++
++    private static Map<String, String> clean(Map<String, String> m) {
++        Map<String, String> out = new java.util.HashMap<>();
++        if (m != null) {
++            m.forEach((k, v) -> {
++                if (k != null && v != null) {
++                    out.put(k, v);
++                }
++            });
++        }
++        return Map.copyOf(out);
++    }
++
++    public String get(String key) {
++        String v = values.get(key);
++        return v == null || v.isBlank() ? null : v.trim();
++    }
++
++    public String get(String key, String fallback) {
++        String v = get(key);
++        return v == null ? fallback : v;
++    }
++
++    public boolean has(String key) {
++        return get(key) != null;
++    }
++
++    /** Base URL without a trailing slash. */
++    public String url(String fallback) {
++        String u = get(ProviderField.API_URL, fallback);
++        return u.endsWith("/") ? u.substring(0, u.length() - 1) : u;
++    }
++
++    /** The provider's template for this message, or null when none is mapped. */
++    public String template(NotificationTemplate template) {
++        String v = templates.get(template.name());
++        return v == null || v.isBlank() ? null : v.trim();
++    }
++}
+diff --git a/backend/core/src/main/java/com/fieldops/app/notification/provider/ProviderException.java b/backend/core/src/main/java/com/fieldops/app/notification/provider/ProviderException.java
+new file mode 100644
+index 0000000..58f04a9
+--- /dev/null
++++ b/backend/core/src/main/java/com/fieldops/app/notification/provider/ProviderException.java
+@@ -0,0 +1,34 @@
++package com.fieldops.app.notification.provider;
++
++import org.springframework.web.client.ResourceAccessException;
++import org.springframework.web.client.RestClientResponseException;
++
++/** A send failed. {@link #isPermanent()} decides between trying the next provider now and retrying later. */
++public class ProviderException extends RuntimeException {
++
++    private final boolean permanent;
++
++    public ProviderException(String message, boolean permanent, Throwable cause) {
++        super(message, cause);
++        this.permanent = permanent;
++    }
++
++    public boolean isPermanent() {
++        return permanent;
++    }
++
++    /** 4xx (bad number, template not approved, wrong credentials) will not fix itself; 429 and 5xx may. */
++    public static ProviderException of(String provider, RestClientResponseException e) {
++        int status = e.getStatusCode().value();
++        boolean permanent = status >= 400 && status < 500 && status != 429;
++        return new ProviderException(provider + " " + status + ": " + e.getResponseBodyAsString(), permanent, e);
++    }
++
++    public static ProviderException unreachable(String provider, ResourceAccessException e) {
++        return new ProviderException(provider + " unreachable: " + e.getMessage(), false, e);
++    }
++
++    public static ProviderException missingTemplate(String provider, String template) {
++        return new ProviderException(provider + ": no template set for " + template, true, null);
++    }
++}
+diff --git a/backend/core/src/main/java/com/fieldops/app/notification/provider/ProviderField.java b/backend/core/src/main/java/com/fieldops/app/notification/provider/ProviderField.java
+new file mode 100644
+index 0000000..76d1904
+--- /dev/null
++++ b/backend/core/src/main/java/com/fieldops/app/notification/provider/ProviderField.java
+@@ -0,0 +1,27 @@
++package com.fieldops.app.notification.provider;
++
++/**
++ * One setting a provider needs, as shown in Platform → Settings → Messaging.
++ *
++ * @param key         key in the stored settings / secrets JSON
++ * @param label       provider's own term (shown as-is, not translated)
++ * @param secret      stored encrypted and never returned except masked
++ * @param required    the provider cannot send without it
++ * @param placeholder example or default value
++ */
++public record ProviderField(String key, String label, boolean secret, boolean required, String placeholder) {
++
++    public static final String API_URL = "apiUrl";
++
++    public static ProviderField text(String key, String label, boolean required, String placeholder) {
++        return new ProviderField(key, label, false, required, placeholder);
++    }
++
++    public static ProviderField secret(String key, String label, boolean required) {
++        return new ProviderField(key, label, true, required, null);
++    }
++
++    public static ProviderField apiUrl(String defaultUrl) {
++        return new ProviderField(API_URL, "API URL", false, false, defaultUrl);
++    }
++}
+diff --git a/backend/core/src/main/java/com/fieldops/app/notification/provider/ProviderType.java b/backend/core/src/main/java/com/fieldops/app/notification/provider/ProviderType.java
+new file mode 100644
+index 0000000..8c5f48d
+--- /dev/null
++++ b/backend/core/src/main/java/com/fieldops/app/notification/provider/ProviderType.java
+@@ -0,0 +1,45 @@
++package com.fieldops.app.notification.provider;
++
++import java.util.EnumSet;
++import java.util.Set;
++
++import com.fieldops.app.notification.channel.ChannelType;
++
++/** Message providers the platform can send through. Stored by name in {@code messaging_providers.provider}. */
++public enum ProviderType {
++
++    META_WHATSAPP("Meta WhatsApp Cloud API", EnumSet.of(ChannelType.WHATSAPP), 10),
++    GUPSHUP_WHATSAPP("Gupshup WhatsApp", EnumSet.of(ChannelType.WHATSAPP), 20),
++    TWILIO("Twilio (WhatsApp + SMS)", EnumSet.of(ChannelType.WHATSAPP, ChannelType.SMS), 30),
++    TAQNYAT_SMS("Taqnyat SMS", EnumSet.of(ChannelType.SMS), 40),
++    UNIFONIC_SMS("Unifonic SMS", EnumSet.of(ChannelType.SMS), 50),
++    /** Development only: writes the message to the application log. Not shown in the console. */
++    LOG("Log (development)", EnumSet.of(ChannelType.LOG), 1000);
++
++    private final String displayName;
++    private final Set<ChannelType> channels;
++    private final int defaultPriority;
++
++    ProviderType(String displayName, Set<ChannelType> channels, int defaultPriority) {
++        this.displayName = displayName;
++        this.channels = channels;
++        this.defaultPriority = defaultPriority;
++    }
++
++    public String displayName() {
++        return displayName;
++    }
++
++    /** Channels this provider can carry once configured. */
++    public Set<ChannelType> channels() {
++        return channels;
++    }
++
++    public int defaultPriority() {
++        return defaultPriority;
++    }
++
++    public boolean usesTemplates() {
++        return channels.contains(ChannelType.WHATSAPP);
++    }
++}
+diff --git a/backend/core/src/main/java/com/fieldops/app/notification/provider/TaqnyatSmsProvider.java b/backend/core/src/main/java/com/fieldops/app/notification/provider/TaqnyatSmsProvider.java
+new file mode 100644
+index 0000000..59895ab
+--- /dev/null
++++ b/backend/core/src/main/java/com/fieldops/app/notification/provider/TaqnyatSmsProvider.java
+@@ -0,0 +1,72 @@
++package com.fieldops.app.notification.provider;
++
++import java.util.List;
++import java.util.Map;
++
++import com.fieldops.app.notification.channel.ChannelType;
++import org.springframework.http.MediaType;
++import org.springframework.stereotype.Component;
++import org.springframework.web.client.ResourceAccessException;
++import org.springframework.web.client.RestClient;
++import org.springframework.web.client.RestClientResponseException;
++
++/**
++ * SMS through Taqnyat (Saudi): {@code POST /v1/messages} with a bearer token and JSON
++ * {@code {recipients, body, sender}}. The sender name must be active on the Taqnyat account (CST rules).
++ * Docs: dev.taqnyat.sa/en/doc/sms
++ */
++@Component
++public class TaqnyatSmsProvider implements NotificationProvider {
++
++    static final String BEARER_TOKEN = "bearerToken";
++    static final String SENDER = "sender";
++
++    private static final List<ProviderField> FIELDS = List.of(
++            ProviderField.secret(BEARER_TOKEN, "Bearer token", true),
++            ProviderField.text(SENDER, "Sender name", true, null),
++            ProviderField.apiUrl("https://api.taqnyat.sa"));
++
++    private final RestClient http;
++
++    public TaqnyatSmsProvider(RestClient.Builder builder) {
++        this.http = builder.build();
++    }
++
++    @Override
++    public ProviderType type() {
++        return ProviderType.TAQNYAT_SMS;
++    }
++
++    @Override
++    public List<ProviderField> fields() {
++        return FIELDS;
++    }
++
++    @Override
++    @SuppressWarnings("unchecked")
++    public String send(ChannelType channel, ProviderConfig config, OutgoingMessage message) {
++        Map<String, Object> payload = Map.of(
++                "recipients", List.of(message.digits()),
++                "body", message.body(),
++                "sender", config.get(SENDER));
++        try {
++            Map<String, Object> response = http.post()
++                    .uri(config.url("https://api.taqnyat.sa") + "/v1/messages")
++                    .header("Authorization", "Bearer " + config.get(BEARER_TOKEN))
++                    .contentType(MediaType.APPLICATION_JSON)
++                    .accept(MediaType.APPLICATION_JSON)
++                    .body(payload)
++                    .retrieve()
++                    .body(Map.class);
++            Object id = response == null ? null : response.get("messageId");
++            if (id == null) {
++                throw new ProviderException("Taqnyat rejected: " + response, true, null);
++            }
++            return String.valueOf(id);
++        } catch (RestClientResponseException e) {
++            throw ProviderException.of("Taqnyat", e);
++        } catch (ResourceAccessException e) {
++            throw ProviderException.unreachable("Taqnyat", e);
++        }
++    }
++}
+diff --git a/backend/core/src/main/java/com/fieldops/app/notification/provider/TwilioProvider.java b/backend/core/src/main/java/com/fieldops/app/notification/provider/TwilioProvider.java
+new file mode 100644
+index 0000000..a467b1f
+--- /dev/null
++++ b/backend/core/src/main/java/com/fieldops/app/notification/provider/TwilioProvider.java
+@@ -0,0 +1,136 @@
++package com.fieldops.app.notification.provider;
++
++import java.nio.charset.StandardCharsets;
++import java.util.Base64;
++import java.util.LinkedHashMap;
++import java.util.List;
++import java.util.Map;
++
++import com.fasterxml.jackson.core.JsonProcessingException;
++import com.fasterxml.jackson.databind.ObjectMapper;
++import com.fieldops.app.notification.channel.ChannelType;
++import org.springframework.http.MediaType;
++import org.springframework.stereotype.Component;
++import org.springframework.util.LinkedMultiValueMap;
++import org.springframework.util.MultiValueMap;
++import org.springframework.web.client.ResourceAccessException;
++import org.springframework.web.client.RestClient;
++import org.springframework.web.client.RestClientResponseException;
++
++/**
++ * Twilio Messages API for both SMS and WhatsApp ({@code POST /2010-04-01/Accounts/{sid}/Messages.json}, basic auth).
++ * SMS sends the text from a number / alphanumeric sender or a Messaging Service. WhatsApp sends an approved
++ * Content template ({@code ContentSid HX…}) with numbered variables {@code {"1": …, "2": …}}.
++ * Each channel is available only when its sender is filled in.
++ * Docs: twilio.com/docs/messaging/api/message-resource
++ */
++@Component
++public class TwilioProvider implements NotificationProvider {
++
++    static final String ACCOUNT_SID = "accountSid";
++    static final String AUTH_TOKEN = "authToken";
++    static final String SMS_FROM = "smsFrom";
++    static final String MESSAGING_SERVICE_SID = "messagingServiceSid";
++    static final String WHATSAPP_FROM = "whatsappFrom";
++
++    private static final List<ProviderField> FIELDS = List.of(
++            ProviderField.text(ACCOUNT_SID, "Account SID", true, "AC…"),
++            ProviderField.secret(AUTH_TOKEN, "Auth token", true),
++            ProviderField.text(WHATSAPP_FROM, "WhatsApp sender number (for WhatsApp)", false, "+9665XXXXXXXX"),
++            ProviderField.text(SMS_FROM, "SMS sender (number or sender ID)", false, null),
++            ProviderField.text(MESSAGING_SERVICE_SID, "Messaging Service SID (instead of SMS sender)", false, "MG…"),
++            ProviderField.apiUrl("https://api.twilio.com"));
++
++    private final RestClient http;
++    private final ObjectMapper json;
++
++    public TwilioProvider(RestClient.Builder builder, ObjectMapper json) {
++        this.http = builder.build();
++        this.json = json;
++    }
++
++    @Override
++    public ProviderType type() {
++        return ProviderType.TWILIO;
++    }
++
++    @Override
++    public List<ProviderField> fields() {
++        return FIELDS;
++    }
++
++    @Override
++    public boolean supports(ChannelType channel, ProviderConfig config) {
++        if (!NotificationProvider.super.supports(channel, config)) {
++            return false;
++        }
++        return switch (channel) {
++            case WHATSAPP -> config.has(WHATSAPP_FROM);
++            case SMS -> config.has(SMS_FROM) || config.has(MESSAGING_SERVICE_SID);
++            default -> false;
++        };
++    }
++
++    @Override
++    @SuppressWarnings("unchecked")
++    public String send(ChannelType channel, ProviderConfig config, OutgoingMessage message) {
++        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
++        if (channel == ChannelType.WHATSAPP) {
++            String contentSid = config.template(message.template());
++            if (contentSid == null) {
++                throw ProviderException.missingTemplate("Twilio WhatsApp", message.template().name());
++            }
++            form.add("To", "whatsapp:" + message.toE164());
++            form.add("From", "whatsapp:" + plus(config.get(WHATSAPP_FROM)));
++            form.add("ContentSid", contentSid);
++            Map<String, String> variables = new LinkedHashMap<>();
++            for (int i = 0; i < message.params().size(); i++) {
++                String p = message.params().get(i);
++                variables.put(String.valueOf(i + 1), p == null || p.isBlank() ? "-" : p);
++            }
++            form.add("ContentVariables", toJson(variables));
++        } else {
++            form.add("To", message.toE164());
++            if (config.has(MESSAGING_SERVICE_SID)) {
++                form.add("MessagingServiceSid", config.get(MESSAGING_SERVICE_SID));
++            } else {
++                form.add("From", config.get(SMS_FROM));
++            }
++            form.add("Body", message.body());
++        }
++        String basic = Base64.getEncoder().encodeToString(
++                (config.get(ACCOUNT_SID) + ":" + config.get(AUTH_TOKEN)).getBytes(StandardCharsets.UTF_8));
++        try {
++            Map<String, Object> response = http.post()
++                    .uri(config.url("https://api.twilio.com") + "/2010-04-01/Accounts/{sid}/Messages.json",
++                            config.get(ACCOUNT_SID))
++                    .header("Authorization", "Basic " + basic)
++                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
++                    .body(form)
++                    .retrieve()
++                    .body(Map.class);
++            Object sid = response == null ? null : response.get("sid");
++            if (sid == null) {
++                throw new ProviderException("Twilio returned no message sid: " + response, false, null);
++            }
++            return String.valueOf(sid);
++        } catch (RestClientResponseException e) {
++            throw ProviderException.of("Twilio", e);
++        } catch (ResourceAccessException e) {
++            throw ProviderException.unreachable("Twilio", e);
++        }
++    }
++
++    private static String plus(String phone) {
++        String p = phone.replace("whatsapp:", "").trim();
++        return p.startsWith("+") ? p : "+" + p;
++    }
++
++    private String toJson(Object value) {
++        try {
++            return json.writeValueAsString(value);
++        } catch (JsonProcessingException e) {
++            throw new ProviderException("Twilio: could not encode variables", true, e);
++        }
++    }
++}
+diff --git a/backend/core/src/main/java/com/fieldops/app/notification/provider/UnifonicSmsProvider.java b/backend/core/src/main/java/com/fieldops/app/notification/provider/UnifonicSmsProvider.java
+new file mode 100644
+index 0000000..7ad65c0
+--- /dev/null
++++ b/backend/core/src/main/java/com/fieldops/app/notification/provider/UnifonicSmsProvider.java
+@@ -0,0 +1,74 @@
++package com.fieldops.app.notification.provider;
++
++import java.util.List;
++import java.util.Map;
++
++import com.fieldops.app.notification.channel.ChannelType;
++import org.springframework.http.MediaType;
++import org.springframework.stereotype.Component;
++import org.springframework.util.LinkedMultiValueMap;
++import org.springframework.util.MultiValueMap;
++import org.springframework.web.client.ResourceAccessException;
++import org.springframework.web.client.RestClient;
++import org.springframework.web.client.RestClientResponseException;
++
++/**
++ * SMS through Unifonic (the original FieldOps SMS provider; still read from the {@code UNIFONIC_*} environment
++ * variables until saved in the console). The sender id must be registered with the provider (CST rules).
++ */
++@Component
++public class UnifonicSmsProvider implements NotificationProvider {
++
++    static final String APP_SID = "appSid";
++    static final String SENDER_ID = "senderId";
++
++    private static final List<ProviderField> FIELDS = List.of(
++            ProviderField.secret(APP_SID, "AppSid", true),
++            ProviderField.text(SENDER_ID, "Sender ID", false, null),
++            ProviderField.apiUrl("https://el.cloud.unifonic.com"));
++
++    private final RestClient http;
++
++    public UnifonicSmsProvider(RestClient.Builder builder) {
++        this.http = builder.build();
++    }
++
++    @Override
++    public ProviderType type() {
++        return ProviderType.UNIFONIC_SMS;
++    }
++
++    @Override
++    public List<ProviderField> fields() {
++        return FIELDS;
++    }
++
++    @Override
++    @SuppressWarnings("unchecked")
++    public String send(ChannelType channel, ProviderConfig config, OutgoingMessage message) {
++        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
++        form.add("AppSid", config.get(APP_SID));
++        form.add("SenderID", config.get(SENDER_ID));
++        form.add("Recipient", message.digits());
++        form.add("Body", message.body());
++        form.add("responseType", "JSON");
++        try {
++            Map<String, Object> response = http.post()
++                    .uri(config.url("https://el.cloud.unifonic.com") + "/rest/SMS/messages")
++                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
++                    .body(form)
++                    .retrieve()
++                    .body(Map.class);
++            if (response == null || !Boolean.TRUE.equals(response.get("success"))) {
++                throw new ProviderException("Unifonic rejected: " + response, true, null);
++            }
++            Object data = response.get("data");
++            Object id = data instanceof Map<?, ?> m ? m.get("MessageID") : null;
++            return id == null ? "sms-unknown" : String.valueOf(id);
++        } catch (RestClientResponseException e) {
++            throw ProviderException.of("Unifonic", e);
++        } catch (ResourceAccessException e) {
++            throw ProviderException.unreachable("Unifonic", e);
++        }
++    }
++}
+diff --git a/backend/core/src/main/java/com/fieldops/app/platform/PlatformSettingsService.java b/backend/core/src/main/java/com/fieldops/app/platform/PlatformSettingsService.java
+index cc68614..88099cc 100644
+--- a/backend/core/src/main/java/com/fieldops/app/platform/PlatformSettingsService.java
++++ b/backend/core/src/main/java/com/fieldops/app/platform/PlatformSettingsService.java
+@@ -3,24 +3,18 @@ package com.fieldops.app.platform;
+ import java.time.Clock;
+ import java.time.Duration;
+ import java.time.Instant;
+-import java.util.LinkedHashMap;
+-import java.util.Map;
+ import java.util.UUID;
+ 
+-import com.fasterxml.jackson.core.type.TypeReference;
+-import com.fasterxml.jackson.databind.ObjectMapper;
+-import com.fieldops.app.notification.channel.NotificationProperties;
+ import org.springframework.dao.DataAccessException;
+ import org.springframework.jdbc.core.JdbcTemplate;
+ import org.springframework.stereotype.Service;
+ 
+ /**
+- * Platform-wide settings edited by the FieldOps owner (Platform → Settings): trial length and plan, grace period,
+- * support contact, and the one WhatsApp Cloud API / Unifonic SMS account every company's messages go through.
++ * Platform-wide settings edited by the FieldOps owner (Platform → Settings): trial length and plan, grace period
++ * and support contact. Message providers have their own table and service ({@code MessagingProviderService}).
+  *
+- * <p>Read with plain JDBC (the table has no tenant and no RLS) and cached for a few seconds, so the message
+- * dispatcher and webhook pick up changes without a restart, including in the other app process. Until messaging
+- * is saved here once ({@code messaging_configured}), the {@code app.notifications.*} environment settings apply.
++ * <p>Read with plain JDBC (the table has no tenant and no RLS) and cached for a few seconds, so changes apply
++ * without a restart, including in the other app process.
+  */
+ @Service
+ public class PlatformSettingsService {
+@@ -31,30 +25,17 @@ public class PlatformSettingsService {
+     private static final Duration TTL = Duration.ofSeconds(20);
+ 
+     private final JdbcTemplate jdbc;
+-    private final SettingsCipher cipher;
+-    private final NotificationProperties env;
+-    private final ObjectMapper json;
+     private final Clock clock;
+ 
+     private volatile Snapshot cached;
+ 
+-    public PlatformSettingsService(JdbcTemplate jdbc, SettingsCipher cipher, NotificationProperties env,
+-                                   ObjectMapper json, Clock clock) {
++    public PlatformSettingsService(JdbcTemplate jdbc, Clock clock) {
+         this.jdbc = jdbc;
+-        this.cipher = cipher;
+-        this.env = env;
+-        this.json = json;
+         this.clock = clock;
+     }
+ 
+-    /** Decrypted settings. Secrets must never leave the server except masked. */
+     public record Settings(int trialDays, String trialPlanId, int graceDays, String supportWhatsapp,
+-                           String supportEmail, boolean messagingConfigured, boolean whatsappEnabled,
+-                           String whatsappApiUrl, String whatsappApiVersion, String whatsappPhoneNumberId,
+-                           String whatsappBusinessAccountId, String whatsappAccessToken, String whatsappAppSecret,
+-                           String whatsappVerifyToken, String whatsappLanguage, Map<String, String> whatsappTemplates,
+-                           boolean smsEnabled, String smsApiUrl, String smsAppSid, String smsSenderId,
+-                           Instant updatedAt) {
++                           String supportEmail, Instant updatedAt) {
+     }
+ 
+     private record Snapshot(Settings settings, Instant validUntil) {
+@@ -95,28 +76,6 @@ public class PlatformSettingsService {
+         return get().graceDays();
+     }
+ 
+-    /** WhatsApp settings in effect: the console's once saved there, otherwise the environment's. */
+-    public NotificationProperties.WhatsApp whatsapp() {
+-        Settings s = get();
+-        if (!s.messagingConfigured()) {
+-            return env.whatsapp();
+-        }
+-        return new NotificationProperties.WhatsApp(s.whatsappEnabled(), s.whatsappAccessToken(),
+-                s.whatsappPhoneNumberId(), s.whatsappAppSecret(), s.whatsappVerifyToken(),
+-                blank(s.whatsappLanguage()) ? "ar" : s.whatsappLanguage(), s.whatsappApiVersion(),
+-                s.whatsappTemplates().isEmpty() ? env.whatsapp().templates() : s.whatsappTemplates(),
+-                s.whatsappApiUrl());
+-    }
+-
+-    /** SMS settings in effect: the console's once saved there, otherwise the environment's. */
+-    public NotificationProperties.Sms sms() {
+-        Settings s = get();
+-        if (!s.messagingConfigured()) {
+-            return env.sms();
+-        }
+-        return new NotificationProperties.Sms(s.smsEnabled(), s.smsAppSid(), s.smsSenderId(), s.smsApiUrl());
+-    }
+-
+     // ---- writes (platform console only) -------------------------------------------------------------
+ 
+     public void updateGeneral(int trialDays, String trialPlanId, int graceDays, String supportWhatsapp,
+@@ -128,44 +87,6 @@ public class PlatformSettingsService {
+         evict();
+     }
+ 
+-    /**
+-     * Saves the messaging section. A secret passed as null keeps the stored one; an empty string clears it.
+-     */
+-    public void updateMessaging(boolean whatsappEnabled, String whatsappApiUrl, String whatsappApiVersion,
+-                                String phoneNumberId, String businessAccountId, String accessToken, String appSecret,
+-                                String verifyToken, String language, Map<String, String> templates,
+-                                boolean smsEnabled, String smsApiUrl, String smsAppSid, String smsSenderId,
+-                                UUID actor) {
+-        Settings cur = load();
+-        String templatesJson;
+-        try {
+-            templatesJson = json.writeValueAsString(templates == null ? Map.of() : templates);
+-        } catch (Exception e) {
+-            throw new IllegalArgumentException("Invalid templates", e);
+-        }
+-        jdbc.update("""
+-                update platform_settings set messaging_configured = true,
+-                       whatsapp_enabled = ?, whatsapp_api_url = ?, whatsapp_api_version = ?, whatsapp_phone_number_id = ?,
+-                       whatsapp_business_account_id = ?, whatsapp_access_token = ?, whatsapp_app_secret = ?,
+-                       whatsapp_verify_token = ?, whatsapp_language = ?, whatsapp_templates = cast(? as jsonb),
+-                       sms_enabled = ?, sms_api_url = ?, sms_app_sid = ?, sms_sender_id = ?,
+-                       updated_at = now(), updated_by = ?
+-                where id = 1""",
+-                whatsappEnabled, whatsappApiUrl, whatsappApiVersion, phoneNumberId, businessAccountId,
+-                secret(accessToken, cur.whatsappAccessToken()), secret(appSecret, cur.whatsappAppSecret()),
+-                secret(verifyToken, cur.whatsappVerifyToken()), language, templatesJson,
+-                smsEnabled, smsApiUrl, secret(smsAppSid, cur.smsAppSid()), smsSenderId, actor);
+-        evict();
+-    }
+-
+-    /** New value encrypted; null keeps the current (re-encrypted), "" clears. */
+-    private String secret(String incoming, String current) {
+-        if (incoming == null) {
+-            return cipher.encrypt(current);
+-        }
+-        return incoming.isEmpty() ? null : cipher.encrypt(incoming.trim());
+-    }
+-
+     // ---------------------------------------------------------------------------------------------
+ 
+     private Settings load() {
+@@ -173,36 +94,14 @@ public class PlatformSettingsService {
+             if (!rs.next()) {
+                 return defaults();
+             }
+-            Map<String, String> templates = new LinkedHashMap<>();
+-            String t = rs.getString("whatsapp_templates");
+-            if (t != null && !t.isBlank()) {
+-                try {
+-                    templates.putAll(json.readValue(t, new TypeReference<Map<String, String>>() { }));
+-                } catch (Exception ignored) {
+-                    // Keep defaults if the stored JSON is malformed.
+-                }
+-            }
+             java.sql.Timestamp updated = rs.getTimestamp("updated_at");
+             return new Settings(rs.getInt("trial_days"), rs.getString("trial_plan_id"), rs.getInt("grace_days"),
+                     rs.getString("support_whatsapp"), rs.getString("support_email"),
+-                    rs.getBoolean("messaging_configured"), rs.getBoolean("whatsapp_enabled"),
+-                    rs.getString("whatsapp_api_url"), rs.getString("whatsapp_api_version"),
+-                    rs.getString("whatsapp_phone_number_id"), rs.getString("whatsapp_business_account_id"),
+-                    cipher.decrypt(rs.getString("whatsapp_access_token")),
+-                    cipher.decrypt(rs.getString("whatsapp_app_secret")),
+-                    cipher.decrypt(rs.getString("whatsapp_verify_token")), rs.getString("whatsapp_language"),
+-                    templates, rs.getBoolean("sms_enabled"), rs.getString("sms_api_url"),
+-                    cipher.decrypt(rs.getString("sms_app_sid")), rs.getString("sms_sender_id"),
+                     updated == null ? null : updated.toInstant());
+         });
+     }
+ 
+     private static Settings defaults() {
+-        return new Settings(14, "pro", 7, null, null, false, false, null, null, null, null, null, null, null, null,
+-                Map.of(), false, null, null, null, null);
+-    }
+-
+-    private static boolean blank(String s) {
+-        return s == null || s.isBlank();
++        return new Settings(14, "pro", 7, null, null, null);
+     }
+ }
+diff --git a/frontend/admin/public/i18n/ar.json b/frontend/admin/public/i18n/ar.json
+index 5a61354..cee80d6 100644
+--- a/frontend/admin/public/i18n/ar.json
++++ b/frontend/admin/public/i18n/ar.json
+@@ -1697,7 +1697,7 @@
+     },
+     "settings": {
+       "title": "الإعدادات والرسائل",
+-      "subtitle": "التجارب وفترة السماح وبيانات الدعم، وحسابا واتساب والرسائل النصية اللذان تُرسل منهما رسائل كل الشركات",
++      "subtitle": "الفترة التجريبية، فترة السماح، بيانات الدعم، ومزودو واتساب والرسائل النصية التي تُرسل منها رسائل كل الشركات",
+       "subscriptions": "الاشتراكات",
+       "subscriptionsHint": "يُطبق على التسجيلات الجديدة والفترات المدفوعة المنتهية؛ التجارب الحالية تحتفظ بتواريخها.",
+       "trialDays": "مدة الفترة التجريبية",
+@@ -1709,16 +1709,11 @@
+       "supportHint": "يظهر في نافذة الترقية لتطلب الشركات تفعيل باقة.",
+       "supportEmail": "بريد المبيعات / الدعم",
+       "messaging": "الرسائل",
+-      "fromEnv": "يستخدم إعدادات البيئة",
+-      "messagingHint": "التغييرات تُطبق خلال 20 ثانية دون إعادة تشغيل. الأسرار تُحفظ مشفرة ولا تُعرض مرة أخرى.",
++      "fromEnv": "يستخدم إعدادات الخادم",
+       "updated": "آخر تحديث",
+       "ready": "جاهز",
+       "notReady": "غير جاهز",
+       "enabled": "مفعّل",
+-      "language": "لغة القوالب",
+-      "apiUrl": "رابط الـ API",
+-      "apiVersion": "إصدار Graph API",
+-      "wabaHint": "للرجوع إليه (Meta Business Manager)؛ غير مطلوب للإرسال.",
+       "savedKeep": "محفوظ ({{h}}) — اتركه فارغاً للإبقاء عليه",
+       "notSet": "غير محدد",
+       "clear": "مسح",
+@@ -1726,12 +1721,35 @@
+       "webhook": "رابط الـ Webhook",
+       "webhookHint": "أدخله في Meta ← WhatsApp ← Configuration مع رمز التحقق أعلاه واشترك في «messages». يجب أن يكون عنوان الـ API العام بـ HTTPS.",
+       "templates": "أسماء القوالب المعتمدة",
+-      "templatesHint": "اسم كل قالب معتمد في Meta بالعربية، والمتغيرات بنفس ترتيب إرسال التطبيق لها.",
+-      "senderHint": "يجب تسجيله لدى Unifonic / هيئة الاتصالات للأرقام السعودية.",
+-      "otpNote": "رموز التحقق تُرسل بالرسائل النصية أولاً؛ وتحديثات الطلبات بواتساب أولاً ثم الرسائل النصية عند التعذر.",
+-      "saveMessaging": "حفظ إعدادات الرسائل",
++      "otpNote": "رموز التحقق تُرسل برسالة نصية أولاً؛ تحديثات الطلبات تُرسل بواتساب أولاً ثم برسالة نصية عند الفشل.",
+       "test": "إرسال تجربة",
+-      "testHint": "واتساب يرسل قالب Meta الجاهز «hello_world»؛ والرسالة النصية نصاً قصيراً. يستخدم الإعدادات المحفوظة."
++      "testHint": "يستخدم الإعدادات المحفوظة حتى لو كان المزود متوقفاً. الرسائل النصية ترسل نصاً قصيراً؛ واتساب يرسل قالب رمز التحقق بالرمز 123456 (Meta يرسل قالبه الجاهز “hello_world”؛ ويجب أن يكون الرقم قد راسلك أو رقماً تجريبياً).",
++      "providersHint": "فعّل المزودين أو أوقفهم من هنا. كل رسالة تجرّب المزودين بالترتيب؛ إذا فشل أحدهم يُستخدم التالي فوراً. تُطبّق التغييرات خلال 20 ثانية دون إعادة تشغيل.",
++      "orderNone": "لا يوجد — تُكتب الرسائل في سجل الخادم فقط",
++      "channel": {
++        "WHATSAPP": "واتساب",
++        "SMS": "رسائل نصية"
++      },
++      "status": {
++        "sending": "يرسل",
++        "off": "متوقف",
++        "notConfigured": "غير مُعدّ",
++        "missing": "إعدادات ناقصة"
++      },
++      "order": "الترتيب",
++      "orderHint": "الأقل يُجرَّب أولاً بين مزودي القناة نفسها.",
++      "configure": "الإعدادات",
++      "turnedOn": "تم تفعيل {{name}}",
++      "turnedOff": "تم إيقاف {{name}}",
++      "dialogSub": "الاتصال والقوالب ورسالة تجريبية",
++      "connection": "الاتصال",
++      "connectionHint": "تُحفظ المفاتيح السرية مشفّرة ولا تُعرض مرة أخرى. اترك الحقل السري فارغاً للإبقاء على القيمة المحفوظة.",
++      "envNote": "إلى أن تحفظ هذا المزود هنا، تُستخدم متغيرات البيئة في الخادم.",
++      "templatesHint_META_WHATSAPP": "اسم كل قالب معتمد في Meta، باللغة العربية، والمتغيرات بنفس الترتيب الذي يرسله التطبيق.",
++      "templatesHint_GUPSHUP_WHATSAPP": "معرّف القالب (Template ID) في Gupshup لكل قالب معتمد، والمتغيرات بنفس الترتيب الذي يرسله التطبيق.",
++      "templatesHint_TWILIO": "Content SID (HX…) لكل قالب واتساب معتمد في Twilio؛ المتغيرات 1، 2، 3… بالترتيب الذي يرسله التطبيق.",
++      "twilioNote": "واتساب يحتاج رقم مرسل واتساب؛ الرسائل النصية تحتاج مرسلاً أو Messaging Service SID. تعمل كل قناة عند تعبئة المرسل الخاص بها.",
++      "saveFirst": "احفظ التغييرات قبل إرسال رسالة تجريبية."
+     }
+   },
+   "promos": {
+diff --git a/frontend/admin/public/i18n/en.json b/frontend/admin/public/i18n/en.json
+index f572030..c1ecf82 100644
+--- a/frontend/admin/public/i18n/en.json
++++ b/frontend/admin/public/i18n/en.json
+@@ -1697,7 +1697,7 @@
+     },
+     "settings": {
+       "title": "Settings & messaging",
+-      "subtitle": "Trials, grace period, support contact, and the WhatsApp and SMS accounts all companies' messages are sent from",
++      "subtitle": "Trials, grace period, support contact, and the WhatsApp and SMS providers all companies' messages are sent through",
+       "subscriptions": "Subscriptions",
+       "subscriptionsHint": "Applies to new signups and to paid periods that end; existing trials keep their dates.",
+       "trialDays": "Free trial length",
+@@ -1710,15 +1710,10 @@
+       "supportEmail": "Sales / support email",
+       "messaging": "Messaging",
+       "fromEnv": "Using environment settings",
+-      "messagingHint": "Changes apply within 20 seconds, no restart. Secrets are stored encrypted and never shown again.",
+       "updated": "updated",
+       "ready": "Ready",
+       "notReady": "Not ready",
+       "enabled": "Enabled",
+-      "language": "Template language",
+-      "apiUrl": "API URL",
+-      "apiVersion": "Graph API version",
+-      "wabaHint": "For your reference (Meta Business Manager); not needed to send.",
+       "savedKeep": "Saved ({{h}}) — leave empty to keep",
+       "notSet": "Not set",
+       "clear": "Clear",
+@@ -1726,12 +1721,35 @@
+       "webhook": "Webhook callback URL",
+       "webhookHint": "Enter it in Meta → WhatsApp → Configuration with the verify token above and subscribe to “messages”. It must be your API's public HTTPS address.",
+       "templates": "Approved template names",
+-      "templatesHint": "The name of each approved template in Meta, in Arabic, with the variables in the same order as the app sends them.",
+-      "senderHint": "Must be registered with Unifonic / CST for Saudi numbers.",
+       "otpNote": "Verification codes go by SMS first; status updates go by WhatsApp first and fall back to SMS.",
+-      "saveMessaging": "Save messaging",
+       "test": "Send a test",
+-      "testHint": "WhatsApp sends Meta's built-in “hello_world” template (the number must have messaged you or be a test number); SMS sends a short text. Uses the saved settings."
++      "testHint": "Uses the saved settings, even while the provider is off. SMS sends a short text; WhatsApp sends the OTP template with code 123456 (Meta sends its built-in “hello_world” template; the number must have messaged you or be a test number).",
++      "providersHint": "Switch providers on or off here. Each message tries the providers in order; if one fails, the next one is used right away. Changes apply within 20 seconds, no restart.",
++      "orderNone": "None — messages are only written to the server log",
++      "channel": {
++        "WHATSAPP": "WhatsApp",
++        "SMS": "SMS"
++      },
++      "status": {
++        "sending": "Sending",
++        "off": "Off",
++        "notConfigured": "Not configured",
++        "missing": "Settings missing"
++      },
++      "order": "Order",
++      "orderHint": "Lower is tried first among the providers of the same channel.",
++      "configure": "Settings",
++      "turnedOn": "{{name}} switched on",
++      "turnedOff": "{{name}} switched off",
++      "dialogSub": "Connection, templates and a test message",
++      "connection": "Connection",
++      "connectionHint": "Secrets are stored encrypted and never shown again. Leave a secret empty to keep the saved one.",
++      "envNote": "Until you save this provider here, the server's environment variables are used.",
++      "templatesHint_META_WHATSAPP": "The name of each approved template in Meta, in Arabic, with the variables in the same order as the app sends them.",
++      "templatesHint_GUPSHUP_WHATSAPP": "The Gupshup template ID of each approved template, with the variables in the same order as the app sends them.",
++      "templatesHint_TWILIO": "The Content SID (HX…) of each approved WhatsApp template in Twilio; variables 1, 2, 3… in the order the app sends them.",
++      "twilioNote": "WhatsApp needs the WhatsApp sender number; SMS needs an SMS sender or a Messaging Service SID. Each channel turns on when its sender is filled in.",
++      "saveFirst": "Save your changes before sending a test."
+     }
+   },
+   "promos": {
+diff --git a/frontend/admin/src/app/core/api.types.ts b/frontend/admin/src/app/core/api.types.ts
+index 0d50734..d5d8905 100644
+--- a/frontend/admin/src/app/core/api.types.ts
++++ b/frontend/admin/src/app/core/api.types.ts
+@@ -386,6 +386,8 @@ export interface NotificationLog extends Audited {
+   bookingId?: string;
+   template: string;
+   channel?: 'WHATSAPP' | 'SMS' | 'LOG';
++  /** Provider that carried (or last tried) it, e.g. META_WHATSAPP, TAQNYAT_SMS. */
++  provider?: string;
+   toPhone: string;
+   body: string;
+   status: NotificationStatus;
+diff --git a/frontend/admin/src/app/features/platform/platform.api.ts b/frontend/admin/src/app/features/platform/platform.api.ts
+index c71f2ac..d611bd3 100644
+--- a/frontend/admin/src/app/features/platform/platform.api.ts
++++ b/frontend/admin/src/app/features/platform/platform.api.ts
+@@ -80,45 +80,59 @@ export interface Secret {
+   hint: string | null;
+ }
+ 
++export type MessageChannel = 'WHATSAPP' | 'SMS';
++export type ProviderType = 'META_WHATSAPP' | 'GUPSHUP_WHATSAPP' | 'TWILIO' | 'TAQNYAT_SMS' | 'UNIFONIC_SMS';
++
++/** One provider setting. Secrets come back only as `saved` (masked), never with their value. */
++export interface ProviderFieldView {
++  key: string;
++  /** The provider's own term, shown as-is. */
++  label: string;
++  secret: boolean;
++  required: boolean;
++  placeholder: string | null;
++  value: string | null;
++  saved: Secret | null;
++}
++
++export interface ProviderView {
++  type: ProviderType;
++  name: string;
++  /** What it can carry; `activeChannels` = what it carries now (switched on and configured). */
++  channels: MessageChannel[];
++  activeChannels: MessageChannel[];
++  enabled: boolean;
++  /** Lower is tried first. */
++  priority: number;
++  /** false: never saved in the console (Meta / Unifonic still use the server's environment variables). */
++  saved: boolean;
++  ready: boolean;
++  missing: string[];
++  fields: ProviderFieldView[];
++  usesTemplates: boolean;
++  templates: Record<string, string>;
++  updatedAt: string | null;
++}
++
+ export interface MessagingView {
+-  configured: boolean;
+-  whatsappEnabled: boolean;
+-  whatsappApiUrl: string;
+-  whatsappApiVersion: string;
+-  whatsappPhoneNumberId: string | null;
+-  whatsappBusinessAccountId: string | null;
+-  whatsappAccessToken: Secret;
+-  whatsappAppSecret: Secret;
+-  whatsappVerifyToken: Secret;
+-  whatsappLanguage: string;
+-  whatsappTemplates: Record<string, string>;
+-  smsEnabled: boolean;
+-  smsApiUrl: string;
+-  smsAppSid: Secret;
+-  smsSenderId: string | null;
+-  webhookPath: string;
++  providers: ProviderView[];
+   templateKeys: string[];
+-  whatsappReady: boolean;
+-  smsReady: boolean;
+-  updatedAt: string | null;
++  webhookPath: string;
++  /** Providers tried per channel right now, first to last. */
++  order: Record<MessageChannel, ProviderType[]>;
++}
++
++/** Secrets in `values`: absent/null keeps the saved value, '' clears it. */
++export interface ProviderInput {
++  enabled: boolean;
++  priority: number;
++  values: Record<string, string | null>;
++  templates: Record<string, string>;
+ }
+ 
+-/** Secrets: null keeps the saved value, '' clears it. */
+-export interface MessagingInput {
+-  whatsappEnabled: boolean;
+-  whatsappApiUrl: string | null;
+-  whatsappApiVersion: string | null;
+-  whatsappPhoneNumberId: string | null;
+-  whatsappBusinessAccountId: string | null;
+-  whatsappAccessToken: string | null;
+-  whatsappAppSecret: string | null;
+-  whatsappVerifyToken: string | null;
+-  whatsappLanguage: string | null;
+-  whatsappTemplates: Record<string, string>;
+-  smsEnabled: boolean;
+-  smsApiUrl: string | null;
+-  smsAppSid: string | null;
+-  smsSenderId: string | null;
++export interface TestResult {
++  ok: boolean;
++  message: string;
+ }
+ 
+ const BASE = '/api/platform';
+@@ -194,12 +208,17 @@ export class PlatformApi {
+     return this.http.get<MessagingView>(`${BASE}/messaging`);
+   }
+ 
+-  saveMessaging(m: MessagingInput): Observable<MessagingView> {
+-    return this.http.put<MessagingView>(`${BASE}/messaging`, m);
++  saveProvider(type: ProviderType, body: ProviderInput): Observable<MessagingView> {
++    return this.http.put<MessagingView>(`${BASE}/messaging/providers/${type}`, body);
++  }
++
++  /** Switches a provider on or off without touching its settings. */
++  setProviderEnabled(type: ProviderType, enabled: boolean): Observable<MessagingView> {
++    return this.http.put<MessagingView>(`${BASE}/messaging/providers/${type}/enabled`, { enabled });
+   }
+ 
+-  test(channel: 'WHATSAPP' | 'SMS', phone: string): Observable<{ ok: boolean; message: string }> {
+-    return this.http.post<{ ok: boolean; message: string }>(`${BASE}/messaging/test`, { channel, phone });
++  testProvider(type: ProviderType, channel: MessageChannel, phone: string): Observable<TestResult> {
++    return this.http.post<TestResult>(`${BASE}/messaging/providers/${type}/test`, { channel, phone });
+   }
+ }
+ 
+diff --git a/frontend/admin/src/app/features/platform/settings/settings.page.html b/frontend/admin/src/app/features/platform/settings/settings.page.html
+index 0244561..048bf5a 100644
+--- a/frontend/admin/src/app/features/platform/settings/settings.page.html
++++ b/frontend/admin/src/app/features/platform/settings/settings.page.html
+@@ -41,120 +41,156 @@
+ 
+ @if (msg(); as m) {
+   <div class="panel">
+-    <h2>
+-      {{ 'platform.settings.messaging' | translate }}
+-      @if (!m.configured) { <p-tag severity="info" [value]="'platform.settings.fromEnv' | translate" /> }
+-    </h2>
+-    <p class="sub">{{ 'platform.settings.messagingHint' | translate }}
+-      @if (m.updatedAt && m.configured) { · {{ 'platform.settings.updated' | translate }} {{ m.updatedAt | ldate: 'medium' }} }</p>
++    <h2>{{ 'platform.settings.messaging' | translate }}</h2>
++    <p class="sub">{{ 'platform.settings.providersHint' | translate }}</p>
+ 
+-    <h3>
+-      <i class="pi pi-whatsapp"></i> WhatsApp Cloud API
+-      <p-tag [severity]="m.whatsappReady ? 'success' : 'secondary'" [value]="(m.whatsappReady ? 'platform.settings.ready' : 'platform.settings.notReady') | translate" />
+-    </h3>
+-    <div class="form-grid">
+-      <div class="field">
+-        <label for="w-on">{{ 'platform.settings.enabled' | translate }}</label>
+-        <p-toggleswitch inputId="w-on" [(ngModel)]="form.whatsappEnabled" />
+-      </div>
+-      <div class="field">
+-        <label for="w-lang">{{ 'platform.settings.language' | translate }}</label>
+-        <input pInputText id="w-lang" [(ngModel)]="form.whatsappLanguage" dir="ltr" placeholder="ar" maxlength="10" />
+-      </div>
+-      <div class="field">
+-        <label for="w-url">{{ 'platform.settings.apiUrl' | translate }}</label>
+-        <input pInputText id="w-url" [(ngModel)]="form.whatsappApiUrl" dir="ltr" placeholder="https://graph.facebook.com" />
+-      </div>
+-      <div class="field">
+-        <label for="w-ver">{{ 'platform.settings.apiVersion' | translate }}</label>
+-        <input pInputText id="w-ver" [(ngModel)]="form.whatsappApiVersion" dir="ltr" placeholder="v21.0" maxlength="20" />
+-      </div>
+-      <div class="field">
+-        <label for="w-pid">Phone number ID</label>
+-        <input pInputText id="w-pid" [(ngModel)]="form.whatsappPhoneNumberId" dir="ltr" />
+-      </div>
+-      <div class="field">
+-        <label for="w-waba">WhatsApp Business Account ID</label>
+-        <input pInputText id="w-waba" [(ngModel)]="form.whatsappBusinessAccountId" dir="ltr" />
+-        <small class="hint">{{ 'platform.settings.wabaHint' | translate }}</small>
+-      </div>
+-      @for (k of waSecrets; track k.key) {
+-        <div class="field">
+-          <label [for]="'w-' + k.key">{{ k.label }}</label>
+-          <div class="secret">
+-            <p-password [inputId]="'w-' + k.key" [(ngModel)]="secrets[k.key]" [feedback]="false" [toggleMask]="true" [fluid]="true"
+-                        [placeholder]="placeholder(m[k.key])" autocomplete="off" />
+-            @if (m[k.key].set) {
+-              <p-button icon="pi pi-times" [text]="true" severity="danger" (onClick)="secrets[k.key] = ''" [ariaLabel]="'platform.settings.clear' | translate" />
+-            }
+-          </div>
+-          @if (secrets[k.key] === '' && m[k.key].set) { <small class="hint">{{ 'platform.settings.willClear' | translate }}</small> }
++    <div class="order">
++      @for (ch of channels; track ch) {
++        <div class="order-row">
++          <span class="order-ch"><i [class]="ch === 'WHATSAPP' ? 'pi pi-whatsapp' : 'pi pi-comment'"></i> {{ 'platform.settings.channel.' + ch | translate }}</span>
++          @if (m.order[ch]?.length) {
++            <span class="chain">
++              @for (t of m.order[ch]; track t; let last = $last) {
++                <span class="fo-pill">{{ name(t) }}</span>
++                @if (!last) { <i class="pi pi-arrow-right arrow"></i> }
++              }
++            </span>
++          } @else {
++            <span class="fo-muted">{{ 'platform.settings.orderNone' | translate }}</span>
++          }
+         </div>
+       }
+-      <div class="field full">
+-        <label>{{ 'platform.settings.webhook' | translate }}</label>
+-        <div class="copy"><span>{{ webhookUrl() }}</span>
+-          <p-button icon="pi pi-copy" [text]="true" size="small" (onClick)="copy(webhookUrl())" [ariaLabel]="'common.copy' | translate" /></div>
+-        <small class="hint">{{ 'platform.settings.webhookHint' | translate }}</small>
+-      </div>
+     </div>
+ 
+-    <h3>{{ 'platform.settings.templates' | translate }}</h3>
+-    <p class="note">{{ 'platform.settings.templatesHint' | translate }}</p>
+-    <div class="templates">
+-      @for (t of m.templateKeys; track t) {
+-        <div class="field">
+-          <label [for]="'t-' + t">{{ t }}</label>
+-          <input pInputText [id]="'t-' + t" [(ngModel)]="form.whatsappTemplates[t]" dir="ltr" />
++    <div class="providers">
++      @for (p of m.providers; track p.type + ':' + rev()) {
++        @let st = status(p);
++        <div class="provider" [class.on]="p.enabled">
++          <span class="p-ico"><i [class]="icons[p.type]"></i></span>
++          <div class="p-main">
++            <div class="p-name">
++              {{ p.name }}
++              <p-tag [severity]="st.severity" [value]="st.key | translate" />
++              @if (!p.saved) { <p-tag severity="info" [value]="'platform.settings.fromEnv' | translate" /> }
++            </div>
++            <div class="p-meta">
++              @for (ch of p.channels; track ch) {
++                <span class="ch" [class.active]="p.activeChannels.includes(ch)">{{ 'platform.settings.channel.' + ch | translate }}</span>
++              }
++              <span class="fo-muted">· {{ 'platform.settings.order' | translate }} {{ p.priority }}</span>
++              @if (p.updatedAt && p.saved) { <span class="fo-muted">· {{ 'platform.settings.updated' | translate }} {{ p.updatedAt | ldate: 'short' }}</span> }
++            </div>
++          </div>
++          <p-button icon="pi pi-cog" [text]="true" severity="secondary" [label]="'platform.settings.configure' | translate" (onClick)="configure(p)" />
++          <p-toggleswitch [ngModel]="p.enabled" (ngModelChange)="toggle(p, $event)" [disabled]="toggling() === p.type"
++                          [ariaLabel]="'platform.settings.enabled' | translate" />
+         </div>
+       }
+     </div>
++    <p class="note"><i class="pi pi-info-circle"></i> {{ 'platform.settings.otpNote' | translate }}</p>
++  </div>
+ 
+-    <h3>
+-      <i class="pi pi-comment"></i> SMS (Unifonic)
+-      <p-tag [severity]="m.smsReady ? 'success' : 'secondary'" [value]="(m.smsReady ? 'platform.settings.ready' : 'platform.settings.notReady') | translate" />
+-    </h3>
+-    <div class="form-grid">
+-      <div class="field">
+-        <label for="s-on">{{ 'platform.settings.enabled' | translate }}</label>
+-        <p-toggleswitch inputId="s-on" [(ngModel)]="form.smsEnabled" />
+-      </div>
+-      <div class="field">
+-        <label for="s-sender">Sender ID</label>
+-        <input pInputText id="s-sender" [(ngModel)]="form.smsSenderId" dir="ltr" maxlength="20" />
+-        <small class="hint">{{ 'platform.settings.senderHint' | translate }}</small>
+-      </div>
+-      <div class="field">
+-        <label for="s-url">{{ 'platform.settings.apiUrl' | translate }}</label>
+-        <input pInputText id="s-url" [(ngModel)]="form.smsApiUrl" dir="ltr" placeholder="https://el.cloud.unifonic.com" />
+-      </div>
+-      <div class="field">
+-        <label for="s-sid">AppSid</label>
+-        <div class="secret">
+-          <p-password inputId="s-sid" [(ngModel)]="secrets.smsAppSid" [feedback]="false" [toggleMask]="true" [fluid]="true" [placeholder]="placeholder(m.smsAppSid)" autocomplete="off" />
+-          @if (m.smsAppSid.set) {
+-            <p-button icon="pi pi-times" [text]="true" severity="danger" (onClick)="secrets.smsAppSid = ''" [ariaLabel]="'platform.settings.clear' | translate" />
+-          }
++  <app-dialog [(visible)]="dialogOpen" [title]="editing()?.name ?? ''" [subtitle]="'platform.settings.dialogSub' | translate"
++              [icon]="editing() ? icons[editing()!.type] : 'pi pi-send'" width="760px">
++    @if (editing(); as p) {
++      <div class="fo-dlg-body">
++        <div class="fo-sec">
++          <div class="fo-sec-head">
++            <span class="num">1</span>
++            <div>
++              <h3>{{ 'platform.settings.connection' | translate }}</h3>
++              <p>{{ 'platform.settings.connectionHint' | translate }}</p>
++            </div>
++          </div>
++          @if (!p.saved) { <p class="note env"><i class="pi pi-info-circle"></i> {{ 'platform.settings.envNote' | translate }}</p> }
++          <div class="fo-card form-grid">
++            @for (f of p.fields; track f.key) {
++              <div class="field">
++                <label [for]="'pf-' + f.key">{{ f.label }} @if (f.required) { <span class="req">*</span> }</label>
++                @if (f.secret) {
++                  <div class="secret">
++                    <p-password [inputId]="'pf-' + f.key" [(ngModel)]="secrets[f.key]" (ngModelChange)="touch()" [feedback]="false"
++                                [toggleMask]="true" [fluid]="true" [placeholder]="placeholder(f)" autocomplete="off" />
++                    @if (f.saved?.set) {
++                      <p-button icon="pi pi-times" [text]="true" severity="danger" (onClick)="clearSecret(f.key)" [ariaLabel]="'platform.settings.clear' | translate" />
++                    }
++                  </div>
++                  @if (secrets[f.key] === '' && f.saved?.set) { <small class="hint">{{ 'platform.settings.willClear' | translate }}</small> }
++                } @else {
++                  <input pInputText [id]="'pf-' + f.key" [(ngModel)]="values[f.key]" (ngModelChange)="touch()" dir="ltr"
++                         [placeholder]="f.placeholder ?? ''" maxlength="500" />
++                }
++              </div>
++            }
++            <div class="field">
++              <label for="pf-order">{{ 'platform.settings.order' | translate }}</label>
++              <p-inputnumber inputId="pf-order" [(ngModel)]="priority" (ngModelChange)="touch()" [min]="1" [max]="999" />
++              <small class="hint">{{ 'platform.settings.orderHint' | translate }}</small>
++            </div>
++            @if (p.type === 'TWILIO') {
++              <div class="field full"><small class="hint">{{ 'platform.settings.twilioNote' | translate }}</small></div>
++            }
++            @if (p.type === 'META_WHATSAPP') {
++              <div class="field full">
++                <label>{{ 'platform.settings.webhook' | translate }}</label>
++                <div class="copy"><span>{{ webhookUrl() }}</span>
++                  <p-button icon="pi pi-copy" [text]="true" size="small" (onClick)="copy(webhookUrl())" [ariaLabel]="'common.copy' | translate" /></div>
++                <small class="hint">{{ 'platform.settings.webhookHint' | translate }}</small>
++              </div>
++            }
++          </div>
+         </div>
+-      </div>
+-    </div>
+-    <p class="note"><i class="pi pi-info-circle"></i> {{ 'platform.settings.otpNote' | translate }}</p>
+ 
+-    <div class="save">
+-      <p-button [label]="'platform.settings.saveMessaging' | translate" icon="pi pi-check" [loading]="savingMsg()" (onClick)="saveMessaging()" />
+-    </div>
++        @if (p.usesTemplates) {
++          <div class="fo-sec">
++            <div class="fo-sec-head">
++              <span class="num">2</span>
++              <div>
++                <h3>{{ 'platform.settings.templates' | translate }}</h3>
++                <p>{{ 'platform.settings.templatesHint_' + p.type | translate }}</p>
++              </div>
++            </div>
++            <div class="fo-card templates">
++              @for (t of m.templateKeys; track t) {
++                <div class="field">
++                  <label [for]="'pt-' + t">{{ t }}</label>
++                  <input pInputText [id]="'pt-' + t" [(ngModel)]="templates[t]" (ngModelChange)="touch()" dir="ltr" maxlength="200" />
++                </div>
++              }
++            </div>
++          </div>
++        }
+ 
+-    <h3><i class="pi pi-send"></i> {{ 'platform.settings.test' | translate }}</h3>
+-    <div class="test">
+-      <input pInputText [(ngModel)]="testPhone" dir="ltr" placeholder="05XXXXXXXX" />
+-      <p-button [outlined]="true" icon="pi pi-whatsapp" label="WhatsApp" [loading]="testing() === 'WHATSAPP'" (onClick)="test('WHATSAPP')" />
+-      <p-button [outlined]="true" icon="pi pi-comment" label="SMS" [loading]="testing() === 'SMS'" (onClick)="test('SMS')" />
+-    </div>
+-    <p class="note">{{ 'platform.settings.testHint' | translate }}</p>
+-    @if (testResult(); as r) {
+-      <div class="result" [class.ok]="r.ok" [class.bad]="!r.ok">{{ r.message }}</div>
++        <div class="fo-sec">
++          <div class="fo-sec-head">
++            <span class="num">{{ p.usesTemplates ? 3 : 2 }}</span>
++            <div>
++              <h3>{{ 'platform.settings.test' | translate }}</h3>
++              <p>{{ 'platform.settings.testHint' | translate }}</p>
++            </div>
++          </div>
++          <div class="fo-card">
++            <div class="test">
++              <input pInputText [(ngModel)]="testPhone" dir="ltr" placeholder="05XXXXXXXX" />
++              @for (ch of p.channels; track ch) {
++                <p-button [outlined]="true" [icon]="ch === 'WHATSAPP' ? 'pi pi-whatsapp' : 'pi pi-comment'"
++                          [label]="'platform.settings.channel.' + ch | translate" [loading]="testing() === ch"
++                          [disabled]="!testPhone || dirty" (onClick)="test(ch)" />
++              }
++            </div>
++            @if (dirty) { <small class="hint">{{ 'platform.settings.saveFirst' | translate }}</small> }
++            @if (testResult(); as r) {
++              <div class="result" [class.ok]="r.ok" [class.bad]="!r.ok">{{ r.message }}</div>
++            }
++          </div>
++        </div>
++      </div>
++      <div class="fo-dlg-foot">
++        <p-button [text]="true" severity="secondary" [label]="'common.close' | translate" (onClick)="dialogOpen = false" />
++        <p-button icon="pi pi-check" [label]="'common.save' | translate" [loading]="saving()" (onClick)="save()" />
++      </div>
+     }
+-  </div>
++  </app-dialog>
+ } @else {
+   <div class="panel"><i class="pi pi-spin pi-spinner"></i></div>
+ }
+diff --git a/frontend/admin/src/app/features/platform/settings/settings.page.scss b/frontend/admin/src/app/features/platform/settings/settings.page.scss
+index 7497f46..8068eeb 100644
+--- a/frontend/admin/src/app/features/platform/settings/settings.page.scss
++++ b/frontend/admin/src/app/features/platform/settings/settings.page.scss
+@@ -13,3 +13,25 @@ h3 { font-size: .95rem; margin: 1.25rem 0 .75rem; display: flex; align-items: ce
+ .result.ok { background: var(--success-97); color: var(--brand-24); } .result.bad { background: var(--danger-97); color: var(--danger-35); }
+ .save { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1rem; }
+ .note { font-size: .82rem; color: var(--fo-muted); }
++.order { display: grid; gap: .4rem; margin-bottom: 1rem; padding: .75rem 1rem; border-radius: 12px; background: var(--slate-98); }
++.order-row { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; font-size: .88rem; }
++.order-ch { min-width: 7rem; font-weight: 700; display: inline-flex; gap: .4rem; align-items: center; }
++.chain { display: inline-flex; gap: .35rem; align-items: center; flex-wrap: wrap; }
++.arrow { font-size: .7rem; color: var(--fo-muted); }
++[dir='rtl'] .arrow { transform: scaleX(-1); }
++.providers { display: grid; gap: .5rem; }
++.provider {
++  display: flex; align-items: center; gap: .75rem; padding: .75rem 1rem;
++  border: 1px solid var(--fo-border); border-radius: 14px; background: var(--fo-surface);
++}
++.provider.on { border-color: var(--brand-90); background: var(--brand-98); }
++.p-ico { width: 38px; height: 38px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--slate-98); color: var(--brand-26); }
++.p-main { flex: 1; min-width: 0; }
++.p-name { font-weight: 700; display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
++.p-meta { display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; font-size: .8rem; margin-top: .2rem; }
++.ch { padding: .05rem .5rem; border-radius: 999px; border: 1px solid var(--fo-border); color: var(--fo-muted); }
++.ch.active { border-color: var(--brand-90); color: var(--brand-26); font-weight: 700; }
++.fo-sec + .fo-sec { margin-top: .9rem; }
++.req { color: var(--danger-35); }
++.note.env { margin: 0 .25rem .6rem; }
++@media (max-width: 640px) { .provider { flex-wrap: wrap; } }
+diff --git a/frontend/admin/src/app/features/platform/settings/settings.page.ts b/frontend/admin/src/app/features/platform/settings/settings.page.ts
+index 51730b7..31eea63 100644
+--- a/frontend/admin/src/app/features/platform/settings/settings.page.ts
++++ b/frontend/admin/src/app/features/platform/settings/settings.page.ts
+@@ -12,18 +12,39 @@ import { ToggleSwitch } from 'primeng/toggleswitch';
+ 
+ import { errorMessage } from '../../../core/http/api-error';
+ import { LanguageService } from '../../../core/i18n/language.service';
++import { AppDialog } from '../../../shared/dialog/dialog';
+ import { LocalDatePipe } from '../../../shared/local-date.pipe';
+-import { GeneralSettings, MessagingInput, MessagingView, PlanRow, PlatformApi, Secret } from '../platform.api';
+-
+-type SecretKey = 'whatsappAccessToken' | 'whatsappAppSecret' | 'whatsappVerifyToken' | 'smsAppSid';
++import {
++  GeneralSettings,
++  MessageChannel,
++  MessagingView,
++  PlanRow,
++  PlatformApi,
++  ProviderFieldView,
++  ProviderType,
++  ProviderView,
++  Secret,
++  TestResult,
++} from '../platform.api';
++
++type Severity = 'success' | 'info' | 'warn' | 'danger' | 'secondary';
++
++const ICONS: Record<ProviderType, string> = {
++  META_WHATSAPP: 'pi pi-whatsapp',
++  GUPSHUP_WHATSAPP: 'pi pi-whatsapp',
++  TWILIO: 'pi pi-send',
++  TAQNYAT_SMS: 'pi pi-comment',
++  UNIFONIC_SMS: 'pi pi-comment',
++};
+ 
+ /**
+  * Platform settings: trial length and plan for new signups, grace period after a paid period ends, the support
+- * contact companies see, and the platform's WhatsApp Cloud API and Unifonic SMS credentials and URLs.
++ * contact companies see, and the message providers (Meta WhatsApp, Gupshup, Twilio, Taqnyat, Unifonic): switched
++ * on and off from the list, configured and tested in a dialog.
+  */
+ @Component({
+   selector: 'app-platform-settings',
+-  imports: [FormsModule, TranslatePipe, Button, InputNumber, InputText, Password, Select, Tag, ToggleSwitch, LocalDatePipe],
++  imports: [FormsModule, TranslatePipe, AppDialog, Button, InputNumber, InputText, Password, Select, Tag, ToggleSwitch, LocalDatePipe],
+   styleUrl: './settings.page.scss',
+   templateUrl: './settings.page.html',
+ })
+@@ -37,21 +58,29 @@ export class PlatformSettingsPage {
+   protected readonly msg = signal<MessagingView | null>(null);
+   protected readonly plans = signal<PlanRow[]>([]);
+   protected readonly savingGeneral = signal(false);
+-  protected readonly savingMsg = signal(false);
+-  protected readonly testing = signal<'WHATSAPP' | 'SMS' | null>(null);
+-  protected readonly testResult = signal<{ ok: boolean; message: string } | null>(null);
+-  protected testPhone = '';
+-
+-  /** Editable copy of the non-secret messaging fields. */
+-  protected form: MessagingInput = emptyForm();
++  protected readonly toggling = signal<ProviderType | null>(null);
++  /** Bumped to rebuild the list rows (puts a switch back after a refused toggle). */
++  protected readonly rev = signal(0);
++
++  // ---- provider dialog ----
++  protected dialogOpen = false;
++  protected readonly editing = signal<ProviderView | null>(null);
++  protected readonly saving = signal(false);
++  protected priority = 10;
++  /** Non-secret fields as typed. */
++  protected values: Record<string, string | null> = {};
+   /** Typed secrets: undefined = keep, '' = clear, text = replace. */
+-  protected secrets: Partial<Record<SecretKey, string>> = {};
++  protected secrets: Record<string, string | undefined> = {};
++  protected templates: Record<string, string> = {};
++  /** Typed since opening (tests use the saved settings). */
++  protected dirty = false;
++
++  protected testPhone = '';
++  protected readonly testing = signal<MessageChannel | null>(null);
++  protected readonly testResult = signal<TestResult | null>(null);
+ 
+-  protected readonly waSecrets: { key: Exclude<SecretKey, 'smsAppSid'>; label: string }[] = [
+-    { key: 'whatsappAccessToken', label: 'Access token' },
+-    { key: 'whatsappAppSecret', label: 'App secret' },
+-    { key: 'whatsappVerifyToken', label: 'Webhook verify token' },
+-  ];
++  protected readonly channels: MessageChannel[] = ['WHATSAPP', 'SMS'];
++  protected readonly icons = ICONS;
+ 
+   protected readonly planOptions = computed(() =>
+     this.plans().filter((p) => p.active).map((p) => ({ value: p.id, label: this.lang.current() === 'ar' ? p.nameAr : p.nameEn })),
+@@ -61,32 +90,7 @@ export class PlatformSettingsPage {
+   constructor() {
+     this.api.general().subscribe({ next: (g) => this.general.set(g), error: (e) => this.fail(e) });
+     this.api.plans().subscribe({ next: (p) => this.plans.set(p.plans), error: () => {} });
+-    this.api.messaging().subscribe({ next: (m) => this.setMessaging(m), error: (e) => this.fail(e) });
+-  }
+-
+-  private setMessaging(m: MessagingView): void {
+-    this.msg.set(m);
+-    this.secrets = {};
+-    this.form = {
+-      whatsappEnabled: m.whatsappEnabled,
+-      whatsappApiUrl: m.whatsappApiUrl,
+-      whatsappApiVersion: m.whatsappApiVersion,
+-      whatsappPhoneNumberId: m.whatsappPhoneNumberId,
+-      whatsappBusinessAccountId: m.whatsappBusinessAccountId,
+-      whatsappAccessToken: null,
+-      whatsappAppSecret: null,
+-      whatsappVerifyToken: null,
+-      whatsappLanguage: m.whatsappLanguage,
+-      whatsappTemplates: { ...m.whatsappTemplates },
+-      smsEnabled: m.smsEnabled,
+-      smsApiUrl: m.smsApiUrl,
+-      smsAppSid: null,
+-      smsSenderId: m.smsSenderId,
+-    };
+-  }
+-
+-  protected placeholder(s: Secret): string {
+-    return s.set ? this.translate.instant('platform.settings.savedKeep', { h: s.hint ?? '' }) : this.translate.instant('platform.settings.notSet');
++    this.api.messaging().subscribe({ next: (m) => this.msg.set(m), error: (e) => this.fail(e) });
+   }
+ 
+   protected saveGeneral(g: GeneralSettings): void {
+@@ -104,32 +108,99 @@ export class PlatformSettingsPage {
+     });
+   }
+ 
+-  protected saveMessaging(): void {
+-    const body: MessagingInput = {
+-      ...this.form,
+-      whatsappAccessToken: this.secrets.whatsappAccessToken ?? null,
+-      whatsappAppSecret: this.secrets.whatsappAppSecret ?? null,
+-      whatsappVerifyToken: this.secrets.whatsappVerifyToken ?? null,
+-      smsAppSid: this.secrets.smsAppSid ?? null,
+-    };
+-    this.savingMsg.set(true);
+-    this.api.saveMessaging(body).subscribe({
++  // ---- list ----
++
++  protected name(type: ProviderType): string {
++    return this.msg()?.providers.find((p) => p.type === type)?.name ?? type;
++  }
++
++  protected status(p: ProviderView): { key: string; severity: Severity } {
++    if (p.enabled && p.activeChannels.length) return { key: 'platform.settings.status.sending', severity: 'success' };
++    if (p.enabled) return { key: 'platform.settings.status.missing', severity: 'danger' };
++    if (p.ready) return { key: 'platform.settings.status.off', severity: 'secondary' };
++    return { key: 'platform.settings.status.notConfigured', severity: 'warn' };
++  }
++
++  /** Switch on/off from the list; the server refuses to switch on a provider that is not configured. */
++  protected toggle(p: ProviderView, enabled: boolean): void {
++    this.toggling.set(p.type);
++    this.api.setProviderEnabled(p.type, enabled).subscribe({
++      next: (m) => {
++        this.msg.set(m);
++        this.toggling.set(null);
++        this.messages.add({
++          severity: 'success',
++          summary: this.translate.instant(enabled ? 'platform.settings.turnedOn' : 'platform.settings.turnedOff', { name: p.name }),
++        });
++      },
++      error: (e) => {
++        this.toggling.set(null);
++        this.rev.update((r) => r + 1); // put the switch back
++        this.fail(e);
++      },
++    });
++  }
++
++  // ---- dialog ----
++
++  protected configure(p: ProviderView): void {
++    this.editing.set(p);
++    this.priority = p.priority;
++    this.values = {};
++    for (const f of p.fields) {
++      if (!f.secret) this.values[f.key] = f.value;
++    }
++    this.secrets = {};
++    this.templates = { ...p.templates };
++    this.dirty = false;
++    this.testResult.set(null);
++    this.dialogOpen = true;
++  }
++
++  protected placeholder(f: ProviderFieldView): string {
++    const s: Secret | null = f.saved;
++    if (s?.set) return this.translate.instant('platform.settings.savedKeep', { h: s.hint ?? '' });
++    return this.translate.instant('platform.settings.notSet');
++  }
++
++  protected touch(): void {
++    this.dirty = true;
++  }
++
++  protected clearSecret(key: string): void {
++    this.secrets[key] = '';
++    this.dirty = true;
++  }
++
++  protected save(): void {
++    const p = this.editing();
++    if (!p) return;
++    const values: Record<string, string | null> = { ...this.values };
++    for (const f of p.fields) {
++      if (f.secret) values[f.key] = this.secrets[f.key] ?? null;
++    }
++    this.saving.set(true);
++    this.api.saveProvider(p.type, { enabled: p.enabled, priority: this.priority, values, templates: this.templates }).subscribe({
+       next: (m) => {
+-        this.setMessaging(m);
+-        this.savingMsg.set(false);
++        this.msg.set(m);
++        this.saving.set(false);
++        const fresh = m.providers.find((x) => x.type === p.type);
++        if (fresh) this.configure(fresh); // stays open so it can be tested
+         this.messages.add({ severity: 'success', summary: this.translate.instant('common.saved') });
+       },
+       error: (e) => {
+-        this.savingMsg.set(false);
++        this.saving.set(false);
+         this.fail(e);
+       },
+     });
+   }
+ 
+-  protected test(channel: 'WHATSAPP' | 'SMS'): void {
++  protected test(channel: MessageChannel): void {
++    const p = this.editing();
++    if (!p) return;
+     this.testing.set(channel);
+     this.testResult.set(null);
+-    this.api.test(channel, this.testPhone).subscribe({
++    this.api.testProvider(p.type, channel, this.testPhone).subscribe({
+       next: (r) => {
+         this.testing.set(null);
+         this.testResult.set(r);
+@@ -149,22 +220,3 @@ export class PlatformSettingsPage {
+     this.messages.add({ severity: 'error', summary: errorMessage(e, this.translate) });
+   }
+ }
+-
+-function emptyForm(): MessagingInput {
+-  return {
+-    whatsappEnabled: false,
+-    whatsappApiUrl: null,
+-    whatsappApiVersion: null,
+-    whatsappPhoneNumberId: null,
+-    whatsappBusinessAccountId: null,
+-    whatsappAccessToken: null,
+-    whatsappAppSecret: null,
+-    whatsappVerifyToken: null,
+-    whatsappLanguage: 'ar',
+-    whatsappTemplates: {},
+-    smsEnabled: false,
+-    smsApiUrl: null,
+-    smsAppSid: null,
+-    smsSenderId: null,
+-  };
+-}

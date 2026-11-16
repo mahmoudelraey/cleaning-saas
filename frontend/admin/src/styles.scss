@@ -466,3 +466,21 @@ body {
 @media (max-width: 640px) {
   .fo-dlg-head, .fo-dlg-body, .fo-dlg-foot { padding-inline: 1rem; }
 }
+
+// PrimeNG rounds input-group corners with logical properties (start/end), which follow the element's own direction.
+// An LTR field (phone, email) inside an RTL page would get its corners on the wrong side, so set the physical
+// corners instead: in an RTL group the first item is on the right, the last on the left. The doubled class beats
+// PrimeNG's runtime styles, which load after this file.
+[dir='rtl'] .p-inputgroup.p-inputgroup > [dir='ltr'] {
+  --fo-ig-r: var(--p-inputgroup-addon-border-radius);
+  border-radius: 0;
+  &:first-child {
+    border-radius: 0 var(--fo-ig-r) var(--fo-ig-r) 0;
+  }
+  &:last-child {
+    border-radius: var(--fo-ig-r) 0 0 var(--fo-ig-r);
+  }
+  &:first-child:last-child {
+    border-radius: var(--fo-ig-r);
+  }
+}

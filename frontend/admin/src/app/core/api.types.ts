@@ -386,6 +386,8 @@ export interface NotificationLog extends Audited {
   bookingId?: string;
   template: string;
   channel?: 'WHATSAPP' | 'SMS' | 'LOG';
+  /** Provider that carried (or last tried) it, e.g. META_WHATSAPP, TAQNYAT_SMS. */
+  provider?: string;
   toPhone: string;
   body: string;
   status: NotificationStatus;

@@ -12,8 +12,9 @@ import javax.crypto.spec.SecretKeySpec;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fieldops.app.common.tenant.TenantContext;
-import com.fieldops.app.notification.channel.NotificationProperties;
-import com.fieldops.app.platform.PlatformSettingsService;
+import com.fieldops.app.notification.provider.MessagingProviderService;
+import com.fieldops.app.notification.provider.MetaWhatsAppProvider;
+import com.fieldops.app.notification.provider.ProviderType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -28,7 +29,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Delivery receipts from Meta (plan endpoint {@code /api/v1/webhooks/whatsapp}). Every POST must carry a
+ * Delivery receipts from Meta WhatsApp Cloud API (plan endpoint {@code /api/v1/webhooks/whatsapp}). Every POST must carry a
  * valid {@code X-Hub-Signature-256} HMAC of the raw body; unsigned or forged calls are rejected.
  */
 @RestController
@@ -42,15 +43,15 @@ public class WhatsAppWebhookController {
             "read", Notification.Status.READ,
             "failed", Notification.Status.FAILED);
 
-    private final PlatformSettingsService settings;
+    private final MessagingProviderService providers;
     private final NotificationRefRepository refs;
     private final NotificationRepository notifications;
     private final TransactionTemplate tx;
     private final ObjectMapper json;
 
-    public WhatsAppWebhookController(PlatformSettingsService settings, NotificationRefRepository refs,
+    public WhatsAppWebhookController(MessagingProviderService providers, NotificationRefRepository refs,
                                      NotificationRepository notifications, TransactionTemplate tx, ObjectMapper json) {
-        this.settings = settings;
+        this.providers = providers;
         this.refs = refs;
         this.notifications = notifications;
         this.tx = tx;
@@ -62,9 +63,9 @@ public class WhatsAppWebhookController {
     public ResponseEntity<String> verify(@RequestParam(name = "hub.mode", required = false) String mode,
                                          @RequestParam(name = "hub.verify_token", required = false) String token,
                                          @RequestParam(name = "hub.challenge", required = false) String challenge) {
-        NotificationProperties.WhatsApp config = settings.whatsapp();
-        if ("subscribe".equals(mode) && config.verifyToken() != null && !config.verifyToken().isBlank()
-                && MessageDigest.isEqual(config.verifyToken().getBytes(StandardCharsets.UTF_8),
+        String verifyToken = providers.config(ProviderType.META_WHATSAPP).get(MetaWhatsAppProvider.VERIFY_TOKEN);
+        if ("subscribe".equals(mode) && verifyToken != null
+                && MessageDigest.isEqual(verifyToken.getBytes(StandardCharsets.UTF_8),
                 String.valueOf(token).getBytes(StandardCharsets.UTF_8))) {
             return ResponseEntity.ok(challenge);
         }
@@ -104,7 +105,7 @@ public class WhatsAppWebhookController {
     }
 
     private boolean validSignature(byte[] body, String header) {
-        String secret = settings.whatsapp().appSecret();
+        String secret = providers.config(ProviderType.META_WHATSAPP).get(MetaWhatsAppProvider.APP_SECRET);
         if (secret == null || secret.isBlank() || header == null || !header.startsWith("sha256=")) {
             return false;
         }

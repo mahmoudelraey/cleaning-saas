@@ -80,45 +80,59 @@ export interface Secret {
   hint: string | null;
 }
 
-export interface MessagingView {
-  configured: boolean;
-  whatsappEnabled: boolean;
-  whatsappApiUrl: string;
-  whatsappApiVersion: string;
-  whatsappPhoneNumberId: string | null;
-  whatsappBusinessAccountId: string | null;
-  whatsappAccessToken: Secret;
-  whatsappAppSecret: Secret;
-  whatsappVerifyToken: Secret;
-  whatsappLanguage: string;
-  whatsappTemplates: Record<string, string>;
-  smsEnabled: boolean;
-  smsApiUrl: string;
-  smsAppSid: Secret;
-  smsSenderId: string | null;
-  webhookPath: string;
-  templateKeys: string[];
-  whatsappReady: boolean;
-  smsReady: boolean;
+export type MessageChannel = 'WHATSAPP' | 'SMS';
+export type ProviderType = 'META_WHATSAPP' | 'GUPSHUP_WHATSAPP' | 'TWILIO' | 'TAQNYAT_SMS' | 'UNIFONIC_SMS';
+
+/** One provider setting. Secrets come back only as `saved` (masked), never with their value. */
+export interface ProviderFieldView {
+  key: string;
+  /** The provider's own term, shown as-is. */
+  label: string;
+  secret: boolean;
+  required: boolean;
+  placeholder: string | null;
+  value: string | null;
+  saved: Secret | null;
+}
+
+export interface ProviderView {
+  type: ProviderType;
+  name: string;
+  /** What it can carry; `activeChannels` = what it carries now (switched on and configured). */
+  channels: MessageChannel[];
+  activeChannels: MessageChannel[];
+  enabled: boolean;
+  /** Lower is tried first. */
+  priority: number;
+  /** false: never saved in the console (Meta / Unifonic still use the server's environment variables). */
+  saved: boolean;
+  ready: boolean;
+  missing: string[];
+  fields: ProviderFieldView[];
+  usesTemplates: boolean;
+  templates: Record<string, string>;
   updatedAt: string | null;
 }
 
-/** Secrets: null keeps the saved value, '' clears it. */
-export interface MessagingInput {
-  whatsappEnabled: boolean;
-  whatsappApiUrl: string | null;
-  whatsappApiVersion: string | null;
-  whatsappPhoneNumberId: string | null;
-  whatsappBusinessAccountId: string | null;
-  whatsappAccessToken: string | null;
-  whatsappAppSecret: string | null;
-  whatsappVerifyToken: string | null;
-  whatsappLanguage: string | null;
-  whatsappTemplates: Record<string, string>;
-  smsEnabled: boolean;
-  smsApiUrl: string | null;
-  smsAppSid: string | null;
-  smsSenderId: string | null;
+export interface MessagingView {
+  providers: ProviderView[];
+  templateKeys: string[];
+  webhookPath: string;
+  /** Providers tried per channel right now, first to last. */
+  order: Record<MessageChannel, ProviderType[]>;
+}
+
+/** Secrets in `values`: absent/null keeps the saved value, '' clears it. */
+export interface ProviderInput {
+  enabled: boolean;
+  priority: number;
+  values: Record<string, string | null>;
+  templates: Record<string, string>;
+}
+
+export interface TestResult {
+  ok: boolean;
+  message: string;
 }
 
 const BASE = '/api/platform';
@@ -194,12 +208,17 @@ export class PlatformApi {
     return this.http.get<MessagingView>(`${BASE}/messaging`);
   }
 
-  saveMessaging(m: MessagingInput): Observable<MessagingView> {
-    return this.http.put<MessagingView>(`${BASE}/messaging`, m);
+  saveProvider(type: ProviderType, body: ProviderInput): Observable<MessagingView> {
+    return this.http.put<MessagingView>(`${BASE}/messaging/providers/${type}`, body);
   }
 
-  test(channel: 'WHATSAPP' | 'SMS', phone: string): Observable<{ ok: boolean; message: string }> {
-    return this.http.post<{ ok: boolean; message: string }>(`${BASE}/messaging/test`, { channel, phone });
+  /** Switches a provider on or off without touching its settings. */
+  setProviderEnabled(type: ProviderType, enabled: boolean): Observable<MessagingView> {
+    return this.http.put<MessagingView>(`${BASE}/messaging/providers/${type}/enabled`, { enabled });
+  }
+
+  testProvider(type: ProviderType, channel: MessageChannel, phone: string): Observable<TestResult> {
+    return this.http.post<TestResult>(`${BASE}/messaging/providers/${type}/test`, { channel, phone });
   }
 }
 
