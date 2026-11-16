@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Component, computed, effect, inject, model, signal } from '@angular/core';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { Button } from 'primeng/button';
-import { Dialog } from 'primeng/dialog';
+import { AppDialog } from '../../shared/dialog/dialog';
 
 import { Plan } from '../../core/api.types';
 import { LanguageService } from '../../core/i18n/language.service';
@@ -14,7 +14,7 @@ import { SarPipe } from '../../shared/format';
 /** Plan picker opened from "Upgrade now". Paid plans are activated by support until online payment exists. */
 @Component({
   selector: 'app-upgrade-dialog',
-  imports: [TranslatePipe, Button, Dialog, SarPipe],
+  imports: [TranslatePipe, Button, AppDialog, SarPipe],
   styleUrl: './upgrade-dialog.scss',
   templateUrl: './upgrade-dialog.html',
 })

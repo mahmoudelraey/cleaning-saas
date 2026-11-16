@@ -19,7 +19,9 @@
         <th>{{ 'bookings.customer' | translate }}</th>
         <th>{{ 'doc.total' | translate }}</th>
         <th>{{ 'doc.balance' | translate }}</th>
+        <th>{{ 'audit.createdBy' | translate }}</th>
         <th>{{ 'common.status' | translate }}</th>
+        <th></th>
       </tr>
     </ng-template>
     <ng-template #body let-i>
@@ -32,11 +34,38 @@
         <td>{{ i.customerName }}</td>
         <td><span class="ltr">{{ i.totalHalalas | sar }}</span></td>
         <td><span class="ltr">{{ (i.status === 'VOID' ? 0 : i.totalHalalas - i.paidHalalas) | sar }}</span></td>
+        <td><app-created-by [audit]="i.audit" /></td>
         <td><app-invoice-status [status]="i.status" /></td>
+        <td class="row-actions">
+          <p-button icon="pi pi-eye" [text]="true" severity="secondary" (onClick)="view(i, $event)" [ariaLabel]="'common.view' | translate" />
+          <p-button
+            icon="pi pi-file-pdf"
+            [text]="true"
+            severity="secondary"
+            [loading]="pdfBusy() === i.id"
+            (onClick)="pdf(i, $event)"
+            [ariaLabel]="'doc.pdf' | translate"
+            [pTooltip]="'doc.pdf' | translate"
+            tooltipPosition="top"
+          />
+        </td>
       </tr>
     </ng-template>
     <ng-template #emptymessage>
-      <tr><td colspan="6"><div class="empty"><i class="pi pi-file"></i>{{ 'invoices.empty' | translate }}</div></td></tr>
+      <tr><td colspan="8"><div class="empty"><i class="pi pi-file"></i>{{ 'invoices.empty' | translate }}</div></td></tr>
     </ng-template>
   </p-table>
 </div>
+
+<app-details-dialog
+  [(visible)]="viewOpen"
+  [title]="viewing() ? ('INV-' + viewing()!.number) : ''"
+  [subtitle]="viewing()?.customerName"
+  icon="pi pi-receipt"
+  [fields]="viewing() ? viewFields(viewing()!) : []"
+  [audit]="viewing()?.audit"
+  [canEdit]="true"
+  editLabel="common.open"
+  editIcon="pi pi-external-link"
+  (edit)="open(viewing()!)"
+/>

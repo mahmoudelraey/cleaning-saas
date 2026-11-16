@@ -121,7 +121,7 @@ export interface Page<T> {
   total: number;
 }
 
-export interface CustomerSummary {
+export interface CustomerSummary extends Audited {
   id: string;
   name: string;
   phone: string;
@@ -169,7 +169,22 @@ export interface ServiceOption {
   active: boolean;
 }
 
-export interface ServiceOffering {
+/** Who created / last changed a record and when; a null ...By means the system or a customer. */
+export interface AuditInfo {
+  createdAt?: string | null;
+  createdBy?: string | null;
+  createdByName?: string | null;
+  updatedAt?: string | null;
+  updatedBy?: string | null;
+  updatedByName?: string | null;
+}
+
+/** List items carry their audit info. */
+export interface Audited {
+  audit?: AuditInfo | null;
+}
+
+export interface ServiceOffering extends Audited {
   id: string;
   /** Arabic (main) name and description. */
   name: string;
@@ -193,7 +208,7 @@ export interface WorkShift {
   end: string;
 }
 
-export interface Technician {
+export interface Technician extends Audited {
   id: string;
   userId: string;
   name: string;
@@ -210,7 +225,7 @@ export interface Technician {
   ratingCount?: number;
 }
 
-export interface StaffUser {
+export interface StaffUser extends Audited {
   id: string;
   name: string;
   phone: string;
@@ -250,7 +265,7 @@ export interface TechnicianRef {
   color: string;
 }
 
-export interface BookingSummary {
+export interface BookingSummary extends Audited {
   id: string;
   number: number;
   status: BookingStatus;
@@ -366,7 +381,7 @@ export interface CalendarData {
 
 export type NotificationStatus = 'PENDING' | 'SENT' | 'DELIVERED' | 'READ' | 'FAILED' | 'SKIPPED';
 
-export interface NotificationLog {
+export interface NotificationLog extends Audited {
   id: string;
   bookingId?: string;
   template: string;
@@ -436,7 +451,7 @@ export interface QrPath {
   d: string;
 }
 
-export interface InvoiceSummary {
+export interface InvoiceSummary extends Audited {
   id: string;
   number: number;
   status: InvoiceStatus;
@@ -485,7 +500,7 @@ export interface Invoice {
   publicUrl?: string;
 }
 
-export interface QuoteSummary {
+export interface QuoteSummary extends Audited {
   id: string;
   number: number;
   status: QuoteStatus;
@@ -644,7 +659,7 @@ export interface ReportSummary {
 export type DiscountType = 'PERCENT' | 'AMOUNT';
 
 /** A discount code. discountValue is a percent (1-100) for PERCENT, halalas for AMOUNT. */
-export interface Promo {
+export interface Promo extends Audited {
   id: string;
   code: string;
   title: string;

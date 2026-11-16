@@ -5,7 +5,7 @@ import { Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { ConfirmationService, MenuItem, MessageService } from 'primeng/api';
 import { Button } from 'primeng/button';
-import { Dialog } from 'primeng/dialog';
+import { AppDialog } from '../../../shared/dialog/dialog';
 import { Menu } from 'primeng/menu';
 import { MultiSelect } from 'primeng/multiselect';
 import { Textarea } from 'primeng/textarea';
@@ -90,7 +90,7 @@ interface JourneyStep {
 
 @Component({
   selector: 'app-booking-detail',
-  imports: [FormsModule, RouterLink, TranslatePipe, Button, Dialog, Menu, MultiSelect, Textarea, LocalDatePipe, LocalTimeRangePipe, PhonePipe, SarPipe, InvoiceStatusTag, PhotoGallery, MessagesPage, LockedFeature],
+  imports: [FormsModule, RouterLink, TranslatePipe, Button, AppDialog, Menu, MultiSelect, Textarea, LocalDatePipe, LocalTimeRangePipe, PhonePipe, SarPipe, InvoiceStatusTag, PhotoGallery, MessagesPage, LockedFeature],
   styleUrl: './booking-detail.page.scss',
   templateUrl: './booking-detail.page.html',
 })

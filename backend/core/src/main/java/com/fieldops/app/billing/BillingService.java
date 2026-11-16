@@ -96,16 +96,18 @@ public class BillingService {
      * A line as sent by the client: either a catalog service (priced server-side, add-ons allowed) or a
      * free-text line with its own unit price.
      */
-    public record LineInput(UUID serviceId, BigDecimal quantity, List<UUID> addonIds, String description,
-                            Long unitPriceHalalas, UUID catalogServiceId, UUID catalogAddonId) {
+    public record LineInput(UUID serviceId, UUID optionId, BigDecimal quantity, List<UUID> addonIds,
+                            String description, Long unitPriceHalalas, UUID catalogServiceId, UUID catalogOptionId,
+                            UUID catalogAddonId) {
 
         /**
-         * {@code catalogServiceId} / {@code catalogAddonId}: on a free-text line, the catalog service it was first
+         * {@code optionId}: the service's option (required when it has options). {@code catalogServiceId} /
+         * {@code catalogOptionId} / {@code catalogAddonId}: on a free-text line, the catalog service it was first
          * priced from (an edited quote keeps its prices as typed but remembers where each line came from).
          */
         public LineInput(UUID serviceId, BigDecimal quantity, List<UUID> addonIds, String description,
                          Long unitPriceHalalas) {
-            this(serviceId, quantity, addonIds, description, unitPriceHalalas, null, null);
+            this(serviceId, null, quantity, addonIds, description, unitPriceHalalas, null, null, null);
         }
     }
 
@@ -465,8 +467,8 @@ public class BillingService {
         if (!lines.isEmpty() && lines.stream().allMatch(l -> l.getServiceId() != null)) {
             List<BookingItem> items = new ArrayList<>();
             for (DocumentLine l : lines) {
-                items.add(new BookingItem(l.getServiceId(), l.getAddonId(), l.getDescription(), l.getQuantity(),
-                        l.getUnitPriceHalalas()));
+                items.add(new BookingItem(l.getServiceId(), l.getAddonId() == null ? l.getOptionId() : null,
+                        l.getAddonId(), l.getDescription(), l.getQuantity(), l.getUnitPriceHalalas()));
             }
             b.agreePrices(items, q.getDiscountHalalas());
         } else {
@@ -514,7 +516,7 @@ public class BillingService {
         for (LineInput l : input) {
             if (l.serviceId() != null) {
                 BookingPricing.Priced priced = pricing.price(List.of(
-                        new BookingPricing.Line(l.serviceId(), l.quantity(), l.addonIds())));
+                        new BookingPricing.Line(l.serviceId(), l.optionId(), l.quantity(), l.addonIds())));
                 for (BookingItem item : priced.items()) {
                     out.add(lineFrom(item));
                 }
@@ -531,10 +533,11 @@ public class BillingService {
             if (l.unitPriceHalalas() == null || l.unitPriceHalalas() < 0 || l.unitPriceHalalas() > 100_000_000L) {
                 throw ApiException.badRequest("invalid_price", "Enter a valid unit price");
             }
-            UUID from = knownService(l.catalogServiceId(), l.catalogAddonId()) ? l.catalogServiceId() : null;
+            UUID from = knownService(l.catalogServiceId(), l.catalogAddonId(), l.catalogOptionId())
+                    ? l.catalogServiceId() : null;
             out.add(new DocumentLine(description, qty, l.unitPriceHalalas())
-                    .withCatalog(from, l.catalogAddonId())
-                    .withEnglish(from == null ? null : englishName(from, l.catalogAddonId())));
+                    .withCatalog(from, l.catalogOptionId(), l.catalogAddonId())
+                    .withEnglish(from == null ? null : englishName(from, l.catalogOptionId(), l.catalogAddonId())));
         }
         return out;
     }
@@ -542,25 +545,26 @@ public class BillingService {
     /** A document line from a priced booking item, with the English text taken from the catalog. */
     private DocumentLine lineFrom(BookingItem item) {
         return new DocumentLine(item.getDescription(), item.getQuantity(), item.getUnitPriceHalalas())
-                .withCatalog(item.getServiceId(), item.getAddonId())
-                .withEnglish(englishName(item.getServiceId(), item.getAddonId()));
+                .withCatalog(item.getServiceId(), item.getOptionId(), item.getAddonId())
+                .withEnglish(englishName(item.getServiceId(), item.getOptionId(), item.getAddonId()));
     }
 
-    /** A service of this company (and, when given, one of its add-ons): a line may say it came from it. */
-    private boolean knownService(UUID serviceId, UUID addonId) {
+    /** A service of this company (and, when given, one of its add-ons / options): a line may say it came from it. */
+    private boolean knownService(UUID serviceId, UUID addonId, UUID optionId) {
         if (serviceId == null) {
             return false;
         }
         return catalog.findWithAddons(serviceId)
-                .map(s -> addonId == null || s.getAddons().stream().anyMatch(a -> addonId.equals(a.getId())))
+                .map(s -> (addonId == null || s.getAddons().stream().anyMatch(a -> addonId.equals(a.getId())))
+                        && (optionId == null || s.getOptions().stream().anyMatch(o -> optionId.equals(o.getId()))))
                 .orElse(false);
     }
 
     /**
-     * "Apartment cleaning" or "Apartment cleaning — Fridge" from the services' English names; null when the
-     * service (or its add-on) has no English name, so the PDF prints the Arabic only.
+     * "Apartment cleaning", "Car wash (Large car)" or "Apartment cleaning — Fridge" from the services' English names;
+     * null when the service (or its option / add-on) has no English name, so the PDF prints the Arabic only.
      */
-    private String englishName(UUID serviceId, UUID addonId) {
+    private String englishName(UUID serviceId, UUID optionId, UUID addonId) {
         if (serviceId == null) {
             return null;
         }
@@ -570,7 +574,13 @@ public class BillingService {
                 return null;
             }
             if (addonId == null) {
-                return name;
+                if (optionId == null) {
+                    return name;
+                }
+                return s.getOptions().stream().filter(o -> optionId.equals(o.getId())).findFirst()
+                        .map(o -> o.getNameEn() == null || o.getNameEn().isBlank() ? null
+                                : BookingItem.describe(name, o.getNameEn()))
+                        .orElse(null);
             }
             return s.getAddons().stream().filter(a -> addonId.equals(a.getId())).findFirst()
                     .map(a -> a.getNameEn() == null || a.getNameEn().isBlank() ? null : name + " — " + a.getNameEn())

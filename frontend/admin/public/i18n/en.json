@@ -52,6 +52,14 @@
     "upgrade": "Upgrade now",
     "account": "Account"
   },
+  "audit": {
+    "title": "Change history",
+    "createdAt": "Created on",
+    "createdBy": "Created by",
+    "updatedAt": "Last updated",
+    "updatedBy": "Updated by",
+    "system": "System / customer"
+  },
   "common": {
     "open": "Open",
     "save": "Save",
@@ -59,6 +67,9 @@
     "edit": "Edit",
     "delete": "Delete",
     "close": "Close",
+    "view": "View",
+    "yes": "Yes",
+    "no": "No",
     "start": "Start",
     "copy": "Copy",
     "copied": "Copied",
@@ -70,7 +81,7 @@
     "pageReport": "Showing {first} - {last} of {totalRecords} results"
   },
   "auth": {
-    "heroTitle": "Run your jobs and technicians without WhatsApp and paper",
+    "heroTitle": "Take bookings online and run your technicians, without WhatsApp and paper",
     "heroPoint1": "One calendar, no double bookings",
     "heroPoint2": "WhatsApp confirmations and reminders",
     "heroPoint3": "Arabic quotes and invoices with your logo",
@@ -97,9 +108,9 @@
     "passwordRule": "At least 8 characters",
     "createAccount": "Create account",
     "haveAccount": "Already have an account?",
-    "heroSubtitle": "A smart way to run field operations efficiently and professionally",
+    "heroSubtitle": "A booking page for your customers, technician scheduling and tracking, invoices and reports in one place",
     "feature1": "Reliable and secure, around the clock",
-    "feature2": "Faster, more efficient management",
+    "feature2": "Online booking for your customers, around the clock",
     "feature3": "Detailed reports and analytics",
     "forgotPassword": "Forgot your password?",
     "forgotHint": "Ask your company's account owner to set a new password for you. If you are the owner, contact support.",
@@ -702,7 +713,11 @@
     "openBooking": "Open booking",
     "empty": "No messages",
     "showAll": "Show all messages ({{n}})",
-    "showLess": "Show less"
+    "showLess": "Show less",
+    "sentAt": "Sent at",
+    "deliveredAt": "Delivered at",
+    "body": "Message text",
+    "error": "Error"
   },
   "templates": {
     "BOOKING_RECEIVED": "Booking received",

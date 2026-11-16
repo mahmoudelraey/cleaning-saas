@@ -35,7 +35,9 @@
         <th>{{ 'customers.name' | translate }}</th>
         <th>{{ 'customers.phone' | translate }}</th>
         <th>{{ 'customers.email' | translate }}</th>
+        <th>{{ 'audit.createdBy' | translate }}</th>
         <th>{{ 'common.createdAt' | translate }}</th>
+        <th></th>
       </tr>
     </ng-template>
     <ng-template #body let-c>
@@ -43,12 +45,14 @@
         <td>{{ c.name }}</td>
         <td><span class="ltr">{{ c.phone | phone }}</span></td>
         <td><span class="ltr">{{ c.email }}</span></td>
+        <td><app-created-by [audit]="c.audit" /></td>
         <td class="muted">{{ c.createdAt | ldate: 'mediumDate' }}</td>
-      </tr>
+        <td class="row-actions"><p-button icon="pi pi-eye" [text]="true" severity="secondary" (onClick)="view(c, $event)" [ariaLabel]="'common.view' | translate" /></td>
+            </tr>
     </ng-template>
     <ng-template #emptymessage>
       <tr>
-        <td colspan="4">
+        <td colspan="6">
           <div class="empty"><i class="pi pi-users"></i>{{ 'customers.empty' | translate }}</div>
         </td>
       </tr>
@@ -57,3 +61,16 @@
 </div>
 
 <app-customer-form-dialog [(visible)]="dialogOpen" (saved)="onCreated($event)" />
+
+<app-details-dialog
+  [(visible)]="viewOpen"
+  [title]="viewing()?.name ?? ''"
+  [subtitle]="null"
+  icon="pi pi-user"
+  [fields]="viewing() ? viewFields(viewing()!) : []"
+  [audit]="viewing()?.audit"
+  [canEdit]="true"
+  editLabel="common.open"
+  editIcon="pi pi-external-link"
+  (edit)="open(viewing()!)"
+/>

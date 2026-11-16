@@ -7,7 +7,7 @@ import { ConfirmationService, MessageService } from 'primeng/api';
 import { Button } from 'primeng/button';
 import { UIChart } from 'primeng/chart';
 import { DatePicker } from 'primeng/datepicker';
-import { Dialog } from 'primeng/dialog';
+import { AppDialog } from '../../shared/dialog/dialog';
 import { InputNumber } from 'primeng/inputnumber';
 import { InputText } from 'primeng/inputtext';
 import { Select } from 'primeng/select';
@@ -27,6 +27,8 @@ import { MUTED, NEGATIVE, OTHER_COLOR, PALETTE, POSITIVE, alpha, baseOptions, mo
 import { loader } from '../analytics/load';
 import { KpiCard, StateBlock } from '../analytics/widgets/widgets';
 import { EXPENSE_CATEGORIES, Expense, ExpenseCategory, ExpenseInput, FinanceApi, ExpenseList } from './finance.api';
+import { DetailField, DetailsDialog } from '../../shared/details-dialog/details-dialog';
+import { CreatedBy } from '../../shared/details-dialog/audit-block';
 
 type TabKey = 'pnl' | 'expenses';
 const PAGE = 25;
@@ -37,8 +39,8 @@ const PAGE = 25;
  */
 @Component({
   selector: 'app-finance',
-  imports: [
-    FormsModule, ReactiveFormsModule, TranslatePipe, UIChart, Tabs, TabList, Tab, Button, Dialog, InputNumber, InputText, Select,
+  imports: [DetailsDialog, CreatedBy,
+    FormsModule, ReactiveFormsModule, TranslatePipe, UIChart, Tabs, TabList, Tab, Button, AppDialog, InputNumber, InputText, Select,
     DatePicker, TableModule, Tag, Tooltip, SarPipe, LocalDatePipe, KpiCard, StateBlock,
   ],
   styleUrl: './finance.page.scss',
@@ -269,4 +271,27 @@ export class FinancePage {
     const lang = this.lang.current();
     return baseOptions(lang, { cutout: '60%', interaction: { mode: 'nearest', intersect: true }, scales: { x: { display: false }, y: { display: false } }, plugins: { tooltip: moneyTooltip(lang) } });
   });
+  /** Read-only details with who created / last changed the record (eye button in the table). */
+  protected readonly viewing = signal<Expense | null>(null);
+  protected readonly viewOpen = signal(false);
+
+  protected view(item: Expense, event?: Event): void {
+    event?.stopPropagation();
+    this.viewing.set(item);
+    this.viewOpen.set(true);
+  }
+
+  protected viewFields(x: Expense): DetailField[] {
+    return [
+      { label: 'finance.exp.date', value: x.spentOn, kind: 'date' },
+      { label: 'finance.exp.category', value: this.translate.instant('expenseCategory.' + x.category) },
+      { label: 'finance.exp.amount', value: x.amountHalalas, kind: 'money' },
+      { label: 'finance.exp.vat', value: x.vatHalalas, kind: 'money' },
+      { label: 'finance.exp.vendor', value: x.vendor },
+      { label: 'finance.exp.reference', value: x.reference, kind: 'ltr' },
+      { label: 'finance.exp.service', value: x.serviceId ? this.svcName(x.serviceId) : null },
+      { label: 'finance.exp.description', value: x.description, kind: 'multiline' },
+    ];
+  }
+
 }

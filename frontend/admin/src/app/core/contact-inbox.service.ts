@@ -1,10 +1,11 @@
+import { Audited } from './api.types';
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { Observable, tap } from 'rxjs';
 
 export type ContactTopic = 'BOOKING' | 'QUESTION' | 'QUOTE' | 'COMPLAINT' | 'OTHER';
 
-export interface ContactMessage {
+export interface ContactMessage extends Audited {
   id: string;
   customerId?: string;
   name: string;

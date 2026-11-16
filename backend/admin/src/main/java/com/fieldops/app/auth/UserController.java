@@ -1,5 +1,7 @@
 package com.fieldops.app.auth;
 
+import com.fieldops.app.common.audit.AuditNames;
+import com.fieldops.app.common.audit.Audited;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
@@ -32,14 +34,16 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController {
 
     private final UserService service;
+    private final AuditNames audits;
 
-    public UserController(UserService service) {
+    public UserController(UserService service, AuditNames audits) {
+        this.audits = audits;
         this.service = service;
     }
 
     @GetMapping
-    public List<UserDto> list() {
-        return service.list().stream().map(UserDto::of).toList();
+    public List<Audited<UserDto>> list() {
+        return audits.list(service.list(), UserDto::of);
     }
 
     @GetMapping("/{id}")

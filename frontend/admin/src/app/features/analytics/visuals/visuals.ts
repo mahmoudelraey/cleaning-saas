@@ -4,7 +4,7 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { MenuItem, MessageService } from 'primeng/api';
 import { Button } from 'primeng/button';
 import { DatePicker } from 'primeng/datepicker';
-import { Dialog } from 'primeng/dialog';
+import { AppDialog } from '../../../shared/dialog/dialog';
 import { Menu } from 'primeng/menu';
 import { SelectButton } from 'primeng/selectbutton';
 
@@ -101,7 +101,7 @@ export class RegionMap {
 /** Export menu: the current view to Excel or PDF, or the full report of a month or a year. */
 @Component({
   selector: 'app-export-menu',
-  imports: [FormsModule, TranslatePipe, Button, Menu, Dialog, DatePicker, SelectButton],
+  imports: [FormsModule, TranslatePipe, Button, Menu, AppDialog, DatePicker, SelectButton],
   styleUrl: './visuals.export-menu.scss',
   templateUrl: './visuals.export-menu.html',
 })

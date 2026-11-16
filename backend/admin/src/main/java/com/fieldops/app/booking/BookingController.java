@@ -1,5 +1,7 @@
 package com.fieldops.app.booking;
 
+import com.fieldops.app.common.audit.AuditNames;
+import com.fieldops.app.common.audit.Audited;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -39,15 +41,17 @@ public class BookingController {
 
     private final BookingService service;
     private final SchedulingService scheduling;
+    private final AuditNames audits;
 
-    public BookingController(BookingService service, SchedulingService scheduling) {
+    public BookingController(BookingService service, SchedulingService scheduling, AuditNames audits) {
+        this.audits = audits;
         this.service = service;
         this.scheduling = scheduling;
     }
 
     @GetMapping
     @PreAuthorize("hasAnyRole('OWNER','COORDINATOR')")
-    public PageResponse<BookingSummary> list(@RequestParam(required = false) Set<BookingStatus> status,
+    public PageResponse<Audited<BookingSummary>> list(@RequestParam(required = false) Set<BookingStatus> status,
                                              @RequestParam(required = false) Instant from,
                                              @RequestParam(required = false) Instant to,
                                              @RequestParam(required = false) UUID customerId,
@@ -65,7 +69,7 @@ public class BookingController {
                 PageRequest.of(page, size, by));
         Map<UUID, List<Assignment>> assigned = scheduling.forBookings(
                 result.getContent().stream().map(Booking::getId).toList());
-        return PageResponse.of(result, b -> BookingSummary.of(b, assigned.getOrDefault(b.getId(), List.of())));
+        return audits.page(result, b -> BookingSummary.of(b, assigned.getOrDefault(b.getId(), List.of())));
     }
 
     @GetMapping("/{id}")
@@ -126,11 +130,13 @@ public class BookingController {
 
     // --- Requests --------------------------------------------------------------------------------------
 
+    /** {@code optionId}: required when the service has options (e.g. small / medium / large car). */
     public record LineRequest(@NotNull UUID serviceId,
+                              UUID optionId,
                               BigDecimal quantity,
                               @Size(max = 20) List<UUID> addonIds) {
         BookingPricing.Line toLine() {
-            return new BookingPricing.Line(serviceId, quantity, addonIds);
+            return new BookingPricing.Line(serviceId, optionId, quantity, addonIds);
         }
     }
 
@@ -197,10 +203,10 @@ public class BookingController {
         }
     }
 
-    public record ItemDto(UUID serviceId, UUID addonId, String description, BigDecimal quantity,
+    public record ItemDto(UUID serviceId, UUID addonId, UUID optionId, String description, BigDecimal quantity,
                           long unitPriceHalalas, long totalHalalas) {
         static ItemDto of(BookingItem i) {
-            return new ItemDto(i.getServiceId(), i.getAddonId(), i.getDescription(), i.getQuantity(),
+            return new ItemDto(i.getServiceId(), i.getAddonId(), i.getOptionId(), i.getDescription(), i.getQuantity(),
                     i.getUnitPriceHalalas(), i.getTotalHalalas());
         }
     }

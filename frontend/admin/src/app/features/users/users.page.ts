@@ -4,7 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { MessageService } from 'primeng/api';
 import { Button } from 'primeng/button';
-import { Dialog } from 'primeng/dialog';
+import { AppDialog } from '../../shared/dialog/dialog';
 import { InputNumber } from 'primeng/inputnumber';
 import { InputText } from 'primeng/inputtext';
 import { Message } from 'primeng/message';
@@ -23,17 +23,19 @@ import { PhonePipe, SAUDI_MOBILE_PATTERN, toHalalas } from '../../shared/format'
 import { TenantService } from '../../core/tenant.service';
 import { FinanceApi } from '../finance/finance.api';
 import { LocalDatePipe } from '../../shared/local-date.pipe';
+import { DetailField, DetailsDialog } from '../../shared/details-dialog/details-dialog';
+import { CreatedBy } from '../../shared/details-dialog/audit-block';
 
 const BASE = '/api/v1/users';
 
 @Component({
   selector: 'app-users',
-  imports: [
+  imports: [DetailsDialog, CreatedBy,
     ReactiveFormsModule,
     TranslatePipe,
     TableModule,
     Button,
-    Dialog,
+    AppDialog,
     InputText,
     InputNumber,
     Password,
@@ -189,4 +191,29 @@ export class UsersPage implements OnInit {
       },
     });
   }
+  /** Read-only details with who created / last changed the record (eye button in the table). */
+  protected readonly viewing = signal<StaffUser | null>(null);
+  protected readonly viewOpen = signal(false);
+
+  protected view(item: StaffUser, event?: Event): void {
+    event?.stopPropagation();
+    this.viewing.set(item);
+    this.viewOpen.set(true);
+  }
+
+  protected viewFields(x: StaffUser): DetailField[] {
+    const t = (k: string, p?: object) => this.translate.instant(k, p);
+    return [
+      { label: 'users.name', value: x.name },
+      { label: 'users.phone', value: x.phone, kind: 'phone' },
+      { label: 'users.emailOptional', value: x.email ?? null, kind: 'ltr' },
+      { label: 'users.role', value: t('roles.' + x.role) },
+      { label: 'common.status', value: t(x.active ? 'common.active' : 'common.inactive'), kind: 'status', on: x.active },
+      { label: 'users.lastLogin', value: x.lastLoginAt ?? null, kind: 'datetime' },
+      ...(x.role === 'COORDINATOR'
+        ? [{ label: 'users.screens', value: (x.screens ?? []).map((sc) => t('users.screen.' + sc)).join('، '), full: true }]
+        : []),
+    ];
+  }
+
 }

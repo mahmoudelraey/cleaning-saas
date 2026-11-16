@@ -1,5 +1,7 @@
 package com.fieldops.app.billing;
 
+import com.fieldops.app.common.audit.AuditNames;
+import com.fieldops.app.common.audit.Audited;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -50,8 +52,10 @@ public class BillingController {
 
     private final BillingService billing;
     private final BillingPdfService pdfs;
+    private final AuditNames audits;
 
-    public BillingController(BillingService billing, BillingPdfService pdfs) {
+    public BillingController(BillingService billing, BillingPdfService pdfs, AuditNames audits) {
+        this.audits = audits;
         this.billing = billing;
         this.pdfs = pdfs;
     }
@@ -59,11 +63,11 @@ public class BillingController {
     // ---------------------------------------------------------------------------------------- invoices
 
     @GetMapping("/invoices")
-    public PageResponse<InvoiceSummary> invoices(@RequestParam(required = false) String status,
+    public PageResponse<Audited<InvoiceSummary>> invoices(@RequestParam(required = false) String status,
                                                  @RequestParam(required = false) UUID customerId,
                                                  @RequestParam(defaultValue = "0") int page,
                                                  @RequestParam(defaultValue = "20") int size) {
-        return PageResponse.of(billing.searchInvoices(status, customerId, pageRequest(page, size)), InvoiceSummary::of);
+        return audits.page(billing.searchInvoices(status, customerId, pageRequest(page, size)), InvoiceSummary::of);
     }
 
     @GetMapping("/invoices/{id}")
@@ -129,12 +133,12 @@ public class BillingController {
     // ------------------------------------------------------------------------------------------ quotes
 
     @GetMapping("/quotes")
-    public PageResponse<QuoteSummary> quotes(@RequestParam(required = false) String status,
+    public PageResponse<Audited<QuoteSummary>> quotes(@RequestParam(required = false) String status,
                                              @RequestParam(required = false) UUID customerId,
                                              @RequestParam(defaultValue = "0") int page,
                                              @RequestParam(defaultValue = "20") int size) {
         LocalDate today = LocalDate.now(billing.zone());
-        return PageResponse.of(billing.searchQuotes(status, customerId, pageRequest(page, size)),
+        return audits.page(billing.searchQuotes(status, customerId, pageRequest(page, size)),
                 q -> QuoteSummary.of(q, today));
     }
 
@@ -216,8 +220,8 @@ public class BillingController {
     }
 
     private static List<BillingService.LineInput> lines(List<LineRequest> lines) {
-        return lines.stream().map(l -> new BillingService.LineInput(l.serviceId(), l.quantity(), l.addonIds(),
-                l.description(), l.unitPriceHalalas(), l.catalogServiceId(), l.catalogAddonId())).toList();
+        return lines.stream().map(l -> new BillingService.LineInput(l.serviceId(), l.optionId(), l.quantity(), l.addonIds(),
+                l.description(), l.unitPriceHalalas(), l.catalogServiceId(), l.catalogOptionId(), l.catalogAddonId())).toList();
     }
 
     private static BillingService.QuoteCommand command(QuoteRequest req) {
@@ -225,9 +229,9 @@ public class BillingController {
                 req.discountHalalas() == null ? 0 : req.discountHalalas(), req.validUntil(), req.notes());
     }
 
-    public record LineRequest(UUID serviceId, @DecimalMin(value = "0.01") BigDecimal quantity, List<UUID> addonIds,
-                              @Size(max = 300) String description, @Min(0) Long unitPriceHalalas,
-                              UUID catalogServiceId, UUID catalogAddonId) {
+    public record LineRequest(UUID serviceId, UUID optionId, @DecimalMin(value = "0.01") BigDecimal quantity,
+                              List<UUID> addonIds, @Size(max = 300) String description, @Min(0) Long unitPriceHalalas,
+                              UUID catalogServiceId, UUID catalogOptionId, UUID catalogAddonId) {
     }
 
     public record IssueInvoiceRequest(@NotNull UUID customerId, @NotEmpty @Size(max = 100) List<@Valid LineRequest> lines,

@@ -263,7 +263,8 @@
   </div>
 
   <!-- full log: every visit event plus the messages sent to the customer, oldest first -->
-  <p-dialog [header]="'bookingDetail.log.title' | translate: { n: b.number }" [(visible)]="logOpen" [modal]="true" [dismissableMask]="true" [style]="{ width: '640px', maxWidth: '95vw' }" [contentStyle]="{ maxHeight: '70vh' }" [draggable]="false">
+  <app-dialog [(visible)]="logOpen" [title]="'bookingDetail.log.title' | translate: { n: b.number }" icon="pi pi-history" width="640px">
+<div class="fo-dlg-body">
     <div class="log-filters">
       @for (f of logFilters; track f) {
         @if (f !== 'messages' || isOffice) {
@@ -309,7 +310,10 @@
         <div class="log-empty">{{ 'bookingDetail.log.empty' | translate }}</div>
       }
     </ol>
-  </p-dialog>
+
+
+</div>
+</app-dialog>
 } @else {
   <div class="skeleton" style="height: 110px; margin-bottom: 1.25rem"></div>
   <div class="layout">
@@ -319,7 +323,8 @@
   </div>
 }
 
-<p-dialog [header]="'bookingDetail.newMessage' | translate" [(visible)]="messageOpen" [modal]="true" [style]="{ width: '520px', maxWidth: '95vw' }" [draggable]="false">
+<app-dialog [(visible)]="messageOpen" [title]="'bookingDetail.newMessage' | translate" icon="pi pi-whatsapp" width="520px">
+<div class="fo-dlg-body">
   @if (booking(); as b) {
     <p class="muted" style="margin-top: 0">{{ 'bookingDetail.messageTo' | translate: { name: b.customerName } }} · <span class="ltr">{{ b.customerPhone | phone }}</span></p>
   }
@@ -334,30 +339,44 @@
   @if (messageText.trim()) {
     <div class="msg-preview" dir="rtl">{{ messagePreview() }}</div>
   }
-  <div class="dialog-actions">
-    <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="messageOpen.set(false)" />
-    <p-button icon="pi pi-send" [label]="'bookingDetail.send' | translate" [disabled]="!messageText.trim()" [loading]="messageSending()" (onClick)="sendMessage()" />
-  </div>
-</p-dialog>
 
-<p-dialog [header]="'bookings.assign' | translate" [(visible)]="assignOpen" [modal]="true" [style]="{ width: '480px', maxWidth: '95vw' }" [draggable]="false">
+
+</div>
+<div class="fo-dlg-foot">
+    <p-button icon="pi pi-send" [label]="'bookingDetail.send' | translate" [disabled]="!messageText.trim()" [loading]="messageSending()" (onClick)="sendMessage()" />
+
+    <p-button [label]="'common.cancel' | translate" severity="secondary" [outlined]="true" (onClick)="messageOpen.set(false)" />
+</div>
+</app-dialog>
+
+<app-dialog [(visible)]="assignOpen" [title]="'bookings.assign' | translate" icon="pi pi-user-plus" width="480px">
+<div class="fo-dlg-body">
   <div class="field">
     <label for="a-techs">{{ 'bookings.technicians' | translate }}</label>
     <p-multiselect inputId="a-techs" [options]="technicianOptions()" [(ngModel)]="selectedTechs" optionLabel="label" optionValue="value" display="chip" [fluid]="true" appendTo="body" />
   </div>
-  <div class="dialog-actions">
-    <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="assignOpen.set(false)" />
-    <p-button [label]="'bookings.assign' | translate" [disabled]="!selectedTechs.length" [loading]="busy()" (onClick)="assign(false)" />
-  </div>
-</p-dialog>
 
-<p-dialog [header]="'bookingAction.CANCELLED' | translate" [(visible)]="cancelOpen" [modal]="true" [style]="{ width: '480px', maxWidth: '95vw' }" [draggable]="false">
+
+</div>
+<div class="fo-dlg-foot">
+    <p-button [label]="'bookings.assign' | translate" [disabled]="!selectedTechs.length" [loading]="busy()" (onClick)="assign(false)" />
+
+    <p-button [label]="'common.cancel' | translate" severity="secondary" [outlined]="true" (onClick)="assignOpen.set(false)" />
+</div>
+</app-dialog>
+
+<app-dialog [(visible)]="cancelOpen" [title]="'bookingAction.CANCELLED' | translate" icon="pi pi-times-circle" width="480px">
+<div class="fo-dlg-body">
   <div class="field">
     <label for="c-reason">{{ 'bookings.cancelReason' | translate }}</label>
     <textarea pTextarea id="c-reason" [(ngModel)]="cancelReason" rows="3"></textarea>
   </div>
-  <div class="dialog-actions">
-    <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="cancelOpen.set(false)" />
+
+
+</div>
+<div class="fo-dlg-foot">
     <p-button [label]="'bookingAction.CANCELLED' | translate" severity="danger" [loading]="busy()" (onClick)="doMove('CANCELLED', cancelReason)" />
-  </div>
-</p-dialog>
+
+    <p-button [label]="'common.cancel' | translate" severity="secondary" [outlined]="true" (onClick)="cancelOpen.set(false)" />
+</div>
+</app-dialog>

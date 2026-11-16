@@ -14,10 +14,12 @@ import { PhonePipe } from '../../shared/format';
 import { CustomerFormDialog } from './customer-form/customer-form.dialog';
 import { CustomersApi } from './customers.api';
 import { LocalDatePipe } from '../../shared/local-date.pipe';
+import { DetailField, DetailsDialog } from '../../shared/details-dialog/details-dialog';
+import { CreatedBy } from '../../shared/details-dialog/audit-block';
 
 @Component({
   selector: 'app-customers',
-  imports: [TranslatePipe, TableModule, Button, IconField, InputIcon, InputText, LocalDatePipe, PhonePipe, CustomerFormDialog],
+  imports: [DetailsDialog, CreatedBy, TranslatePipe, TableModule, Button, IconField, InputIcon, InputText, LocalDatePipe, PhonePipe, CustomerFormDialog],
   templateUrl: './customers.page.html',
 })
 export class CustomersPage implements OnInit {
@@ -69,4 +71,22 @@ export class CustomersPage implements OnInit {
       error: () => this.loading.set(false),
     });
   }
+  /** Read-only details with who created / last changed the record (eye button in the table). */
+  protected readonly viewing = signal<CustomerSummary | null>(null);
+  protected readonly viewOpen = signal(false);
+
+  protected view(item: CustomerSummary, event?: Event): void {
+    event?.stopPropagation();
+    this.viewing.set(item);
+    this.viewOpen.set(true);
+  }
+
+  protected viewFields(x: CustomerSummary): DetailField[] {
+    return [
+      { label: 'customers.name', value: x.name },
+      { label: 'customers.phone', value: x.phone, kind: 'phone' },
+      { label: 'customers.email', value: x.email, kind: 'ltr' },
+    ];
+  }
+
 }

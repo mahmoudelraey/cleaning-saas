@@ -4,7 +4,7 @@ import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angula
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { MessageService } from 'primeng/api';
 import { Button } from 'primeng/button';
-import { Dialog } from 'primeng/dialog';
+import { AppDialog } from '../../shared/dialog/dialog';
 import { InputNumber } from 'primeng/inputnumber';
 import { InputText } from 'primeng/inputtext';
 import { Message } from 'primeng/message';
@@ -24,6 +24,8 @@ import { PhonePipe, SAUDI_MOBILE_PATTERN, toHalalas } from '../../shared/format'
 import { FinanceApi } from '../finance/finance.api';
 import { ResetPasswordDialog } from '../../shared/reset-password/reset-password.dialog';
 import { STRONG_PASSWORD } from '../auth/change-password/change-password.page';
+import { DetailField, DetailsDialog } from '../../shared/details-dialog/details-dialog';
+import { CreatedBy } from '../../shared/details-dialog/audit-block';
 
 const BASE = '/api/v1/technicians';
 /** Saudi work week order. */
@@ -46,12 +48,12 @@ type ShiftGroup = ReturnType<typeof makeShift>;
 
 @Component({
   selector: 'app-technicians',
-  imports: [
+  imports: [DetailsDialog, CreatedBy,
     ReactiveFormsModule,
     TranslatePipe,
     TableModule,
     Button,
-    Dialog,
+    AppDialog,
     InputText,
     InputNumber,
     Password,
@@ -229,4 +231,28 @@ export class TechniciansPage implements OnInit {
       },
     });
   }
+  /** Read-only details with who created / last changed the record (eye button in the table). */
+  protected readonly viewing = signal<Technician | null>(null);
+  protected readonly viewOpen = signal(false);
+
+  protected view(item: Technician, event?: Event): void {
+    event?.stopPropagation();
+    this.viewing.set(item);
+    this.viewOpen.set(true);
+  }
+
+  protected viewFields(x: Technician): DetailField[] {
+    const t = (k: string, p?: object) => this.translate.instant(k, p);
+    return [
+      { label: 'technicians.name', value: x.name },
+      { label: 'technicians.phone', value: x.phone, kind: 'phone' },
+      { label: 'users.emailOptional', value: x.email ?? null, kind: 'ltr' },
+      { label: 'common.status', value: t(x.active ? 'common.active' : 'common.inactive'), kind: 'status', on: x.active },
+      { label: 'technicians.rating', value: x.ratingAverage != null ? x.ratingAverage.toFixed(1) + ' / 5 · ' + t('technicians.ratingCount', { n: x.ratingCount }) : t('technicians.noRating') },
+      { label: 'technicians.workDays', value: this.workDays(x) },
+      { label: 'users.lastLogin', value: x.lastLoginAt ?? null, kind: 'datetime' },
+      { label: 'technicians.skills', value: (x.skills ?? []).map((s) => this.serviceLabel(s)).join('، '), full: true },
+    ];
+  }
+
 }

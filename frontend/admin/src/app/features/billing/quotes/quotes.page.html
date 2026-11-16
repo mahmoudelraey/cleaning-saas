@@ -19,7 +19,9 @@
         <th>{{ 'bookings.customer' | translate }}</th>
         <th>{{ 'doc.validUntil' | translate }}</th>
         <th>{{ 'doc.total' | translate }}</th>
+        <th>{{ 'audit.createdBy' | translate }}</th>
         <th>{{ 'common.status' | translate }}</th>
+        <th></th>
       </tr>
     </ng-template>
     <ng-template #body let-q>
@@ -29,11 +31,26 @@
         <td>{{ q.customerName }}</td>
         <td>{{ q.validUntil | ldate: 'dayMonthYear' }}</td>
         <td><span class="ltr">{{ q.totalHalalas | sar }}</span></td>
+        <td><app-created-by [audit]="q.audit" /></td>
         <td><app-quote-status [status]="q.status" [expired]="q.expired" /></td>
-      </tr>
+        <td class="row-actions"><p-button icon="pi pi-eye" [text]="true" severity="secondary" (onClick)="view(q, $event)" [ariaLabel]="'common.view' | translate" /></td>
+            </tr>
     </ng-template>
     <ng-template #emptymessage>
-      <tr><td colspan="6"><div class="empty"><i class="pi pi-file-edit"></i>{{ 'quotes.empty' | translate }}</div></td></tr>
+      <tr><td colspan="8"><div class="empty"><i class="pi pi-file-edit"></i>{{ 'quotes.empty' | translate }}</div></td></tr>
     </ng-template>
   </p-table>
 </div>
+
+<app-details-dialog
+  [(visible)]="viewOpen"
+  [title]="viewing() ? ('Q-' + viewing()!.number) : ''"
+  [subtitle]="viewing()?.customerName"
+  icon="pi pi-file"
+  [fields]="viewing() ? viewFields(viewing()!) : []"
+  [audit]="viewing()?.audit"
+  [canEdit]="true"
+  editLabel="common.open"
+  editIcon="pi pi-external-link"
+  (edit)="open(viewing()!)"
+/>

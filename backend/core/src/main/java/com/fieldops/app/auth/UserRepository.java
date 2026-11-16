@@ -32,6 +32,10 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     @Query("select count(u) > 0 from User u where lower(u.email) = lower(:email)")
     boolean existsByEmailIgnoreCase(@Param("email") String email);
 
+    /** id → name of the given users, for "created by / updated by" labels (names only, any company). */
+    @Query("select u.id, u.name from User u where u.id in :ids")
+    List<Object[]> findNames(@Param("ids") java.util.Collection<UUID> ids);
+
     // --- Tenant-scoped -----------------------------------------------------------------------------
 
     Optional<User> findByIdAndTenantId(UUID id, UUID tenantId);

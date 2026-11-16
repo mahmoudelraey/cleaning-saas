@@ -1,5 +1,7 @@
 package com.fieldops.app.customer;
 
+import com.fieldops.app.common.audit.AuditNames;
+import com.fieldops.app.common.audit.Audited;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -37,22 +39,24 @@ import org.springframework.web.bind.annotation.RestController;
 public class CustomerController {
 
     private final CustomerService service;
+    private final AuditNames audits;
 
-    public CustomerController(CustomerService service) {
+    public CustomerController(CustomerService service, AuditNames audits) {
         this.service = service;
+        this.audits = audits;
     }
 
     @GetMapping
-    public PageResponse<CustomerSummary> list(@RequestParam(required = false) String q,
+    public PageResponse<Audited<CustomerSummary>> list(@RequestParam(required = false) String q,
                                               @RequestParam(defaultValue = "0") @Min(0) int page,
                                               @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
         var pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        return PageResponse.of(service.search(q, pageable), CustomerSummary::of);
+        return audits.page(service.search(q, pageable), CustomerSummary::of);
     }
 
     @GetMapping("/{id}")
-    public CustomerDetail get(@PathVariable UUID id) {
-        return CustomerDetail.of(service.get(id));
+    public Audited<CustomerDetail> get(@PathVariable UUID id) {
+        return audits.one(service.get(id), CustomerDetail::of);
     }
 
     @PostMapping

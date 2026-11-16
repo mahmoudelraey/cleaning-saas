@@ -1,5 +1,7 @@
 package com.fieldops.app.contact;
 
+import com.fieldops.app.common.audit.AuditNames;
+import com.fieldops.app.common.audit.Audited;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -20,15 +22,17 @@ import org.springframework.web.bind.annotation.RestController;
 public class ContactMessageController {
 
     private final ContactService contacts;
+    private final AuditNames audits;
 
-    public ContactMessageController(ContactService contacts) {
+    public ContactMessageController(ContactService contacts, AuditNames audits) {
+        this.audits = audits;
         this.contacts = contacts;
     }
 
     /** @param status NEW, DONE, or empty for all */
     @GetMapping
-    public List<MessageDto> list(@RequestParam(required = false) ContactMessage.Status status) {
-        return contacts.list(status).stream().map(MessageDto::of).toList();
+    public List<Audited<MessageDto>> list(@RequestParam(required = false) ContactMessage.Status status) {
+        return audits.list(contacts.list(status), MessageDto::of);
     }
 
     /** For the sidebar badge. */

@@ -38,9 +38,12 @@ public class PayrollService {
     private final SalaryPaymentRepository payments;
     private final UserRepository users;
     private final TenantService tenants;
+    private final com.fieldops.app.common.audit.AuditNames audits;
 
     public PayrollService(EmployeeRepository employees, SalaryRecordRepository records,
-                          SalaryPaymentRepository payments, UserRepository users, TenantService tenants) {
+                          SalaryPaymentRepository payments, UserRepository users, TenantService tenants,
+                          com.fieldops.app.common.audit.AuditNames audits) {
+        this.audits = audits;
         this.employees = employees;
         this.records = records;
         this.payments = payments;
@@ -67,7 +70,14 @@ public class PayrollService {
                                String jobTitle, String phone, long baseSalaryHalalas, long housingHalalas,
                                long transportHalalas, long otherAllowancesHalalas, long employerCostHalalas,
                                long monthlyGrossHalalas, long monthlyCostHalalas, LocalDate hireDate, boolean active,
-                               String notes) {
+                               String notes, com.fieldops.app.common.audit.AuditInfo audit) {
+
+        /** The same with who created / last changed the payroll entry. */
+        EmployeeView withAudit(com.fieldops.app.common.audit.AuditInfo a) {
+            return new EmployeeView(id, userId, role, accountActive, salarySet, name, jobTitle, phone,
+                    baseSalaryHalalas, housingHalalas, transportHalalas, otherAllowancesHalalas, employerCostHalalas,
+                    monthlyGrossHalalas, monthlyCostHalalas, hireDate, active, notes, a);
+        }
     }
 
     public record RecordData(long baseHalalas, long allowancesHalalas, long overtimeHalalas, long bonusHalalas,
@@ -106,16 +116,18 @@ public class PayrollService {
         Map<UUID, User> staff = staff();
         List<EmployeeView> out = new ArrayList<>();
         Set<UUID> linked = new HashSet<>();
-        for (Employee e : employees.findAllByOrderByActiveDescNameAsc()) {
+        List<Employee> all = employees.findAllByOrderByActiveDescNameAsc();
+        var audit = audits.forAll(all);
+        for (Employee e : all) {
             if (e.getUserId() != null) {
                 linked.add(e.getUserId());
             }
-            out.add(view(e, staff));
+            out.add(view(e, staff).withAudit(audit.apply(e)));
         }
         for (User u : staff.values()) {
             if (u.getRole() != Role.OWNER && u.isActive() && !linked.contains(u.getId())) {
                 out.add(new EmployeeView(null, u.getId(), u.getRole(), true, false, u.getName(), null, u.getPhone(),
-                        0, 0, 0, 0, 0, 0, 0, null, true, null));
+                        0, 0, 0, 0, 0, 0, 0, null, true, null, null));
             }
         }
         out.sort(Comparator.comparing((EmployeeView v) -> !v.active())
@@ -393,7 +405,7 @@ public class PayrollService {
                 e.getBaseSalaryHalalas(), e.getHousingHalalas(),
                 e.getTransportHalalas(), e.getOtherAllowancesHalalas(), e.getEmployerCostHalalas(),
                 e.getMonthlyGrossHalalas(), e.getMonthlyGrossHalalas() + e.getEmployerCostHalalas(), e.getHireDate(),
-                e.isActive(), e.getNotes());
+                e.isActive(), e.getNotes(), null);
     }
 
     private static RecordView view(SalaryRecord r, Lookup byId) {

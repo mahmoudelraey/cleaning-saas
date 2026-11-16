@@ -6,7 +6,7 @@ import { ConfirmationService, MessageService } from 'primeng/api';
 import { Button } from 'primeng/button';
 import { Checkbox } from 'primeng/checkbox';
 import { DatePicker } from 'primeng/datepicker';
-import { Dialog } from 'primeng/dialog';
+import { AppDialog } from '../../shared/dialog/dialog';
 import { InputNumber } from 'primeng/inputnumber';
 import { InputText } from 'primeng/inputtext';
 import { SelectButton } from 'primeng/selectbutton';
@@ -20,6 +20,8 @@ import { errorMessage } from '../../core/http/api-error';
 import { LanguageService } from '../../core/i18n/language.service';
 import { SarPipe, toHalalas, toSar } from '../../shared/format';
 import { LocalDatePipe } from '../../shared/local-date.pipe';
+import { DetailField, DetailsDialog } from '../../shared/details-dialog/details-dialog';
+import { CreatedBy } from '../../shared/details-dialog/audit-block';
 
 const BASE = '/api/v1/promos';
 
@@ -48,14 +50,14 @@ const STATE_SEVERITY: Record<PromoState, 'success' | 'info' | 'secondary' | 'war
  */
 @Component({
   selector: 'app-promos',
-  imports: [
+  imports: [DetailsDialog, CreatedBy,
     ReactiveFormsModule,
     TranslatePipe,
     TableModule,
     Button,
     Checkbox,
     DatePicker,
-    Dialog,
+    AppDialog,
     InputNumber,
     InputText,
     SelectButton,
@@ -223,6 +225,33 @@ export class PromosPage implements OnInit {
     this.saving.set(false);
     this.messages.add({ severity: 'error', summary: errorMessage(err, this.translate) });
   }
+  /** Read-only details with who created / last changed the record (eye button in the table). */
+  protected readonly viewing = signal<Promo | null>(null);
+  protected readonly viewOpen = signal(false);
+
+  protected view(item: Promo, event?: Event): void {
+    event?.stopPropagation();
+    this.viewing.set(item);
+    this.viewOpen.set(true);
+  }
+
+  protected viewFields(x: Promo): DetailField[] {
+    const t = (k: string, p?: object) => this.translate.instant(k, p);
+    const sar = (h: number) => (h / 100).toLocaleString('en-US', { maximumFractionDigits: 2 }) + ' SAR';
+    return [
+      { label: 'promos.code', value: x.code, kind: 'ltr' },
+      { label: 'common.status', value: t('promos.state.' + this.state(x)), kind: 'status', on: this.severity(x) === 'success' },
+      { label: 'promos.titleCol', value: x.title },
+      { label: 'promos.titleEn', value: x.titleEn ?? null, kind: 'ltr' },
+      { label: 'promos.discount', value: x.discountType === 'PERCENT' ? x.discountValue + '%' : sar(x.discountValue), kind: 'ltr' },
+      { label: 'promos.minOrder', value: x.minSubtotalHalalas ? sar(x.minSubtotalHalalas) : null, kind: 'ltr' },
+      { label: 'promos.startsAt', value: x.startsAt ?? null, kind: 'date' },
+      { label: 'promos.endsAt', value: x.endsAt ?? t('promos.noEnd'), kind: x.endsAt ? 'date' : 'text' },
+      { label: 'promos.usage', value: x.usageLimit ? x.usedCount + ' / ' + x.usageLimit : '' + x.usedCount, kind: 'ltr' },
+      { label: 'promos.firstOnly', value: t(x.firstBookingOnly ? 'common.yes' : 'common.no') },
+      { label: 'promos.announced', value: t(x.announce ? 'common.yes' : 'common.no') },
+    ];
+  }
 }
 
 function startOfDay(d: Date): Date {
@@ -231,4 +260,5 @@ function startOfDay(d: Date): Date {
 
 function addDays(d: Date, n: number): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+
 }

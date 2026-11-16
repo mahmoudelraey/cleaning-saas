@@ -70,7 +70,8 @@
   </div>
 }
 
-<p-dialog [header]="'invoices.recordPayment' | translate" [(visible)]="payOpen" [modal]="true" [style]="{ width: '440px', maxWidth: '95vw' }" [draggable]="false">
+<app-dialog [(visible)]="payOpen" [title]="'invoices.recordPayment' | translate" icon="pi pi-money-bill" width="440px">
+<div class="fo-dlg-body">
   <div class="form-grid">
     <div class="field full">
       <label for="p-method">{{ 'invoices.method' | translate }}</label>
@@ -89,20 +90,29 @@
       <input pInputText id="p-ref" [(ngModel)]="payRef" maxlength="100" dir="auto" />
     </div>
   </div>
-  <div class="dialog-actions">
-    <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="payOpen.set(false)" />
-    <p-button [label]="'common.save' | translate" [disabled]="!payAmount || payAmount <= 0" [loading]="busy()" (onClick)="pay()" />
-  </div>
-</p-dialog>
 
-<p-dialog [header]="'invoices.void' | translate" [(visible)]="voidOpen" [modal]="true" [style]="{ width: '440px', maxWidth: '95vw' }" [draggable]="false">
+
+</div>
+<div class="fo-dlg-foot">
+    <p-button [label]="'common.save' | translate" [disabled]="!payAmount || payAmount <= 0" [loading]="busy()" (onClick)="pay()" />
+
+    <p-button [label]="'common.cancel' | translate" severity="secondary" [outlined]="true" (onClick)="payOpen.set(false)" />
+</div>
+</app-dialog>
+
+<app-dialog [(visible)]="voidOpen" [title]="'invoices.void' | translate" icon="pi pi-ban" width="440px">
+<div class="fo-dlg-body">
   <p class="muted">{{ 'invoices.voidHint' | translate }}</p>
   <div class="field">
     <label for="v-reason">{{ 'invoices.voidReason' | translate }}</label>
     <textarea pTextarea id="v-reason" [(ngModel)]="voidReason" rows="3" maxlength="500"></textarea>
   </div>
-  <div class="dialog-actions">
-    <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="voidOpen.set(false)" />
+
+
+</div>
+<div class="fo-dlg-foot">
     <p-button [label]="'invoices.void' | translate" severity="danger" [disabled]="!voidReason.trim()" [loading]="busy()" (onClick)="doVoid()" />
-  </div>
-</p-dialog>
+
+    <p-button [label]="'common.cancel' | translate" severity="secondary" [outlined]="true" (onClick)="voidOpen.set(false)" />
+</div>
+</app-dialog>

@@ -4,7 +4,7 @@ import { Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { Button } from 'primeng/button';
-import { Dialog } from 'primeng/dialog';
+import { AppDialog } from '../../../shared/dialog/dialog';
 import { InputNumber } from 'primeng/inputnumber';
 import { InputText } from 'primeng/inputtext';
 
@@ -27,7 +27,7 @@ import { PlacePicker, PlaceValue } from '../../../shared/place-picker/place-pick
     RouterLink,
     TranslatePipe,
     Button,
-    Dialog,
+    AppDialog,
     InputText,
     InputNumber,
     PhonePipe,

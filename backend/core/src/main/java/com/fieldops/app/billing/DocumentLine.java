@@ -43,6 +43,10 @@ public class DocumentLine extends TenantScopedEntity {
     @Column(name = "addon_id")
     private UUID addonId;
 
+    /** The service's option (e.g. large car) the line was priced with; null otherwise. */
+    @Column(name = "option_id")
+    private UUID optionId;
+
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal quantity;
 
@@ -70,6 +74,7 @@ public class DocumentLine extends TenantScopedEntity {
         c.descriptionEn = descriptionEn;
         c.serviceId = serviceId;
         c.addonId = addonId;
+        c.optionId = optionId;
         c.quantity = quantity;
         c.unitPriceHalalas = unitPriceHalalas;
         c.totalHalalas = totalHalalas;
@@ -107,9 +112,19 @@ public class DocumentLine extends TenantScopedEntity {
 
     /** Remembers the catalog service / add-on the line was priced from (an add-on needs its service). */
     public DocumentLine withCatalog(UUID serviceId, UUID addonId) {
+        return withCatalog(serviceId, null, addonId);
+    }
+
+    /** The same with the service's option (option and add-on need their service; an add-on line has no option). */
+    public DocumentLine withCatalog(UUID serviceId, UUID optionId, UUID addonId) {
         this.serviceId = serviceId;
         this.addonId = serviceId == null ? null : addonId;
+        this.optionId = serviceId == null || this.addonId != null ? null : optionId;
         return this;
+    }
+
+    public UUID getOptionId() {
+        return optionId;
     }
 
     public UUID getServiceId() {

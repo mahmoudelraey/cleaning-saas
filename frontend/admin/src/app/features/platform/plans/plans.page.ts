@@ -4,7 +4,7 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { Button } from 'primeng/button';
 import { Checkbox } from 'primeng/checkbox';
-import { Dialog } from 'primeng/dialog';
+import { AppDialog } from '../../../shared/dialog/dialog';
 import { InputNumber } from 'primeng/inputnumber';
 import { InputText } from 'primeng/inputtext';
 import { Tag } from 'primeng/tag';
@@ -29,7 +29,7 @@ interface Draft {
 /** Subscription plans: names, monthly and yearly prices, technician limit, features, and whether it is offered. */
 @Component({
   selector: 'app-platform-plans',
-  imports: [FormsModule, TranslatePipe, Button, Dialog, InputNumber, InputText, Checkbox, ToggleSwitch, Tag, SarPipe],
+  imports: [FormsModule, TranslatePipe, Button, AppDialog, InputNumber, InputText, Checkbox, ToggleSwitch, Tag, SarPipe],
   styleUrl: './plans.page.scss',
   templateUrl: './plans.page.html',
 })

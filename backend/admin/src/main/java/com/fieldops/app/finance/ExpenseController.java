@@ -1,5 +1,7 @@
 package com.fieldops.app.finance;
 
+import com.fieldops.app.common.audit.AuditNames;
+import com.fieldops.app.common.audit.Audited;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -30,8 +32,10 @@ import org.springframework.web.bind.annotation.RestController;
 public class ExpenseController {
 
     private final ExpenseService expenses;
+    private final AuditNames audits;
 
-    public ExpenseController(ExpenseService expenses) {
+    public ExpenseController(ExpenseService expenses, AuditNames audits) {
+        this.audits = audits;
         this.expenses = expenses;
     }
 
@@ -42,7 +46,7 @@ public class ExpenseController {
                             @RequestParam(defaultValue = "0") int page,
                             @RequestParam(defaultValue = "50") int size) {
         ExpenseService.ExpensePage p = expenses.search(from, to, category, page, size);
-        return new ExpenseList(p.page().getContent().stream().map(ExpenseController::dto).toList(),
+        return new ExpenseList(audits.list(p.page().getContent(), ExpenseController::dto),
                 p.page().getNumber(), p.page().getSize(), p.page().getTotalElements(), p.totalCostHalalas());
     }
 
@@ -68,7 +72,7 @@ public class ExpenseController {
                              String reference, UUID serviceId, Instant createdAt) {
     }
 
-    public record ExpenseList(List<ExpenseDto> items, int page, int size, long total, long totalCostHalalas) {
+    public record ExpenseList(List<Audited<ExpenseDto>> items, int page, int size, long total, long totalCostHalalas) {
     }
 
     private static ExpenseDto dto(Expense e) {

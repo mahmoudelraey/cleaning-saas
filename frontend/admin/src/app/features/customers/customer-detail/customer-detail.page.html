@@ -93,14 +93,10 @@
   <app-customer-form-dialog [(visible)]="editOpen" [customer]="c" (saved)="customer.set($event)" />
 }
 
-<p-dialog
-  [header]="(editingAddress() ? 'customers.editAddress' : 'customers.addAddress') | translate"
-  [(visible)]="addressOpen"
-  [modal]="true"
-  [style]="{ width: '560px', maxWidth: '95vw' }"
-  [draggable]="false"
->
-  <form [formGroup]="addressForm" (ngSubmit)="saveAddress()" class="form-grid">
+<app-dialog [(visible)]="addressOpen" [title]="(editingAddress() ? 'customers.editAddress' : 'customers.addAddress') | translate" icon="pi pi-map-marker" width="560px">
+<form [formGroup]="addressForm" (ngSubmit)="saveAddress()" class="fo-dlg-form">
+<div class="fo-dlg-body">
+  <div class="fo-card form-grid">
     <div class="field">
       <label for="a-label">{{ 'customers.addressLabel' | translate }}</label>
       <input pInputText id="a-label" formControlName="label" [placeholder]="'customers.addressLabelHint' | translate" />
@@ -125,9 +121,12 @@
       <label for="a-lng">{{ 'customers.lng' | translate }}</label>
       <p-inputnumber inputId="a-lng" formControlName="lng" [minFractionDigits]="0" [maxFractionDigits]="6" [min]="-180" [max]="180" [useGrouping]="false" />
     </div>
-    <div class="dialog-actions full">
-      <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="addressOpen.set(false)" />
+</div>
+  </div>
+<div class="fo-dlg-foot">
       <p-button type="submit" [label]="'common.save' | translate" [disabled]="addressForm.invalid" [loading]="saving()" />
-    </div>
-  </form>
-</p-dialog>
+
+      <p-button [label]="'common.cancel' | translate" severity="secondary" [outlined]="true" (onClick)="addressOpen.set(false)" />
+</div>
+</form>
+</app-dialog>

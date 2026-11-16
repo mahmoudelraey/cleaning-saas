@@ -1,5 +1,7 @@
 package com.fieldops.app.scheduling;
 
+import com.fieldops.app.common.audit.AuditNames;
+import com.fieldops.app.common.audit.Audited;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -30,17 +32,19 @@ public class TechnicianController {
 
     private final TechnicianService service;
     private final ReviewService reviews;
+    private final AuditNames audits;
 
-    public TechnicianController(TechnicianService service, ReviewService reviews) {
+    public TechnicianController(TechnicianService service, ReviewService reviews, AuditNames audits) {
         this.service = service;
         this.reviews = reviews;
+        this.audits = audits;
     }
 
     @GetMapping
     @PreAuthorize("hasAnyRole('OWNER','COORDINATOR')")
-    public List<TechnicianDto> list() {
+    public List<Audited<TechnicianDto>> list() {
         Map<UUID, ReviewService.TechnicianRating> ratings = reviews.technicianRatings();
-        return service.list().stream().map(t -> TechnicianDto.of(t, ratings.get(t.getId()))).toList();
+        return audits.list(service.list(), t -> TechnicianDto.of(t, ratings.get(t.getId())));
     }
 
     /** The technician's own profile, with the rating customers gave their visits. */

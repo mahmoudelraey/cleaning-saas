@@ -1,7 +1,8 @@
 // Sign-in / sign-up: the teal hero panel and a light form side with a soft city backdrop.
 :host {
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  // Hero (teal picture panel) narrower, form side wider.
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
   min-height: 100vh;
   background: var(--brand-97-2);
 }
@@ -35,7 +36,7 @@
 .form-wrap {
   position: relative;
   width: 100%;
-  max-width: 470px;
+  max-width: 580px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -47,7 +48,7 @@
 
   h1 {
     margin: 0 0 0.4rem;
-    font-size: 2rem;
+    font-size: 2.3rem;
     font-weight: 700;
     color: var(--slate-11-2);
   }
@@ -55,7 +56,7 @@
   .sub {
     margin: 0 0 1.75rem;
     color: var(--fo-muted);
-    font-size: 1rem;
+    font-size: 1.08rem;
   }
 }
 
@@ -64,7 +65,8 @@
   text-align: start;
   background: var(--white);
   border-radius: 22px;
-  padding: 1.75rem 1.75rem 1.5rem;
+  padding: 2.25rem 2.25rem 1.85rem;
+  font-size: 1.04rem;
   box-shadow:
     0 1px 2px rgba(var(--brand-12-2-rgb), 0.04),
     0 18px 40px -18px rgba(var(--brand-12-2-rgb), 0.22);
@@ -76,7 +78,7 @@
 
   form {
     display: grid;
-    gap: 1.1rem;
+    gap: 1.25rem;
   }
 
   .field label {
@@ -97,7 +99,7 @@
 
   .p-inputtext,
   ::ng-deep .p-password-input {
-    min-height: 3rem;
+    min-height: 3.35rem;
   }
 
   // The password box fills the rest of its input group.
@@ -126,7 +128,7 @@
     margin-block-start: 0.25rem;
 
     ::ng-deep .p-button {
-      min-height: 3.1rem;
+      min-height: 3.4rem;
       font-size: 1.05rem;
       font-weight: 700;
       border-radius: 12px;

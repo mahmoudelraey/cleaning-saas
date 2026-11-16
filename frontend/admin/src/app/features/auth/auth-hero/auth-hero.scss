@@ -3,17 +3,44 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 1.75rem;
-  padding: 2rem 3rem 2.5rem;
+  gap: 1.5rem;
+  padding: 2rem 2.5rem 2.25rem;
   color: var(--white);
   background:
     radial-gradient(120% 80% at 70% 10%, rgba(var(--brand-50-rgb), 0.28) 0%, transparent 60%),
     linear-gradient(160deg, var(--brand-31) 0%, var(--brand-26-2) 45%, var(--brand-18) 100%);
-  // The curve faces the form (inline-start side of the panel).
-  border-start-end-radius: 180px 50%;
-  border-end-end-radius: 180px 50%;
+  // The edge facing the form is one smooth S-free curve (an SVG mask stretched to the panel), with two faint
+  // echo lines just inside it. RTL: the form is on the left; LTR: mirrored.
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M18 0 H100 V100 H18 C4 78 4 30 18 0 Z' fill='black'/%3E%3C/svg%3E") no-repeat 0 0 / 100% 100%;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M18 0 H100 V100 H18 C4 78 4 30 18 0 Z' fill='black'/%3E%3C/svg%3E") no-repeat 0 0 / 100% 100%;
   overflow: hidden;
   min-height: 100vh;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M22.5 0 C9.5 30 9.5 78 22.5 100' fill='none' stroke='white' stroke-opacity='0.28' stroke-width='1.5' vector-effect='non-scaling-stroke'/%3E%3Cpath d='M28 0 C16 32 16 76 28 100' fill='none' stroke='white' stroke-opacity='0.12' stroke-width='1' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") no-repeat 0 0 / 100% 100%;
+    pointer-events: none;
+  }
+}
+
+:host-context(html[dir='ltr']) {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M82 0 H0 V100 H82 C96 78 96 30 82 0 Z' fill='black'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M82 0 H0 V100 H82 C96 78 96 30 82 0 Z' fill='black'/%3E%3C/svg%3E");
+
+  &::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M77.5 0 C90.5 30 90.5 78 77.5 100' fill='none' stroke='white' stroke-opacity='0.28' stroke-width='1.5' vector-effect='non-scaling-stroke'/%3E%3Cpath d='M72 0 C84 32 84 76 72 100' fill='none' stroke='white' stroke-opacity='0.12' stroke-width='1' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+  }
+}
+
+// Keep text and picture clear of the curve (it takes up to ~18% of the panel's width on the form side).
+.lang,
+.copy,
+.art,
+.strengths {
+  position: relative;
+  z-index: 1;
 }
 
 .lang {
@@ -42,19 +69,19 @@
 }
 
 .copy {
-  padding-inline-end: 3rem;
+  padding-inline-end: calc(16% + 1rem);
 
   h2 {
     margin: 0 0 0.85rem;
-    font-size: clamp(1.8rem, 2.6vw, 2.6rem);
+    font-size: clamp(1.6rem, 2.1vw, 2.2rem);
     line-height: 1.35;
     font-weight: 700;
-    max-width: 16ch;
+    max-width: 22ch;
   }
 
   p {
     margin: 0;
-    font-size: 1.1rem;
+    font-size: 1rem;
     opacity: 0.88;
   }
 }
@@ -64,11 +91,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding-inline-end: 2rem;
+  padding-inline-end: calc(12% + 1rem);
 
   img {
     width: 100%;
-    max-width: 720px;
+    max-width: 480px;
     height: auto;
     // Fade the picture's edges into the panel colour.
     -webkit-mask-image: radial-gradient(ellipse 70% 72% at 50% 50%, var(--black) 62%, transparent 100%);
@@ -80,7 +107,7 @@
   list-style: none;
   margin: 0;
   padding: 0;
-  padding-inline-end: 2rem;
+  padding-inline-end: calc(16% + 1rem);
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
 
@@ -92,6 +119,7 @@
     text-align: center;
     padding: 0.25rem 1rem;
     font-weight: 600;
+    font-size: 0.92rem;
     line-height: 1.5;
 
     + li {
@@ -99,7 +127,7 @@
     }
 
     i {
-      font-size: 1.6rem;
+      font-size: 1.4rem;
       color: var(--brand-89);
     }
   }
@@ -108,13 +136,5 @@
 @media (max-width: 1200px) {
   :host {
     padding: 1.75rem 2rem 2rem;
-    border-start-end-radius: 120px 50%;
-    border-end-end-radius: 120px 50%;
-  }
-
-  .copy,
-  .art,
-  .strengths {
-    padding-inline-end: 1.5rem;
   }
 }

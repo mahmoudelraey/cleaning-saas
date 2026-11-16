@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { MessageService } from 'primeng/api';
 import { Button } from 'primeng/button';
-import { Dialog } from 'primeng/dialog';
+import { AppDialog } from '../dialog/dialog';
 import { InputText } from 'primeng/inputtext';
 
 import { errorMessage } from '../../core/http/api-error';
@@ -16,7 +16,7 @@ import { STRONG_PASSWORD } from '../../features/auth/change-password/change-pass
  */
 @Component({
   selector: 'app-reset-password-dialog',
-  imports: [FormsModule, TranslatePipe, Button, Dialog, InputText],
+  imports: [FormsModule, TranslatePipe, Button, AppDialog, InputText],
   styleUrl: './reset-password.dialog.scss',
   templateUrl: './reset-password.dialog.html',
 })

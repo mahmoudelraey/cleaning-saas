@@ -1,5 +1,5 @@
-<p-dialog [header]="'upgrade.title' | translate" [(visible)]="visible" [modal]="true" [dismissableMask]="true" [draggable]="false"
-          [style]="{ width: '920px', maxWidth: '95vw' }">
+<app-dialog [(visible)]="visible" [title]="'upgrade.title' | translate" icon="pi pi-star" width="920px">
+<div class="fo-dlg-body">
   @if (featurePlan(); as fp) {
     <p class="intro feature-intro">
       <i class="pi pi-lock"></i>
@@ -51,4 +51,6 @@
   } @else {
     <div class="loading"><i class="pi pi-spin pi-spinner"></i></div>
   }
-</p-dialog>
+
+</div>
+</app-dialog>

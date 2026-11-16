@@ -50,7 +50,9 @@
         <th>{{ 'messages.message' | translate }}</th>
         @if (!bookingId()) { <th>{{ 'messages.to' | translate }}</th> }
         <th>{{ 'messages.channel' | translate }}</th>
+        <th>{{ 'audit.createdBy' | translate }}</th>
         <th>{{ 'common.status' | translate }}</th>
+        <th></th>
       </tr>
     </ng-template>
     <ng-template #body let-n>
@@ -64,12 +66,22 @@
         </td>
         @if (!bookingId()) { <td><span class="ltr">{{ n.toPhone | phone }}</span></td> }
         <td>{{ n.channel ? ('channels.' + n.channel | translate) : '—' }}</td>
+        <td><app-created-by [audit]="n.audit" /></td>
         <td><p-tag [value]="'notificationStatus.' + n.status | translate" [severity]="severity[$any(n.status)]" /></td>
+        <td class="row-actions"><p-button icon="pi pi-eye" [text]="true" severity="secondary" (onClick)="view(n)" [ariaLabel]="'common.view' | translate" /></td>
       </tr>
     </ng-template>
     <ng-template #emptymessage>
-      <tr><td colspan="5"><div class="empty"><i class="pi pi-comments"></i>{{ 'messages.empty' | translate }}</div></td></tr>
+      <tr><td colspan="7"><div class="empty"><i class="pi pi-comments"></i>{{ 'messages.empty' | translate }}</div></td></tr>
     </ng-template>
   </p-table>
 </div>
 }
+
+<app-details-dialog
+  [(visible)]="viewOpen"
+  [title]="viewing() ? ('templates.' + viewing()!.template | translate) : ''"
+  icon="pi pi-comments"
+  [fields]="viewing() ? viewFields(viewing()!) : []"
+  [audit]="viewing()?.audit"
+/>

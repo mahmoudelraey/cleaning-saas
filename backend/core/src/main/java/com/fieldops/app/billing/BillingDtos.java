@@ -14,12 +14,15 @@ public final class BillingDtos {
     private BillingDtos() {
     }
 
-    /** {@code serviceId} / {@code addonId}: the catalog service the line was priced from (null for free text). */
+    /**
+     * {@code serviceId} / {@code addonId} / {@code optionId}: the catalog service the line was priced from (null for
+     * free text).
+     */
     public record LineDto(String description, BigDecimal quantity, long unitPriceHalalas, long totalHalalas,
-                          UUID serviceId, UUID addonId) {
+                          UUID serviceId, UUID addonId, UUID optionId) {
         static List<LineDto> of(List<DocumentLine> lines) {
             return lines.stream().map(l -> new LineDto(l.getDescription(), l.getQuantity(), l.getUnitPriceHalalas(),
-                    l.getTotalHalalas(), l.getServiceId(), l.getAddonId())).toList();
+                    l.getTotalHalalas(), l.getServiceId(), l.getAddonId(), l.getOptionId())).toList();
         }
     }
 

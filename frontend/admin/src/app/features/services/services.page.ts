@@ -20,6 +20,7 @@ import { errorMessage } from '../../core/http/api-error';
 import { LanguageService } from '../../core/i18n/language.service';
 import { SarPipe, toHalalas, toSar } from '../../shared/format';
 import { defaultServiceImage } from '../../shared/service-image';
+import { AuditBlock, CreatedBy } from '../../shared/details-dialog/audit-block';
 
 const BASE = '/api/v1/services';
 
@@ -58,6 +59,8 @@ type OptionGroup = ReturnType<typeof makeOptionGroup>;
 @Component({
   selector: 'app-services',
   imports: [
+    AuditBlock,
+    CreatedBy,
     ReactiveFormsModule,
     TranslatePipe,
     TableModule,

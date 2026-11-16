@@ -17,10 +17,12 @@ import { ALL_STATUSES, BookingStatusTag } from '../../shared/booking-status/book
 import { PhonePipe, SarPipe } from '../../shared/format';
 import { BookingsApi } from './bookings.api';
 import { LocalDatePipe, LocalTimeRangePipe } from '../../shared/local-date.pipe';
+import { DetailField, DetailsDialog } from '../../shared/details-dialog/details-dialog';
+import { CreatedBy } from '../../shared/details-dialog/audit-block';
 
 @Component({
   selector: 'app-bookings',
-  imports: [
+  imports: [DetailsDialog, CreatedBy,
     FormsModule,
     RouterLink,
     TranslatePipe,
@@ -118,4 +120,28 @@ export class BookingsPage implements OnInit {
         error: () => this.loading.set(false),
       });
   }
+  /** Read-only details with who created / last changed the record (eye button in the table). */
+  protected readonly viewing = signal<BookingSummary | null>(null);
+  protected readonly viewOpen = signal(false);
+
+  protected view(item: BookingSummary, event?: Event): void {
+    event?.stopPropagation();
+    this.viewing.set(item);
+    this.viewOpen.set(true);
+  }
+
+  protected viewFields(x: BookingSummary): DetailField[] {
+    const t = (k: string) => this.translate.instant(k);
+    return [
+      { label: 'common.status', value: t('bookingStatus.' + x.status), kind: 'status', on: x.status !== 'CANCELLED' && x.status !== 'NO_SHOW' },
+      { label: 'bookings.when', value: x.scheduledStart, kind: 'datetime' },
+      { label: 'bookings.requestedAt', value: x.createdAt ?? null, kind: 'datetime' },
+      { label: 'bookings.customer', value: x.customerName },
+      { label: 'customers.phone', value: x.customerPhone, kind: 'phone' },
+      { label: 'bookings.technicians', value: (x.technicians ?? []).map((tc) => tc.name).join('، ') },
+      { label: 'bookings.amount', value: x.totalHalalas ?? x.subtotalHalalas, kind: 'money' },
+      { label: 'bookings.services', value: (x.services ?? []).join('، '), full: true },
+    ];
+  }
+
 }

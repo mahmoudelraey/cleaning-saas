@@ -1,14 +1,11 @@
-<p-dialog
-  [header]="(customer() ? 'customers.edit' : 'customers.new') | translate"
-  [(visible)]="visible"
-  [modal]="true"
-  [style]="{ width: '560px', maxWidth: '95vw' }"
-  [draggable]="false"
->
+<app-dialog [(visible)]="visible" [title]="(customer() ? 'customers.edit' : 'customers.new') | translate" icon="pi pi-user" width="560px">
+<form [formGroup]="form" (ngSubmit)="save()" class="fo-dlg-form">
+<div class="fo-dlg-body">
   @if (error()) {
     <p-message severity="error">{{ error() }}</p-message>
   }
-  <form [formGroup]="form" (ngSubmit)="save()" class="form-grid">
+
+<div class="fo-card form-grid">
     <div class="field full">
       <label for="c-name">{{ 'customers.name' | translate }}</label>
       <input pInputText id="c-name" formControlName="name" />
@@ -28,9 +25,12 @@
       <label for="c-notes">{{ 'customers.notes' | translate }}</label>
       <textarea pTextarea id="c-notes" formControlName="notes" rows="3"></textarea>
     </div>
-    <div class="dialog-actions full">
-      <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="visible.set(false)" />
+</div>
+  </div>
+<div class="fo-dlg-foot">
       <p-button type="submit" [label]="'common.save' | translate" [loading]="saving()" [disabled]="form.invalid" />
-    </div>
-  </form>
-</p-dialog>
+
+      <p-button [label]="'common.cancel' | translate" severity="secondary" [outlined]="true" (onClick)="visible.set(false)" />
+</div>
+</form>
+</app-dialog>

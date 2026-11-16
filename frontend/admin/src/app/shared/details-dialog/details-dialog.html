@@ -1,0 +1,35 @@
+<app-dialog [(visible)]="visible" [title]="title()" [subtitle]="subtitle()" [icon]="icon()" [width]="width()" [dismissable]="true">
+  <div class="fo-dlg-body">
+    @if (fields().length) {
+      <div class="fo-details">
+        @for (f of fields(); track $index) {
+          <div class="fo-detail" [class.full]="f.full || f.kind === 'multiline'">
+            <small>{{ f.label | translate }}</small>
+            @if (isEmpty(f) && f.kind !== 'status') {
+              <span class="fo-muted">—</span>
+            } @else {
+              @switch (f.kind) {
+                @case ('money') { <b class="ltr">{{ +f.value! | sar }}</b> }
+                @case ('date') { <b>{{ '' + f.value | ldate: 'dayMonthYear' }}</b> }
+                @case ('datetime') { <b>{{ '' + f.value | ldate: 'medium' }}</b> }
+                @case ('phone') { <b class="ltr">{{ '' + f.value | phone }}</b> }
+                @case ('ltr') { <b class="ltr">{{ f.value }}</b> }
+                @case ('status') { <span class="fo-pill" [class.off]="!f.on">{{ '' + f.value }}</span> }
+                @case ('multiline') { <p class="fo-multiline">{{ f.value }}</p> }
+                @default { <b>{{ f.value }}</b> }
+              }
+            }
+          </div>
+        }
+      </div>
+    }
+    <ng-content />
+    <app-audit-block [audit]="audit()" />
+  </div>
+  <div class="fo-dlg-foot">
+    @if (canEdit()) {
+      <p-button [icon]="editIcon()" [label]="editLabel() | translate" (onClick)="onEdit()" />
+    }
+    <p-button [label]="'common.close' | translate" severity="secondary" [outlined]="true" (onClick)="visible.set(false)" />
+  </div>
+</app-dialog>

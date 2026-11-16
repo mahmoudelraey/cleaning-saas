@@ -2,7 +2,7 @@ import { Component, effect, inject, input, model, output, signal } from '@angula
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { Button } from 'primeng/button';
-import { Dialog } from 'primeng/dialog';
+import { AppDialog } from '../../../shared/dialog/dialog';
 import { InputText } from 'primeng/inputtext';
 import { Message } from 'primeng/message';
 import { Textarea } from 'primeng/textarea';
@@ -15,7 +15,7 @@ import { CustomersApi } from '../customers.api';
 /** Create/edit customer. Pass `customer` to edit; leave null to create. */
 @Component({
   selector: 'app-customer-form-dialog',
-  imports: [ReactiveFormsModule, TranslatePipe, Button, Dialog, InputText, Textarea, Message],
+  imports: [ReactiveFormsModule, TranslatePipe, Button, AppDialog, InputText, Textarea, Message],
   templateUrl: './customer-form.dialog.html',
 })
 export class CustomerFormDialog {

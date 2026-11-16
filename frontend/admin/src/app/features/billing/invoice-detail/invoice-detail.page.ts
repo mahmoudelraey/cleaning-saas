@@ -5,7 +5,7 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { MessageService } from 'primeng/api';
 import { Button } from 'primeng/button';
 import { DatePicker } from 'primeng/datepicker';
-import { Dialog } from 'primeng/dialog';
+import { AppDialog } from '../../../shared/dialog/dialog';
 import { InputNumber } from 'primeng/inputnumber';
 import { InputText } from 'primeng/inputtext';
 import { Select } from 'primeng/select';
@@ -26,7 +26,7 @@ export const PAYMENT_METHODS: PaymentMethod[] = ['CASH', 'MADA', 'BANK_TRANSFER'
 @Component({
   selector: 'app-invoice-detail',
   imports: [
-    FormsModule, RouterLink, TranslatePipe, Button, Dialog, Select, InputNumber, InputText, Textarea, DatePicker,
+    FormsModule, RouterLink, TranslatePipe, Button, AppDialog, Select, InputNumber, InputText, Textarea, DatePicker,
     InvoiceStatusTag, SarPipe, LocalDatePipe, DocumentView,
   ],
   styleUrl: './invoice-detail.page.scss',

@@ -1,5 +1,7 @@
 package com.fieldops.app.notification;
 
+import com.fieldops.app.common.audit.AuditNames;
+import com.fieldops.app.common.audit.Audited;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -36,9 +38,11 @@ public class NotificationController {
     private final TenantService tenants;
     private final java.util.List<MessageChannel> channels;
     private final TenantRepository tenantRepo;
+    private final AuditNames audits;
 
     public NotificationController(NotificationService notifications, TenantService tenants,
-                                  java.util.List<MessageChannel> channels, TenantRepository tenantRepo) {
+                                  java.util.List<MessageChannel> channels, TenantRepository tenantRepo, AuditNames audits) {
+        this.audits = audits;
         this.notifications = notifications;
         this.tenants = tenants;
         this.channels = channels;
@@ -48,10 +52,10 @@ public class NotificationController {
     /** Send log (whole company or one booking). */
     @GetMapping("/api/v1/notifications")
     @PreAuthorize("hasAnyRole('OWNER','COORDINATOR')")
-    public PageResponse<NotificationDto> list(@RequestParam(required = false) UUID bookingId,
+    public PageResponse<Audited<NotificationDto>> list(@RequestParam(required = false) UUID bookingId,
                                               @RequestParam(defaultValue = "0") @Min(0) int page,
                                               @RequestParam(defaultValue = "30") @Min(1) @Max(100) int size) {
-        return PageResponse.of(notifications.list(bookingId, PageRequest.of(page, size)), NotificationDto::of);
+        return audits.page(notifications.list(bookingId, PageRequest.of(page, size)), NotificationDto::of);
     }
 
     /** The office writes to the booking's customer (WhatsApp, SMS fallback). */

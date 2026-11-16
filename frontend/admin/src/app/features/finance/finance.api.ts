@@ -1,3 +1,4 @@
+import { Audited } from '../../core/api.types';
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
@@ -15,7 +16,7 @@ export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
   'INSURANCE', 'OTHER',
 ];
 
-export interface Expense {
+export interface Expense extends Audited {
   id: string;
   category: ExpenseCategory;
   amountHalalas: number;
@@ -86,7 +87,7 @@ export type SalaryMethod = 'CASH' | 'BANK_TRANSFER' | 'OTHER';
  * A payroll row. Technicians and coordinators are listed even before their salary is set (`salarySet` false,
  * `id` null); for anyone with an app account, name and phone come from the account.
  */
-export interface Employee {
+export interface Employee extends Audited {
   id: string | null;
   userId: string | null;
   /** Role of the linked account; null = staff without an app account. */

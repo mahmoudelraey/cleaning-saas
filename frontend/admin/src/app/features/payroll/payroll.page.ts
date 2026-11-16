@@ -6,7 +6,7 @@ import { ConfirmationService, MessageService } from 'primeng/api';
 import { Button } from 'primeng/button';
 import { UIChart } from 'primeng/chart';
 import { DatePicker } from 'primeng/datepicker';
-import { Dialog } from 'primeng/dialog';
+import { AppDialog } from '../../shared/dialog/dialog';
 import { InputNumber } from 'primeng/inputnumber';
 import { InputText } from 'primeng/inputtext';
 import { Select } from 'primeng/select';
@@ -25,6 +25,8 @@ import { NEGATIVE, PALETTE, alpha, baseOptions, monthName, moneyAxis, moneyToolt
 import { loader } from '../analytics/load';
 import { KpiCard, StateBlock } from '../analytics/widgets/widgets';
 import { Employee, EmployeeInput, FinanceApi, PayrollPeriod, SalaryMethod, SalaryPayment, SalaryRecord, SalaryStatus } from '../finance/finance.api';
+import { DetailField, DetailsDialog } from '../../shared/details-dialog/details-dialog';
+import { CreatedBy } from '../../shared/details-dialog/audit-block';
 
 type TabKey = 'month' | 'employees' | 'pending' | 'history';
 const METHODS: SalaryMethod[] = ['BANK_TRANSFER', 'CASH', 'OTHER'];
@@ -39,8 +41,8 @@ function ym(d: Date): string {
  */
 @Component({
   selector: 'app-payroll',
-  imports: [
-    FormsModule, ReactiveFormsModule, TranslatePipe, Tabs, TabList, Tab, Button, Dialog, InputNumber, InputText, Select, DatePicker,
+  imports: [DetailsDialog, CreatedBy,
+    FormsModule, ReactiveFormsModule, TranslatePipe, Tabs, TabList, Tab, Button, AppDialog, InputNumber, InputText, Select, DatePicker,
     TableModule, Tag, ToggleSwitch, UIChart, SarPipe, LocalDatePipe, KpiCard, StateBlock,
   ],
   styleUrl: './payroll.page.scss',
@@ -418,6 +420,31 @@ export class PayrollPage {
     const lang = this.lang.current();
     return baseOptions(lang, { scales: { x: { stacked: true }, y: { stacked: true, ...moneyAxis(lang) } }, plugins: { tooltip: moneyTooltip(lang) } });
   });
+  /** Read-only details with who created / last changed the record (eye button in the table). */
+  protected readonly viewing = signal<Employee | null>(null);
+  protected readonly viewOpen = signal(false);
+
+  protected view(item: Employee, event?: Event): void {
+    event?.stopPropagation();
+    this.viewing.set(item);
+    this.viewOpen.set(true);
+  }
+
+  protected viewFields(x: Employee): DetailField[] {
+    const t = (k: string) => this.translate.instant(k);
+    return [
+      { label: 'payroll.emp.name', value: x.name },
+      { label: 'payroll.emp.jobTitle', value: x.jobTitle },
+      { label: 'payroll.emp.phone', value: x.phone, kind: 'phone' },
+      { label: 'payroll.emp.account', value: x.role ? t('roles.' + x.role) : t('payroll.emp.noAccount') },
+      { label: 'common.status', value: t(x.active ? 'common.active' : 'common.inactive'), kind: 'status', on: x.active },
+      { label: 'payroll.base', value: x.baseSalaryHalalas, kind: 'money' },
+      { label: 'payroll.allowances', value: x.housingHalalas + x.transportHalalas + x.otherAllowancesHalalas, kind: 'money' },
+      { label: 'payroll.emp.monthlyCost', value: x.monthlyCostHalalas, kind: 'money' },
+      { label: 'payroll.emp.hireDate', value: x.hireDate, kind: 'date' },
+      { label: 'payroll.notes', value: x.notes, kind: 'multiline' },
+    ];
+  }
 }
 
 /** Noon local time of the chosen day, so the payment lands on that day in any time zone close to the company's. */
@@ -425,4 +452,5 @@ function paidAt(d: Date | null): string | null {
   if (!d) return null;
   const x = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
   return x.toISOString();
+
 }

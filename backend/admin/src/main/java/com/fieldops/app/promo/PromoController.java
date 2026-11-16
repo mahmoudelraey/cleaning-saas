@@ -1,5 +1,7 @@
 package com.fieldops.app.promo;
 
+import com.fieldops.app.common.audit.AuditNames;
+import com.fieldops.app.common.audit.Audited;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -28,14 +30,16 @@ import org.springframework.web.bind.annotation.RestController;
 public class PromoController {
 
     private final PromoService promos;
+    private final AuditNames audits;
 
-    public PromoController(PromoService promos) {
+    public PromoController(PromoService promos, AuditNames audits) {
+        this.audits = audits;
         this.promos = promos;
     }
 
     @GetMapping
-    public List<PromoDto> list() {
-        return promos.list().stream().map(PromoDto::of).toList();
+    public List<Audited<PromoDto>> list() {
+        return audits.list(promos.list(), PromoService.PromoView::promo, PromoDto::of);
     }
 
     @PostMapping

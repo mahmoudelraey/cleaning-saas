@@ -14,6 +14,7 @@
         <th>{{ 'users.phone' | translate }}</th>
         <th>{{ 'users.role' | translate }}</th>
         <th>{{ 'users.lastLogin' | translate }}</th>
+        <th>{{ 'audit.createdBy' | translate }}</th>
         <th>{{ 'common.status' | translate }}</th>
         <th></th>
       </tr>
@@ -29,6 +30,7 @@
           }
         </td>
         <td class="muted">{{ u.lastLoginAt ? (u.lastLoginAt | ldate: 'short') : '—' }}</td>
+        <td><app-created-by [audit]="u.audit" /></td>
         <td>
           <p-tag [value]="(u.active ? 'common.active' : 'common.inactive') | translate" [severity]="u.active ? 'success' : 'secondary'" />
           @if (u.mustChangePassword) {
@@ -36,7 +38,8 @@
           }
         </td>
         <td class="row-actions">
-          @if (u.id !== myId) {
+          <p-button icon="pi pi-eye" [text]="true" severity="secondary" (onClick)="view(u)" [ariaLabel]="'common.view' | translate" />
+            @if (u.id !== myId) {
             <p-button icon="pi pi-key" [text]="true" severity="secondary" (onClick)="resetFor.set(u)" [ariaLabel]="'password.reset' | translate" />
           }
           @if (u.role !== 'TECHNICIAN') {
@@ -53,17 +56,14 @@
                              [url]="'/api/v1/users/' + ru.id + '/password'" (done)="reload()" />
 }
 
-<p-dialog
-  [header]="(editing() ? 'users.edit' : 'users.new') | translate"
-  [(visible)]="dialogOpen"
-  [modal]="true"
-  [style]="{ width: '560px', maxWidth: '95vw' }"
-  [draggable]="false"
->
+<app-dialog [(visible)]="dialogOpen" [title]="(editing() ? 'users.edit' : 'users.new') | translate" icon="pi pi-users" width="560px">
+<form [formGroup]="form" (ngSubmit)="save()" class="fo-dlg-form">
+<div class="fo-dlg-body">
   @if (error()) {
     <p-message severity="error">{{ error() }}</p-message>
   }
-  <form [formGroup]="form" (ngSubmit)="save()" class="form-grid">
+
+<div class="fo-card form-grid">
     <div class="field">
       <label for="u-name">{{ 'users.name' | translate }}</label>
       <input pInputText id="u-name" formControlName="name" />
@@ -125,9 +125,23 @@
         }
       </fieldset>
     }
-    <div class="dialog-actions full">
-      <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="dialogOpen.set(false)" />
+</div>
+  </div>
+<div class="fo-dlg-foot">
       <p-button type="submit" [label]="'common.save' | translate" [loading]="saving()" [disabled]="form.invalid || (role() === 'COORDINATOR' && screens().size === 0)" />
-    </div>
-  </form>
-</p-dialog>
+
+      <p-button [label]="'common.cancel' | translate" severity="secondary" [outlined]="true" (onClick)="dialogOpen.set(false)" />
+</div>
+</form>
+</app-dialog>
+
+<app-details-dialog
+  [(visible)]="viewOpen"
+  [title]="viewing()?.name ?? ''"
+  [subtitle]="viewing() ? ('roles.' + viewing()!.role | translate) : null"
+  icon="pi pi-user"
+  [fields]="viewing() ? viewFields(viewing()!) : []"
+  [audit]="viewing()?.audit"
+  [canEdit]="viewing()?.role !== 'TECHNICIAN'"
+  (edit)="open(viewing()!)"
+/>

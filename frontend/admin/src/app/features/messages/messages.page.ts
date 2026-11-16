@@ -8,6 +8,10 @@ import { Tag } from 'primeng/tag';
 import { NotificationLog, NotificationStatus, Page } from '../../core/api.types';
 import { PhonePipe } from '../../shared/format';
 import { LocalDatePipe } from '../../shared/local-date.pipe';
+import { DetailField, DetailsDialog } from '../../shared/details-dialog/details-dialog';
+import { CreatedBy } from '../../shared/details-dialog/audit-block';
+import { TranslateService } from '@ngx-translate/core';
+import { Button } from 'primeng/button';
 
 export const NOTIFICATION_SEVERITY: Record<NotificationStatus, 'success' | 'info' | 'warn' | 'danger' | 'secondary'> = {
   PENDING: 'warn',
@@ -21,7 +25,7 @@ export const NOTIFICATION_SEVERITY: Record<NotificationStatus, 'success' | 'info
 /** Send log: every customer message, its channel and delivery status. Also embedded per booking. */
 @Component({
   selector: 'app-messages',
-  imports: [RouterLink, TranslatePipe, TableModule, Tag, PhonePipe, LocalDatePipe],
+  imports: [DetailsDialog, CreatedBy, Button, RouterLink, TranslatePipe, TableModule, Tag, PhonePipe, LocalDatePipe],
   styleUrl: './messages.page.scss',
   templateUrl: './messages.page.html',
 })
@@ -73,4 +77,30 @@ export class MessagesPage implements OnInit {
       error: () => this.loading.set(false),
     });
   }
+  /** Read-only details with who created / last changed the record (eye button in the table). */
+  private readonly translate = inject(TranslateService);
+  protected readonly viewing = signal<NotificationLog | null>(null);
+  protected readonly viewOpen = signal(false);
+
+  protected view(item: NotificationLog, event?: Event): void {
+    event?.stopPropagation();
+    this.viewing.set(item);
+    this.viewOpen.set(true);
+  }
+
+  protected viewFields(x: NotificationLog): DetailField[] {
+    const t = (k: string) => this.translate.instant(k);
+    return [
+      { label: 'messages.message', value: t('templates.' + x.template) },
+      { label: 'common.status', value: t('notificationStatus.' + x.status), kind: 'status', on: x.status !== 'FAILED' },
+      { label: 'messages.to', value: x.toPhone, kind: 'phone' },
+      { label: 'messages.channel', value: x.channel ? t('channels.' + x.channel) : null },
+      { label: 'messages.when', value: x.createdAt, kind: 'datetime' },
+      { label: 'messages.sentAt', value: x.sentAt ?? null, kind: 'datetime' },
+      { label: 'messages.deliveredAt', value: x.deliveredAt ?? null, kind: 'datetime' },
+      { label: 'messages.body', value: x.body, kind: 'multiline' },
+      ...(x.error ? [{ label: 'messages.error', value: x.error, full: true }] : []),
+    ];
+  }
+
 }

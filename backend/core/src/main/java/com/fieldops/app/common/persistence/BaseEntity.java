@@ -13,7 +13,7 @@ import jakarta.persistence.PreUpdate;
 
 import com.fieldops.app.common.security.CurrentUser;
 
-/** id + audit columns shared by every table: created_at, updated_at, created_by. */
+/** id + audit columns shared by every table: created_at, updated_at, created_by, updated_by. */
 @MappedSuperclass
 public abstract class BaseEntity {
 
@@ -30,6 +30,10 @@ public abstract class BaseEntity {
     @Column(name = "created_by", updatable = false)
     private UUID createdBy;
 
+    /** The staff user who last changed the row; null = the system or a customer (portal, public page, jobs). */
+    @Column(name = "updated_by")
+    private UUID updatedBy;
+
     @PrePersist
     protected void onCreate() {
         Instant now = Instant.now();
@@ -38,11 +42,13 @@ public abstract class BaseEntity {
         if (createdBy == null) {
             createdBy = CurrentUser.idOrNull();
         }
+        updatedBy = createdBy;
     }
 
     @PreUpdate
     protected void onUpdate() {
         updatedAt = Instant.now();
+        updatedBy = CurrentUser.idOrNull();
     }
 
     public UUID getId() {
@@ -59,5 +65,9 @@ public abstract class BaseEntity {
 
     public UUID getCreatedBy() {
         return createdBy;
+    }
+
+    public UUID getUpdatedBy() {
+        return updatedBy;
     }
 }

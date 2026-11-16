@@ -1,0 +1,29 @@
+<p-dialog
+  [visible]="visible()"
+  (visibleChange)="visible.set($event)"
+  (onHide)="hide.emit()"
+  [modal]="true"
+  [showHeader]="false"
+  [dismissableMask]="dismissable()"
+  [closeOnEscape]="true"
+  [draggable]="false"
+  [style]="{ width: width(), maxWidth: '96vw' }"
+  appendTo="body"
+  styleClass="fo-dialog"
+>
+  <div class="fo-dlg">
+    <header class="fo-dlg-head">
+      <span class="fo-dlg-ico"><i [class]="icon()" aria-hidden="true"></i></span>
+      <div class="fo-dlg-title">
+        <h2>{{ title() }}</h2>
+        @if (subtitle()) {
+          <p>{{ subtitle() }}</p>
+        }
+      </div>
+      <button type="button" class="fo-dlg-close" (click)="visible.set(false)" [attr.aria-label]="'common.close' | translate">
+        <i class="pi pi-times" aria-hidden="true"></i>
+      </button>
+    </header>
+    <ng-content />
+  </div>
+</p-dialog>

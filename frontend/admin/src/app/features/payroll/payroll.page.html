@@ -117,6 +117,7 @@
             <th class="num">{{ 'payroll.base' | translate }}</th>
             <th class="num">{{ 'payroll.allowances' | translate }}</th>
             <th class="num">{{ 'payroll.emp.monthlyCost' | translate }}</th>
+            <th>{{ 'audit.createdBy' | translate }}</th>
             <th>{{ 'common.status' | translate }}</th>
             <th></th>
           </tr>
@@ -137,13 +138,16 @@
               <td class="num"><span class="ltr">{{ e.housingHalalas + e.transportHalalas + e.otherAllowancesHalalas | sar }}</span></td>
               <td class="num"><span class="ltr">{{ e.monthlyCostHalalas | sar }}</span></td>
               <td><p-tag [value]="(e.active ? 'common.active' : 'common.inactive') | translate" [severity]="e.active ? 'success' : 'secondary'" /></td>
+              <td><app-created-by [audit]="e.audit" /></td>
               <td class="row-actions">
+                <p-button icon="pi pi-eye" [text]="true" severity="secondary" (onClick)="view(e)" [ariaLabel]="'common.view' | translate" />
                 <p-button icon="pi pi-pencil" [text]="true" severity="secondary" (onClick)="openEmployee(e)" [ariaLabel]="'common.edit' | translate" />
                 <p-button icon="pi pi-trash" [text]="true" severity="danger" (onClick)="deleteEmployee(e)" [ariaLabel]="'common.delete' | translate" />
               </td>
             } @else {
               <td colspan="3" class="muted">{{ 'payroll.emp.salaryNotSet' | translate }}</td>
               <td><p-tag [value]="'payroll.emp.notSetTag' | translate" severity="warn" /></td>
+              <td></td>
               <td class="row-actions">
                 <p-button size="small" icon="pi pi-wallet" [label]="'payroll.emp.setSalary' | translate" (onClick)="openEmployee(e)" />
               </td>
@@ -151,7 +155,7 @@
           </tr>
         </ng-template>
         <ng-template #emptymessage>
-          <tr><td colspan="7"><div class="empty"><i class="pi pi-users"></i>{{ 'payroll.noEmployees' | translate }}</div></td></tr>
+          <tr><td colspan="8"><div class="empty"><i class="pi pi-users"></i>{{ 'payroll.noEmployees' | translate }}</div></td></tr>
         </ng-template>
       </p-table>
     </div>
@@ -241,9 +245,10 @@
 }
 
 <!-- Employee -->
-<p-dialog [header]="dialogTitle()" [(visible)]="employeeOpen" [modal]="true"
-          [style]="{ width: '680px', maxWidth: '95vw' }" [draggable]="false">
-  <form [formGroup]="employeeForm" (ngSubmit)="saveEmployee()" class="form-grid">
+<app-dialog [(visible)]="employeeOpen" [title]="dialogTitle()" icon="pi pi-id-card" width="680px">
+<form [formGroup]="employeeForm" (ngSubmit)="saveEmployee()" class="fo-dlg-form">
+<div class="fo-dlg-body">
+  <div class="fo-card form-grid">
     @if (member(); as m) {
       <div class="member full">
         <strong>{{ m.name }}</strong>
@@ -299,17 +304,21 @@
         <p-toggleswitch inputId="p-active" formControlName="active" />
       </div>
     }
-    <div class="dialog-actions full">
-      <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="employeeOpen.set(false)" />
+</div>
+  </div>
+<div class="fo-dlg-foot">
       <p-button type="submit" [label]="'common.save' | translate" [loading]="busy()" [disabled]="employeeForm.invalid" />
-    </div>
-  </form>
-</p-dialog>
+
+      <p-button [label]="'common.cancel' | translate" severity="secondary" [outlined]="true" (onClick)="employeeOpen.set(false)" />
+</div>
+</form>
+</app-dialog>
 
 <!-- Salary amounts -->
-<p-dialog [header]="'payroll.editSalary' | translate: { n: editingRecord()?.employeeName ?? '' }" [(visible)]="recordOpen" [modal]="true"
-          [style]="{ width: '620px', maxWidth: '95vw' }" [draggable]="false">
-  <form [formGroup]="recordForm" (ngSubmit)="saveRecord()" class="form-grid">
+<app-dialog [(visible)]="recordOpen" [title]="'payroll.editSalary' | translate: { n: editingRecord()?.employeeName ?? '' }" icon="pi pi-calculator" width="620px">
+<form [formGroup]="recordForm" (ngSubmit)="saveRecord()" class="fo-dlg-form">
+<div class="fo-dlg-body">
+  <div class="fo-card form-grid">
     @for (f of amountFields; track f.key) {
       <div class="field">
         <label [for]="'r-' + f.key">{{ f.label | translate }}</label>
@@ -325,20 +334,25 @@
       <div><span>{{ 'payroll.net' | translate }}</span><strong class="ltr">{{ recordCalc().net | sar }}</strong></div>
       <div class="muted"><span>{{ 'payroll.kpi.cost' | translate }}</span><span class="ltr">{{ recordCalc().cost | sar }}</span></div>
     </div>
-    <div class="dialog-actions full">
-      <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="recordOpen.set(false)" />
+</div>
+  </div>
+<div class="fo-dlg-foot">
       <p-button type="submit" [label]="'common.save' | translate" [loading]="busy()" [disabled]="recordForm.invalid || recordCalc().net < 0" />
-    </div>
-  </form>
-</p-dialog>
+
+      <p-button [label]="'common.cancel' | translate" severity="secondary" [outlined]="true" (onClick)="recordOpen.set(false)" />
+</div>
+</form>
+</app-dialog>
 
 <!-- Payment -->
-<p-dialog [header]="'payroll.recordPaymentFor' | translate: { n: payingRecord()?.employeeName ?? '' }" [(visible)]="payOpen" [modal]="true"
-          [style]="{ width: '520px', maxWidth: '95vw' }" [draggable]="false">
+<app-dialog [(visible)]="payOpen" [title]="'payroll.recordPaymentFor' | translate: { n: payingRecord()?.employeeName ?? '' }" icon="pi pi-money-bill" width="520px">
+<form [formGroup]="payForm" (ngSubmit)="savePayment()" class="fo-dlg-form">
+<div class="fo-dlg-body">
   @if (payingRecord(); as r) {
     <p class="muted" style="margin-top: 0">{{ 'payroll.dueNow' | translate: { v: money(r.dueHalalas), p: periodLabel(r.period) } }}</p>
   }
-  <form [formGroup]="payForm" (ngSubmit)="savePayment()" class="form-grid">
+
+<div class="fo-card form-grid">
     <div class="field">
       <label for="pay-amount">{{ 'payroll.amount' | translate }}</label>
       <p-inputnumber inputId="pay-amount" formControlName="amount" mode="decimal" [minFractionDigits]="2" [maxFractionDigits]="2" [min]="0.01" suffix=" SAR" />
@@ -369,17 +383,23 @@
         </ul>
       </div>
     }
-    <div class="dialog-actions full">
-      <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="payOpen.set(false)" />
+</div>
+  </div>
+<div class="fo-dlg-foot">
       <p-button type="submit" [label]="'payroll.recordPayment' | translate" [loading]="busy()" [disabled]="payForm.invalid" />
-    </div>
-  </form>
-</p-dialog>
+
+      <p-button [label]="'common.cancel' | translate" severity="secondary" [outlined]="true" (onClick)="payOpen.set(false)" />
+</div>
+</form>
+</app-dialog>
 
 <!-- Pay all -->
-<p-dialog [header]="'payroll.payAllTitle' | translate: { m: monthLabel() }" [(visible)]="payAllOpen" [modal]="true" [style]="{ width: '480px', maxWidth: '95vw' }" [draggable]="false">
+<app-dialog [(visible)]="payAllOpen" [title]="'payroll.payAllTitle' | translate: { m: monthLabel() }" icon="pi pi-check-square" width="480px">
+<form [formGroup]="payAllForm" (ngSubmit)="savePayAll()" class="fo-dlg-form">
+<div class="fo-dlg-body">
   <p class="muted" style="margin-top: 0">{{ 'payroll.payAllHint' | translate: { v: money(period.value().data?.totals?.dueHalalas ?? 0) } }}</p>
-  <form [formGroup]="payAllForm" (ngSubmit)="savePayAll()" class="form-grid">
+
+<div class="fo-card form-grid">
     <div class="field">
       <label for="pa-method">{{ 'payroll.method' | translate }}</label>
       <p-select inputId="pa-method" formControlName="method" [options]="methodOptions()" optionLabel="label" optionValue="value" appendTo="body" />
@@ -392,9 +412,23 @@
       <label for="pa-ref">{{ 'payroll.reference' | translate }}</label>
       <input pInputText id="pa-ref" formControlName="reference" dir="ltr" maxlength="100" />
     </div>
-    <div class="dialog-actions full">
-      <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="payAllOpen.set(false)" />
+</div>
+  </div>
+<div class="fo-dlg-foot">
       <p-button type="submit" icon="pi pi-send" [label]="'payroll.payAll' | translate" [loading]="busy()" [disabled]="payAllForm.invalid" />
-    </div>
-  </form>
-</p-dialog>
+
+      <p-button [label]="'common.cancel' | translate" severity="secondary" [outlined]="true" (onClick)="payAllOpen.set(false)" />
+</div>
+</form>
+</app-dialog>
+
+<app-details-dialog
+  [(visible)]="viewOpen"
+  [title]="viewing()?.name ?? ''"
+  [subtitle]="viewing()?.jobTitle"
+  icon="pi pi-id-card"
+  [fields]="viewing() ? viewFields(viewing()!) : []"
+  [audit]="viewing()?.audit"
+  [canEdit]="true"
+  (edit)="openEmployee(viewing()!)"
+/>

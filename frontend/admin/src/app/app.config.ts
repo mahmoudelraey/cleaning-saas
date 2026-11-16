@@ -36,6 +36,8 @@ export const appConfig: ApplicationConfig = {
     }),
     providePrimeNG({
       ripple: true,
+      // Dialogs, drawers and dropdowns attach to <body>, so the app's sticky top bar never covers them.
+      overlayAppendTo: 'body',
       theme: {
         preset: FieldOpsPreset,
         options: { darkModeSelector: '.app-dark', cssLayer: false },

@@ -1,0 +1,3534 @@
+diff --git a/backend/admin/src/main/java/com/fieldops/app/auth/UserController.java b/backend/admin/src/main/java/com/fieldops/app/auth/UserController.java
+index 3dc065f..dc74e0c 100644
+--- a/backend/admin/src/main/java/com/fieldops/app/auth/UserController.java
++++ b/backend/admin/src/main/java/com/fieldops/app/auth/UserController.java
+@@ -1,5 +1,7 @@
+ package com.fieldops.app.auth;
+ 
++import com.fieldops.app.common.audit.AuditNames;
++import com.fieldops.app.common.audit.Audited;
+ import java.time.Instant;
+ import java.util.List;
+ import java.util.Set;
+@@ -32,14 +34,16 @@ import org.springframework.web.bind.annotation.RestController;
+ public class UserController {
+ 
+     private final UserService service;
++    private final AuditNames audits;
+ 
+-    public UserController(UserService service) {
++    public UserController(UserService service, AuditNames audits) {
++        this.audits = audits;
+         this.service = service;
+     }
+ 
+     @GetMapping
+-    public List<UserDto> list() {
+-        return service.list().stream().map(UserDto::of).toList();
++    public List<Audited<UserDto>> list() {
++        return audits.list(service.list(), UserDto::of);
+     }
+ 
+     @GetMapping("/{id}")
+diff --git a/backend/admin/src/main/java/com/fieldops/app/billing/BillingController.java b/backend/admin/src/main/java/com/fieldops/app/billing/BillingController.java
+index 7b63d91..01add99 100644
+--- a/backend/admin/src/main/java/com/fieldops/app/billing/BillingController.java
++++ b/backend/admin/src/main/java/com/fieldops/app/billing/BillingController.java
+@@ -1,5 +1,7 @@
+ package com.fieldops.app.billing;
+ 
++import com.fieldops.app.common.audit.AuditNames;
++import com.fieldops.app.common.audit.Audited;
+ import java.math.BigDecimal;
+ import java.time.Instant;
+ import java.time.LocalDate;
+@@ -50,8 +52,10 @@ public class BillingController {
+ 
+     private final BillingService billing;
+     private final BillingPdfService pdfs;
++    private final AuditNames audits;
+ 
+-    public BillingController(BillingService billing, BillingPdfService pdfs) {
++    public BillingController(BillingService billing, BillingPdfService pdfs, AuditNames audits) {
++        this.audits = audits;
+         this.billing = billing;
+         this.pdfs = pdfs;
+     }
+@@ -59,11 +63,11 @@ public class BillingController {
+     // ---------------------------------------------------------------------------------------- invoices
+ 
+     @GetMapping("/invoices")
+-    public PageResponse<InvoiceSummary> invoices(@RequestParam(required = false) String status,
++    public PageResponse<Audited<InvoiceSummary>> invoices(@RequestParam(required = false) String status,
+                                                  @RequestParam(required = false) UUID customerId,
+                                                  @RequestParam(defaultValue = "0") int page,
+                                                  @RequestParam(defaultValue = "20") int size) {
+-        return PageResponse.of(billing.searchInvoices(status, customerId, pageRequest(page, size)), InvoiceSummary::of);
++        return audits.page(billing.searchInvoices(status, customerId, pageRequest(page, size)), InvoiceSummary::of);
+     }
+ 
+     @GetMapping("/invoices/{id}")
+@@ -129,12 +133,12 @@ public class BillingController {
+     // ------------------------------------------------------------------------------------------ quotes
+ 
+     @GetMapping("/quotes")
+-    public PageResponse<QuoteSummary> quotes(@RequestParam(required = false) String status,
++    public PageResponse<Audited<QuoteSummary>> quotes(@RequestParam(required = false) String status,
+                                              @RequestParam(required = false) UUID customerId,
+                                              @RequestParam(defaultValue = "0") int page,
+                                              @RequestParam(defaultValue = "20") int size) {
+         LocalDate today = LocalDate.now(billing.zone());
+-        return PageResponse.of(billing.searchQuotes(status, customerId, pageRequest(page, size)),
++        return audits.page(billing.searchQuotes(status, customerId, pageRequest(page, size)),
+                 q -> QuoteSummary.of(q, today));
+     }
+ 
+@@ -216,8 +220,8 @@ public class BillingController {
+     }
+ 
+     private static List<BillingService.LineInput> lines(List<LineRequest> lines) {
+-        return lines.stream().map(l -> new BillingService.LineInput(l.serviceId(), l.quantity(), l.addonIds(),
+-                l.description(), l.unitPriceHalalas(), l.catalogServiceId(), l.catalogAddonId())).toList();
++        return lines.stream().map(l -> new BillingService.LineInput(l.serviceId(), l.optionId(), l.quantity(), l.addonIds(),
++                l.description(), l.unitPriceHalalas(), l.catalogServiceId(), l.catalogOptionId(), l.catalogAddonId())).toList();
+     }
+ 
+     private static BillingService.QuoteCommand command(QuoteRequest req) {
+@@ -225,9 +229,9 @@ public class BillingController {
+                 req.discountHalalas() == null ? 0 : req.discountHalalas(), req.validUntil(), req.notes());
+     }
+ 
+-    public record LineRequest(UUID serviceId, @DecimalMin(value = "0.01") BigDecimal quantity, List<UUID> addonIds,
+-                              @Size(max = 300) String description, @Min(0) Long unitPriceHalalas,
+-                              UUID catalogServiceId, UUID catalogAddonId) {
++    public record LineRequest(UUID serviceId, UUID optionId, @DecimalMin(value = "0.01") BigDecimal quantity,
++                              List<UUID> addonIds, @Size(max = 300) String description, @Min(0) Long unitPriceHalalas,
++                              UUID catalogServiceId, UUID catalogOptionId, UUID catalogAddonId) {
+     }
+ 
+     public record IssueInvoiceRequest(@NotNull UUID customerId, @NotEmpty @Size(max = 100) List<@Valid LineRequest> lines,
+diff --git a/backend/admin/src/main/java/com/fieldops/app/booking/BookingController.java b/backend/admin/src/main/java/com/fieldops/app/booking/BookingController.java
+index b31c3fe..2d75b36 100644
+--- a/backend/admin/src/main/java/com/fieldops/app/booking/BookingController.java
++++ b/backend/admin/src/main/java/com/fieldops/app/booking/BookingController.java
+@@ -1,5 +1,7 @@
+ package com.fieldops.app.booking;
+ 
++import com.fieldops.app.common.audit.AuditNames;
++import com.fieldops.app.common.audit.Audited;
+ import java.math.BigDecimal;
+ import java.time.Instant;
+ import java.util.List;
+@@ -39,15 +41,17 @@ public class BookingController {
+ 
+     private final BookingService service;
+     private final SchedulingService scheduling;
++    private final AuditNames audits;
+ 
+-    public BookingController(BookingService service, SchedulingService scheduling) {
++    public BookingController(BookingService service, SchedulingService scheduling, AuditNames audits) {
++        this.audits = audits;
+         this.service = service;
+         this.scheduling = scheduling;
+     }
+ 
+     @GetMapping
+     @PreAuthorize("hasAnyRole('OWNER','COORDINATOR')")
+-    public PageResponse<BookingSummary> list(@RequestParam(required = false) Set<BookingStatus> status,
++    public PageResponse<Audited<BookingSummary>> list(@RequestParam(required = false) Set<BookingStatus> status,
+                                              @RequestParam(required = false) Instant from,
+                                              @RequestParam(required = false) Instant to,
+                                              @RequestParam(required = false) UUID customerId,
+@@ -65,7 +69,7 @@ public class BookingController {
+                 PageRequest.of(page, size, by));
+         Map<UUID, List<Assignment>> assigned = scheduling.forBookings(
+                 result.getContent().stream().map(Booking::getId).toList());
+-        return PageResponse.of(result, b -> BookingSummary.of(b, assigned.getOrDefault(b.getId(), List.of())));
++        return audits.page(result, b -> BookingSummary.of(b, assigned.getOrDefault(b.getId(), List.of())));
+     }
+ 
+     @GetMapping("/{id}")
+@@ -126,11 +130,13 @@ public class BookingController {
+ 
+     // --- Requests --------------------------------------------------------------------------------------
+ 
++    /** {@code optionId}: required when the service has options (e.g. small / medium / large car). */
+     public record LineRequest(@NotNull UUID serviceId,
++                              UUID optionId,
+                               BigDecimal quantity,
+                               @Size(max = 20) List<UUID> addonIds) {
+         BookingPricing.Line toLine() {
+-            return new BookingPricing.Line(serviceId, quantity, addonIds);
++            return new BookingPricing.Line(serviceId, optionId, quantity, addonIds);
+         }
+     }
+ 
+@@ -197,10 +203,10 @@ public class BookingController {
+         }
+     }
+ 
+-    public record ItemDto(UUID serviceId, UUID addonId, String description, BigDecimal quantity,
++    public record ItemDto(UUID serviceId, UUID addonId, UUID optionId, String description, BigDecimal quantity,
+                           long unitPriceHalalas, long totalHalalas) {
+         static ItemDto of(BookingItem i) {
+-            return new ItemDto(i.getServiceId(), i.getAddonId(), i.getDescription(), i.getQuantity(),
++            return new ItemDto(i.getServiceId(), i.getAddonId(), i.getOptionId(), i.getDescription(), i.getQuantity(),
+                     i.getUnitPriceHalalas(), i.getTotalHalalas());
+         }
+     }
+diff --git a/backend/admin/src/main/java/com/fieldops/app/catalog/CatalogController.java b/backend/admin/src/main/java/com/fieldops/app/catalog/CatalogController.java
+index 9514fbc..8608e7a 100644
+--- a/backend/admin/src/main/java/com/fieldops/app/catalog/CatalogController.java
++++ b/backend/admin/src/main/java/com/fieldops/app/catalog/CatalogController.java
+@@ -1,5 +1,7 @@
+ package com.fieldops.app.catalog;
+ 
++import com.fieldops.app.common.audit.AuditNames;
++import com.fieldops.app.common.audit.Audited;
+ import java.util.List;
+ import java.util.UUID;
+ 
+@@ -33,8 +35,10 @@ public class CatalogController {
+ 
+     private final CatalogService service;
+     private final ServiceImageService images;
++    private final AuditNames audits;
+ 
+-    public CatalogController(CatalogService service, ServiceImageService images) {
++    public CatalogController(CatalogService service, ServiceImageService images, AuditNames audits) {
++        this.audits = audits;
+         this.service = service;
+         this.images = images;
+     }
+@@ -56,8 +60,8 @@ public class CatalogController {
+     }
+ 
+     @GetMapping
+-    public List<ServiceDto> list(@RequestParam(defaultValue = "false") boolean activeOnly) {
+-        return service.list(activeOnly).stream().map(ServiceDto::of).toList();
++    public List<Audited<ServiceDto>> list(@RequestParam(defaultValue = "false") boolean activeOnly) {
++        return audits.list(service.list(activeOnly), ServiceDto::of);
+     }
+ 
+     @GetMapping("/{id}")
+diff --git a/backend/admin/src/main/java/com/fieldops/app/contact/ContactMessageController.java b/backend/admin/src/main/java/com/fieldops/app/contact/ContactMessageController.java
+index fd88357..4881c43 100644
+--- a/backend/admin/src/main/java/com/fieldops/app/contact/ContactMessageController.java
++++ b/backend/admin/src/main/java/com/fieldops/app/contact/ContactMessageController.java
+@@ -1,5 +1,7 @@
+ package com.fieldops.app.contact;
+ 
++import com.fieldops.app.common.audit.AuditNames;
++import com.fieldops.app.common.audit.Audited;
+ import java.time.Instant;
+ import java.util.List;
+ import java.util.UUID;
+@@ -20,15 +22,17 @@ import org.springframework.web.bind.annotation.RestController;
+ public class ContactMessageController {
+ 
+     private final ContactService contacts;
++    private final AuditNames audits;
+ 
+-    public ContactMessageController(ContactService contacts) {
++    public ContactMessageController(ContactService contacts, AuditNames audits) {
++        this.audits = audits;
+         this.contacts = contacts;
+     }
+ 
+     /** @param status NEW, DONE, or empty for all */
+     @GetMapping
+-    public List<MessageDto> list(@RequestParam(required = false) ContactMessage.Status status) {
+-        return contacts.list(status).stream().map(MessageDto::of).toList();
++    public List<Audited<MessageDto>> list(@RequestParam(required = false) ContactMessage.Status status) {
++        return audits.list(contacts.list(status), MessageDto::of);
+     }
+ 
+     /** For the sidebar badge. */
+diff --git a/backend/admin/src/main/java/com/fieldops/app/customer/CustomerController.java b/backend/admin/src/main/java/com/fieldops/app/customer/CustomerController.java
+index 1a492c4..2a62840 100644
+--- a/backend/admin/src/main/java/com/fieldops/app/customer/CustomerController.java
++++ b/backend/admin/src/main/java/com/fieldops/app/customer/CustomerController.java
+@@ -1,5 +1,7 @@
+ package com.fieldops.app.customer;
+ 
++import com.fieldops.app.common.audit.AuditNames;
++import com.fieldops.app.common.audit.Audited;
+ import java.math.BigDecimal;
+ import java.time.Instant;
+ import java.util.List;
+@@ -37,22 +39,24 @@ import org.springframework.web.bind.annotation.RestController;
+ public class CustomerController {
+ 
+     private final CustomerService service;
++    private final AuditNames audits;
+ 
+-    public CustomerController(CustomerService service) {
++    public CustomerController(CustomerService service, AuditNames audits) {
+         this.service = service;
++        this.audits = audits;
+     }
+ 
+     @GetMapping
+-    public PageResponse<CustomerSummary> list(@RequestParam(required = false) String q,
++    public PageResponse<Audited<CustomerSummary>> list(@RequestParam(required = false) String q,
+                                               @RequestParam(defaultValue = "0") @Min(0) int page,
+                                               @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+         var pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+-        return PageResponse.of(service.search(q, pageable), CustomerSummary::of);
++        return audits.page(service.search(q, pageable), CustomerSummary::of);
+     }
+ 
+     @GetMapping("/{id}")
+-    public CustomerDetail get(@PathVariable UUID id) {
+-        return CustomerDetail.of(service.get(id));
++    public Audited<CustomerDetail> get(@PathVariable UUID id) {
++        return audits.one(service.get(id), CustomerDetail::of);
+     }
+ 
+     @PostMapping
+diff --git a/backend/admin/src/main/java/com/fieldops/app/finance/ExpenseController.java b/backend/admin/src/main/java/com/fieldops/app/finance/ExpenseController.java
+index 3a96c3e..c645ffc 100644
+--- a/backend/admin/src/main/java/com/fieldops/app/finance/ExpenseController.java
++++ b/backend/admin/src/main/java/com/fieldops/app/finance/ExpenseController.java
+@@ -1,5 +1,7 @@
+ package com.fieldops.app.finance;
+ 
++import com.fieldops.app.common.audit.AuditNames;
++import com.fieldops.app.common.audit.Audited;
+ import java.time.Instant;
+ import java.time.LocalDate;
+ import java.util.List;
+@@ -30,8 +32,10 @@ import org.springframework.web.bind.annotation.RestController;
+ public class ExpenseController {
+ 
+     private final ExpenseService expenses;
++    private final AuditNames audits;
+ 
+-    public ExpenseController(ExpenseService expenses) {
++    public ExpenseController(ExpenseService expenses, AuditNames audits) {
++        this.audits = audits;
+         this.expenses = expenses;
+     }
+ 
+@@ -42,7 +46,7 @@ public class ExpenseController {
+                             @RequestParam(defaultValue = "0") int page,
+                             @RequestParam(defaultValue = "50") int size) {
+         ExpenseService.ExpensePage p = expenses.search(from, to, category, page, size);
+-        return new ExpenseList(p.page().getContent().stream().map(ExpenseController::dto).toList(),
++        return new ExpenseList(audits.list(p.page().getContent(), ExpenseController::dto),
+                 p.page().getNumber(), p.page().getSize(), p.page().getTotalElements(), p.totalCostHalalas());
+     }
+ 
+@@ -68,7 +72,7 @@ public class ExpenseController {
+                              String reference, UUID serviceId, Instant createdAt) {
+     }
+ 
+-    public record ExpenseList(List<ExpenseDto> items, int page, int size, long total, long totalCostHalalas) {
++    public record ExpenseList(List<Audited<ExpenseDto>> items, int page, int size, long total, long totalCostHalalas) {
+     }
+ 
+     private static ExpenseDto dto(Expense e) {
+diff --git a/backend/admin/src/main/java/com/fieldops/app/notification/NotificationController.java b/backend/admin/src/main/java/com/fieldops/app/notification/NotificationController.java
+index b66df5f..448fa9a 100644
+--- a/backend/admin/src/main/java/com/fieldops/app/notification/NotificationController.java
++++ b/backend/admin/src/main/java/com/fieldops/app/notification/NotificationController.java
+@@ -1,5 +1,7 @@
+ package com.fieldops.app.notification;
+ 
++import com.fieldops.app.common.audit.AuditNames;
++import com.fieldops.app.common.audit.Audited;
+ import java.time.Instant;
+ import java.util.UUID;
+ 
+@@ -36,9 +38,11 @@ public class NotificationController {
+     private final TenantService tenants;
+     private final java.util.List<MessageChannel> channels;
+     private final TenantRepository tenantRepo;
++    private final AuditNames audits;
+ 
+     public NotificationController(NotificationService notifications, TenantService tenants,
+-                                  java.util.List<MessageChannel> channels, TenantRepository tenantRepo) {
++                                  java.util.List<MessageChannel> channels, TenantRepository tenantRepo, AuditNames audits) {
++        this.audits = audits;
+         this.notifications = notifications;
+         this.tenants = tenants;
+         this.channels = channels;
+@@ -48,10 +52,10 @@ public class NotificationController {
+     /** Send log (whole company or one booking). */
+     @GetMapping("/api/v1/notifications")
+     @PreAuthorize("hasAnyRole('OWNER','COORDINATOR')")
+-    public PageResponse<NotificationDto> list(@RequestParam(required = false) UUID bookingId,
++    public PageResponse<Audited<NotificationDto>> list(@RequestParam(required = false) UUID bookingId,
+                                               @RequestParam(defaultValue = "0") @Min(0) int page,
+                                               @RequestParam(defaultValue = "30") @Min(1) @Max(100) int size) {
+-        return PageResponse.of(notifications.list(bookingId, PageRequest.of(page, size)), NotificationDto::of);
++        return audits.page(notifications.list(bookingId, PageRequest.of(page, size)), NotificationDto::of);
+     }
+ 
+     /** The office writes to the booking's customer (WhatsApp, SMS fallback). */
+diff --git a/backend/admin/src/main/java/com/fieldops/app/promo/PromoController.java b/backend/admin/src/main/java/com/fieldops/app/promo/PromoController.java
+index a383f99..97c4b7b 100644
+--- a/backend/admin/src/main/java/com/fieldops/app/promo/PromoController.java
++++ b/backend/admin/src/main/java/com/fieldops/app/promo/PromoController.java
+@@ -1,5 +1,7 @@
+ package com.fieldops.app.promo;
+ 
++import com.fieldops.app.common.audit.AuditNames;
++import com.fieldops.app.common.audit.Audited;
+ import java.time.Instant;
+ import java.util.List;
+ import java.util.UUID;
+@@ -28,14 +30,16 @@ import org.springframework.web.bind.annotation.RestController;
+ public class PromoController {
+ 
+     private final PromoService promos;
++    private final AuditNames audits;
+ 
+-    public PromoController(PromoService promos) {
++    public PromoController(PromoService promos, AuditNames audits) {
++        this.audits = audits;
+         this.promos = promos;
+     }
+ 
+     @GetMapping
+-    public List<PromoDto> list() {
+-        return promos.list().stream().map(PromoDto::of).toList();
++    public List<Audited<PromoDto>> list() {
++        return audits.list(promos.list(), PromoService.PromoView::promo, PromoDto::of);
+     }
+ 
+     @PostMapping
+diff --git a/backend/admin/src/main/java/com/fieldops/app/scheduling/TechnicianController.java b/backend/admin/src/main/java/com/fieldops/app/scheduling/TechnicianController.java
+index 0b900d3..4588c81 100644
+--- a/backend/admin/src/main/java/com/fieldops/app/scheduling/TechnicianController.java
++++ b/backend/admin/src/main/java/com/fieldops/app/scheduling/TechnicianController.java
+@@ -1,5 +1,7 @@
+ package com.fieldops.app.scheduling;
+ 
++import com.fieldops.app.common.audit.AuditNames;
++import com.fieldops.app.common.audit.Audited;
+ import java.util.List;
+ import java.util.Map;
+ import java.util.UUID;
+@@ -30,17 +32,19 @@ public class TechnicianController {
+ 
+     private final TechnicianService service;
+     private final ReviewService reviews;
++    private final AuditNames audits;
+ 
+-    public TechnicianController(TechnicianService service, ReviewService reviews) {
++    public TechnicianController(TechnicianService service, ReviewService reviews, AuditNames audits) {
+         this.service = service;
+         this.reviews = reviews;
++        this.audits = audits;
+     }
+ 
+     @GetMapping
+     @PreAuthorize("hasAnyRole('OWNER','COORDINATOR')")
+-    public List<TechnicianDto> list() {
++    public List<Audited<TechnicianDto>> list() {
+         Map<UUID, ReviewService.TechnicianRating> ratings = reviews.technicianRatings();
+-        return service.list().stream().map(t -> TechnicianDto.of(t, ratings.get(t.getId()))).toList();
++        return audits.list(service.list(), t -> TechnicianDto.of(t, ratings.get(t.getId())));
+     }
+ 
+     /** The technician's own profile, with the rating customers gave their visits. */
+diff --git a/backend/admin/src/main/resources/db/migration/V34__updated_by.sql b/backend/admin/src/main/resources/db/migration/V34__updated_by.sql
+new file mode 100644
+index 0000000..44c6cb5
+--- /dev/null
++++ b/backend/admin/src/main/resources/db/migration/V34__updated_by.sql
+@@ -0,0 +1,20 @@
++-- Who last changed each row (staff user id), next to created_by. NULL = changed by the system or a customer
++-- (portal, public booking page, background jobs). Existing rows start with their creator.
++DO $$
++DECLARE
++    t TEXT;
++BEGIN
++    FOR t IN
++        SELECT c.table_name
++        FROM information_schema.columns c
++        JOIN information_schema.tables tb ON tb.table_schema = c.table_schema AND tb.table_name = c.table_name
++        WHERE c.table_schema = current_schema() AND c.column_name = 'created_by' AND tb.table_type = 'BASE TABLE'
++          AND NOT EXISTS (SELECT 1 FROM information_schema.columns u
++                          WHERE u.table_schema = c.table_schema AND u.table_name = c.table_name
++                            AND u.column_name = 'updated_by')
++    LOOP
++        EXECUTE format('ALTER TABLE %I ADD COLUMN updated_by UUID', t);
++        EXECUTE format('UPDATE %I SET updated_by = created_by', t);
++    END LOOP;
++END
++$$;
+diff --git a/backend/core/src/main/java/com/fieldops/app/auth/UserRepository.java b/backend/core/src/main/java/com/fieldops/app/auth/UserRepository.java
+index 136c292..90955a0 100644
+--- a/backend/core/src/main/java/com/fieldops/app/auth/UserRepository.java
++++ b/backend/core/src/main/java/com/fieldops/app/auth/UserRepository.java
+@@ -32,6 +32,10 @@ public interface UserRepository extends JpaRepository<User, UUID> {
+     @Query("select count(u) > 0 from User u where lower(u.email) = lower(:email)")
+     boolean existsByEmailIgnoreCase(@Param("email") String email);
+ 
++    /** id → name of the given users, for "created by / updated by" labels (names only, any company). */
++    @Query("select u.id, u.name from User u where u.id in :ids")
++    List<Object[]> findNames(@Param("ids") java.util.Collection<UUID> ids);
++
+     // --- Tenant-scoped -----------------------------------------------------------------------------
+ 
+     Optional<User> findByIdAndTenantId(UUID id, UUID tenantId);
+diff --git a/backend/core/src/main/java/com/fieldops/app/billing/BillingDtos.java b/backend/core/src/main/java/com/fieldops/app/billing/BillingDtos.java
+index 12e1a5a..8f2035e 100644
+--- a/backend/core/src/main/java/com/fieldops/app/billing/BillingDtos.java
++++ b/backend/core/src/main/java/com/fieldops/app/billing/BillingDtos.java
+@@ -14,12 +14,15 @@ public final class BillingDtos {
+     private BillingDtos() {
+     }
+ 
+-    /** {@code serviceId} / {@code addonId}: the catalog service the line was priced from (null for free text). */
++    /**
++     * {@code serviceId} / {@code addonId} / {@code optionId}: the catalog service the line was priced from (null for
++     * free text).
++     */
+     public record LineDto(String description, BigDecimal quantity, long unitPriceHalalas, long totalHalalas,
+-                          UUID serviceId, UUID addonId) {
++                          UUID serviceId, UUID addonId, UUID optionId) {
+         static List<LineDto> of(List<DocumentLine> lines) {
+             return lines.stream().map(l -> new LineDto(l.getDescription(), l.getQuantity(), l.getUnitPriceHalalas(),
+-                    l.getTotalHalalas(), l.getServiceId(), l.getAddonId())).toList();
++                    l.getTotalHalalas(), l.getServiceId(), l.getAddonId(), l.getOptionId())).toList();
+         }
+     }
+ 
+diff --git a/backend/core/src/main/java/com/fieldops/app/billing/BillingService.java b/backend/core/src/main/java/com/fieldops/app/billing/BillingService.java
+index c481df0..d441af9 100644
+--- a/backend/core/src/main/java/com/fieldops/app/billing/BillingService.java
++++ b/backend/core/src/main/java/com/fieldops/app/billing/BillingService.java
+@@ -96,16 +96,18 @@ public class BillingService {
+      * A line as sent by the client: either a catalog service (priced server-side, add-ons allowed) or a
+      * free-text line with its own unit price.
+      */
+-    public record LineInput(UUID serviceId, BigDecimal quantity, List<UUID> addonIds, String description,
+-                            Long unitPriceHalalas, UUID catalogServiceId, UUID catalogAddonId) {
++    public record LineInput(UUID serviceId, UUID optionId, BigDecimal quantity, List<UUID> addonIds,
++                            String description, Long unitPriceHalalas, UUID catalogServiceId, UUID catalogOptionId,
++                            UUID catalogAddonId) {
+ 
+         /**
+-         * {@code catalogServiceId} / {@code catalogAddonId}: on a free-text line, the catalog service it was first
++         * {@code optionId}: the service's option (required when it has options). {@code catalogServiceId} /
++         * {@code catalogOptionId} / {@code catalogAddonId}: on a free-text line, the catalog service it was first
+          * priced from (an edited quote keeps its prices as typed but remembers where each line came from).
+          */
+         public LineInput(UUID serviceId, BigDecimal quantity, List<UUID> addonIds, String description,
+                          Long unitPriceHalalas) {
+-            this(serviceId, quantity, addonIds, description, unitPriceHalalas, null, null);
++            this(serviceId, null, quantity, addonIds, description, unitPriceHalalas, null, null, null);
+         }
+     }
+ 
+@@ -465,8 +467,8 @@ public class BillingService {
+         if (!lines.isEmpty() && lines.stream().allMatch(l -> l.getServiceId() != null)) {
+             List<BookingItem> items = new ArrayList<>();
+             for (DocumentLine l : lines) {
+-                items.add(new BookingItem(l.getServiceId(), l.getAddonId(), l.getDescription(), l.getQuantity(),
+-                        l.getUnitPriceHalalas()));
++                items.add(new BookingItem(l.getServiceId(), l.getAddonId() == null ? l.getOptionId() : null,
++                        l.getAddonId(), l.getDescription(), l.getQuantity(), l.getUnitPriceHalalas()));
+             }
+             b.agreePrices(items, q.getDiscountHalalas());
+         } else {
+@@ -514,7 +516,7 @@ public class BillingService {
+         for (LineInput l : input) {
+             if (l.serviceId() != null) {
+                 BookingPricing.Priced priced = pricing.price(List.of(
+-                        new BookingPricing.Line(l.serviceId(), l.quantity(), l.addonIds())));
++                        new BookingPricing.Line(l.serviceId(), l.optionId(), l.quantity(), l.addonIds())));
+                 for (BookingItem item : priced.items()) {
+                     out.add(lineFrom(item));
+                 }
+@@ -531,10 +533,11 @@ public class BillingService {
+             if (l.unitPriceHalalas() == null || l.unitPriceHalalas() < 0 || l.unitPriceHalalas() > 100_000_000L) {
+                 throw ApiException.badRequest("invalid_price", "Enter a valid unit price");
+             }
+-            UUID from = knownService(l.catalogServiceId(), l.catalogAddonId()) ? l.catalogServiceId() : null;
++            UUID from = knownService(l.catalogServiceId(), l.catalogAddonId(), l.catalogOptionId())
++                    ? l.catalogServiceId() : null;
+             out.add(new DocumentLine(description, qty, l.unitPriceHalalas())
+-                    .withCatalog(from, l.catalogAddonId())
+-                    .withEnglish(from == null ? null : englishName(from, l.catalogAddonId())));
++                    .withCatalog(from, l.catalogOptionId(), l.catalogAddonId())
++                    .withEnglish(from == null ? null : englishName(from, l.catalogOptionId(), l.catalogAddonId())));
+         }
+         return out;
+     }
+@@ -542,25 +545,26 @@ public class BillingService {
+     /** A document line from a priced booking item, with the English text taken from the catalog. */
+     private DocumentLine lineFrom(BookingItem item) {
+         return new DocumentLine(item.getDescription(), item.getQuantity(), item.getUnitPriceHalalas())
+-                .withCatalog(item.getServiceId(), item.getAddonId())
+-                .withEnglish(englishName(item.getServiceId(), item.getAddonId()));
++                .withCatalog(item.getServiceId(), item.getOptionId(), item.getAddonId())
++                .withEnglish(englishName(item.getServiceId(), item.getOptionId(), item.getAddonId()));
+     }
+ 
+-    /** A service of this company (and, when given, one of its add-ons): a line may say it came from it. */
+-    private boolean knownService(UUID serviceId, UUID addonId) {
++    /** A service of this company (and, when given, one of its add-ons / options): a line may say it came from it. */
++    private boolean knownService(UUID serviceId, UUID addonId, UUID optionId) {
+         if (serviceId == null) {
+             return false;
+         }
+         return catalog.findWithAddons(serviceId)
+-                .map(s -> addonId == null || s.getAddons().stream().anyMatch(a -> addonId.equals(a.getId())))
++                .map(s -> (addonId == null || s.getAddons().stream().anyMatch(a -> addonId.equals(a.getId())))
++                        && (optionId == null || s.getOptions().stream().anyMatch(o -> optionId.equals(o.getId()))))
+                 .orElse(false);
+     }
+ 
+     /**
+-     * "Apartment cleaning" or "Apartment cleaning — Fridge" from the services' English names; null when the
+-     * service (or its add-on) has no English name, so the PDF prints the Arabic only.
++     * "Apartment cleaning", "Car wash (Large car)" or "Apartment cleaning — Fridge" from the services' English names;
++     * null when the service (or its option / add-on) has no English name, so the PDF prints the Arabic only.
+      */
+-    private String englishName(UUID serviceId, UUID addonId) {
++    private String englishName(UUID serviceId, UUID optionId, UUID addonId) {
+         if (serviceId == null) {
+             return null;
+         }
+@@ -570,7 +574,13 @@ public class BillingService {
+                 return null;
+             }
+             if (addonId == null) {
+-                return name;
++                if (optionId == null) {
++                    return name;
++                }
++                return s.getOptions().stream().filter(o -> optionId.equals(o.getId())).findFirst()
++                        .map(o -> o.getNameEn() == null || o.getNameEn().isBlank() ? null
++                                : BookingItem.describe(name, o.getNameEn()))
++                        .orElse(null);
+             }
+             return s.getAddons().stream().filter(a -> addonId.equals(a.getId())).findFirst()
+                     .map(a -> a.getNameEn() == null || a.getNameEn().isBlank() ? null : name + " — " + a.getNameEn())
+diff --git a/backend/core/src/main/java/com/fieldops/app/billing/DocumentLine.java b/backend/core/src/main/java/com/fieldops/app/billing/DocumentLine.java
+index b63d0a9..c42044c 100644
+--- a/backend/core/src/main/java/com/fieldops/app/billing/DocumentLine.java
++++ b/backend/core/src/main/java/com/fieldops/app/billing/DocumentLine.java
+@@ -43,6 +43,10 @@ public class DocumentLine extends TenantScopedEntity {
+     @Column(name = "addon_id")
+     private UUID addonId;
+ 
++    /** The service's option (e.g. large car) the line was priced with; null otherwise. */
++    @Column(name = "option_id")
++    private UUID optionId;
++
+     @Column(nullable = false, precision = 10, scale = 2)
+     private BigDecimal quantity;
+ 
+@@ -70,6 +74,7 @@ public class DocumentLine extends TenantScopedEntity {
+         c.descriptionEn = descriptionEn;
+         c.serviceId = serviceId;
+         c.addonId = addonId;
++        c.optionId = optionId;
+         c.quantity = quantity;
+         c.unitPriceHalalas = unitPriceHalalas;
+         c.totalHalalas = totalHalalas;
+@@ -107,11 +112,21 @@ public class DocumentLine extends TenantScopedEntity {
+ 
+     /** Remembers the catalog service / add-on the line was priced from (an add-on needs its service). */
+     public DocumentLine withCatalog(UUID serviceId, UUID addonId) {
++        return withCatalog(serviceId, null, addonId);
++    }
++
++    /** The same with the service's option (option and add-on need their service; an add-on line has no option). */
++    public DocumentLine withCatalog(UUID serviceId, UUID optionId, UUID addonId) {
+         this.serviceId = serviceId;
+         this.addonId = serviceId == null ? null : addonId;
++        this.optionId = serviceId == null || this.addonId != null ? null : optionId;
+         return this;
+     }
+ 
++    public UUID getOptionId() {
++        return optionId;
++    }
++
+     public UUID getServiceId() {
+         return serviceId;
+     }
+diff --git a/backend/core/src/main/java/com/fieldops/app/common/audit/AuditInfo.java b/backend/core/src/main/java/com/fieldops/app/common/audit/AuditInfo.java
+new file mode 100644
+index 0000000..febbd80
+--- /dev/null
++++ b/backend/core/src/main/java/com/fieldops/app/common/audit/AuditInfo.java
+@@ -0,0 +1,12 @@
++package com.fieldops.app.common.audit;
++
++import java.time.Instant;
++import java.util.UUID;
++
++/**
++ * Who created / last changed a record and when, for the details view. A null {@code ...By} means the system or a
++ * customer (portal, public booking page, background jobs); the names are the users' current names.
++ */
++public record AuditInfo(Instant createdAt, UUID createdBy, String createdByName,
++                        Instant updatedAt, UUID updatedBy, String updatedByName) {
++}
+diff --git a/backend/core/src/main/java/com/fieldops/app/common/audit/AuditNames.java b/backend/core/src/main/java/com/fieldops/app/common/audit/AuditNames.java
+new file mode 100644
+index 0000000..73f7cd6
+--- /dev/null
++++ b/backend/core/src/main/java/com/fieldops/app/common/audit/AuditNames.java
+@@ -0,0 +1,99 @@
++package com.fieldops.app.common.audit;
++
++import java.util.Collection;
++import java.util.HashMap;
++import java.util.List;
++import java.util.Map;
++import java.util.Objects;
++import java.util.UUID;
++import java.util.function.Function;
++
++import com.fieldops.app.auth.UserRepository;
++import com.fieldops.app.common.persistence.BaseEntity;
++import com.fieldops.app.common.web.PageResponse;
++import org.springframework.data.domain.Page;
++import org.springframework.stereotype.Component;
++import org.springframework.transaction.annotation.Transactional;
++
++/**
++ * Builds {@link AuditInfo} for API responses, looking up the users' names in one query per list (no N+1).
++ *
++ * <pre>
++ * var audit = auditNames.forAll(customers);          // one query for the whole page
++ * customers.stream().map(c -> Dto.of(c, audit.apply(c)))
++ * </pre>
++ */
++@Component
++public class AuditNames {
++
++    private final UserRepository users;
++
++    public AuditNames(UserRepository users) {
++        this.users = users;
++    }
++
++    /** Audit info of one record. */
++    @Transactional(readOnly = true)
++    public AuditInfo of(BaseEntity e) {
++        return e == null ? null : forAll(List.of(e)).apply(e);
++    }
++
++    /** A function giving the audit info of each record in {@code list}, with all names fetched up front. */
++    @Transactional(readOnly = true)
++    public <T extends BaseEntity> Function<T, AuditInfo> forAll(Collection<? extends T> list) {
++        Map<UUID, String> names = names(list.stream()
++                .flatMap(e -> java.util.stream.Stream.of(e.getCreatedBy(), e.getUpdatedBy()))
++                .filter(Objects::nonNull)
++                .distinct()
++                .toList());
++        return e -> e == null ? null : info(e.getCreatedAt(), e.getCreatedBy(), e.getUpdatedAt(), e.getUpdatedBy(), names);
++    }
++
++    /** A page of entities as DTOs, each with its audit info. */
++    @Transactional(readOnly = true)
++    public <E extends BaseEntity, D> PageResponse<Audited<D>> page(Page<E> page, Function<E, D> mapper) {
++        Function<E, AuditInfo> audit = forAll(page.getContent());
++        return PageResponse.of(page, e -> new Audited<>(mapper.apply(e), audit.apply(e)));
++    }
++
++    /** Entities as DTOs, each with its audit info. */
++    @Transactional(readOnly = true)
++    public <E extends BaseEntity, D> List<Audited<D>> list(Collection<E> items, Function<E, D> mapper) {
++        Function<E, AuditInfo> audit = forAll(items);
++        return items.stream().map(e -> new Audited<>(mapper.apply(e), audit.apply(e))).toList();
++    }
++
++    /** Items that are not entities themselves (views, wrappers): {@code entity} gives the record behind each. */
++    @Transactional(readOnly = true)
++    public <S, D> List<Audited<D>> list(Collection<S> items, Function<S, ? extends BaseEntity> entity,
++                                       Function<S, D> mapper) {
++        Function<BaseEntity, AuditInfo> audit = forAll(items.stream().<BaseEntity>map(entity).toList());
++        return items.stream().map(s -> new Audited<>(mapper.apply(s), audit.apply(entity.apply(s)))).toList();
++    }
++
++    /** One entity as a DTO with its audit info. */
++    @Transactional(readOnly = true)
++    public <E extends BaseEntity, D> Audited<D> one(E e, Function<E, D> mapper) {
++        return new Audited<>(mapper.apply(e), of(e));
++    }
++
++    /** Audit info from raw values (SQL read models). */
++    public static AuditInfo info(java.time.Instant createdAt, UUID createdBy, java.time.Instant updatedAt,
++                                 UUID updatedBy, Map<UUID, String> names) {
++        return new AuditInfo(createdAt, createdBy, createdBy == null ? null : names.get(createdBy),
++                updatedAt, updatedBy, updatedBy == null ? null : names.get(updatedBy));
++    }
++
++    /** id → current name of the given users (unknown ids are left out). */
++    @Transactional(readOnly = true)
++    public Map<UUID, String> names(Collection<UUID> ids) {
++        Map<UUID, String> out = new HashMap<>();
++        if (ids == null || ids.isEmpty()) {
++            return out;
++        }
++        for (Object[] row : users.findNames(ids)) {
++            out.put((UUID) row[0], (String) row[1]);
++        }
++        return out;
++    }
++}
+diff --git a/backend/core/src/main/java/com/fieldops/app/common/audit/Audited.java b/backend/core/src/main/java/com/fieldops/app/common/audit/Audited.java
+new file mode 100644
+index 0000000..aada2a1
+--- /dev/null
++++ b/backend/core/src/main/java/com/fieldops/app/common/audit/Audited.java
+@@ -0,0 +1,10 @@
++package com.fieldops.app.common.audit;
++
++import com.fasterxml.jackson.annotation.JsonUnwrapped;
++
++/**
++ * A response item with its audit info: serialized as the item's own fields plus {@code "audit": {...}}, so list
++ * endpoints gain "created by / updated by" without changing every DTO.
++ */
++public record Audited<T>(@JsonUnwrapped T item, AuditInfo audit) {
++}
+diff --git a/backend/core/src/main/java/com/fieldops/app/common/persistence/BaseEntity.java b/backend/core/src/main/java/com/fieldops/app/common/persistence/BaseEntity.java
+index a324c6e..22d1d08 100644
+--- a/backend/core/src/main/java/com/fieldops/app/common/persistence/BaseEntity.java
++++ b/backend/core/src/main/java/com/fieldops/app/common/persistence/BaseEntity.java
+@@ -13,7 +13,7 @@ import jakarta.persistence.PreUpdate;
+ 
+ import com.fieldops.app.common.security.CurrentUser;
+ 
+-/** id + audit columns shared by every table: created_at, updated_at, created_by. */
++/** id + audit columns shared by every table: created_at, updated_at, created_by, updated_by. */
+ @MappedSuperclass
+ public abstract class BaseEntity {
+ 
+@@ -30,6 +30,10 @@ public abstract class BaseEntity {
+     @Column(name = "created_by", updatable = false)
+     private UUID createdBy;
+ 
++    /** The staff user who last changed the row; null = the system or a customer (portal, public page, jobs). */
++    @Column(name = "updated_by")
++    private UUID updatedBy;
++
+     @PrePersist
+     protected void onCreate() {
+         Instant now = Instant.now();
+@@ -38,11 +42,13 @@ public abstract class BaseEntity {
+         if (createdBy == null) {
+             createdBy = CurrentUser.idOrNull();
+         }
++        updatedBy = createdBy;
+     }
+ 
+     @PreUpdate
+     protected void onUpdate() {
+         updatedAt = Instant.now();
++        updatedBy = CurrentUser.idOrNull();
+     }
+ 
+     public UUID getId() {
+@@ -60,4 +66,8 @@ public abstract class BaseEntity {
+     public UUID getCreatedBy() {
+         return createdBy;
+     }
++
++    public UUID getUpdatedBy() {
++        return updatedBy;
++    }
+ }
+diff --git a/backend/core/src/main/java/com/fieldops/app/finance/PayrollService.java b/backend/core/src/main/java/com/fieldops/app/finance/PayrollService.java
+index 7a2bc9a..ab19062 100644
+--- a/backend/core/src/main/java/com/fieldops/app/finance/PayrollService.java
++++ b/backend/core/src/main/java/com/fieldops/app/finance/PayrollService.java
+@@ -38,9 +38,12 @@ public class PayrollService {
+     private final SalaryPaymentRepository payments;
+     private final UserRepository users;
+     private final TenantService tenants;
++    private final com.fieldops.app.common.audit.AuditNames audits;
+ 
+     public PayrollService(EmployeeRepository employees, SalaryRecordRepository records,
+-                          SalaryPaymentRepository payments, UserRepository users, TenantService tenants) {
++                          SalaryPaymentRepository payments, UserRepository users, TenantService tenants,
++                          com.fieldops.app.common.audit.AuditNames audits) {
++        this.audits = audits;
+         this.employees = employees;
+         this.records = records;
+         this.payments = payments;
+@@ -67,7 +70,14 @@ public class PayrollService {
+                                String jobTitle, String phone, long baseSalaryHalalas, long housingHalalas,
+                                long transportHalalas, long otherAllowancesHalalas, long employerCostHalalas,
+                                long monthlyGrossHalalas, long monthlyCostHalalas, LocalDate hireDate, boolean active,
+-                               String notes) {
++                               String notes, com.fieldops.app.common.audit.AuditInfo audit) {
++
++        /** The same with who created / last changed the payroll entry. */
++        EmployeeView withAudit(com.fieldops.app.common.audit.AuditInfo a) {
++            return new EmployeeView(id, userId, role, accountActive, salarySet, name, jobTitle, phone,
++                    baseSalaryHalalas, housingHalalas, transportHalalas, otherAllowancesHalalas, employerCostHalalas,
++                    monthlyGrossHalalas, monthlyCostHalalas, hireDate, active, notes, a);
++        }
+     }
+ 
+     public record RecordData(long baseHalalas, long allowancesHalalas, long overtimeHalalas, long bonusHalalas,
+@@ -106,16 +116,18 @@ public class PayrollService {
+         Map<UUID, User> staff = staff();
+         List<EmployeeView> out = new ArrayList<>();
+         Set<UUID> linked = new HashSet<>();
+-        for (Employee e : employees.findAllByOrderByActiveDescNameAsc()) {
++        List<Employee> all = employees.findAllByOrderByActiveDescNameAsc();
++        var audit = audits.forAll(all);
++        for (Employee e : all) {
+             if (e.getUserId() != null) {
+                 linked.add(e.getUserId());
+             }
+-            out.add(view(e, staff));
++            out.add(view(e, staff).withAudit(audit.apply(e)));
+         }
+         for (User u : staff.values()) {
+             if (u.getRole() != Role.OWNER && u.isActive() && !linked.contains(u.getId())) {
+                 out.add(new EmployeeView(null, u.getId(), u.getRole(), true, false, u.getName(), null, u.getPhone(),
+-                        0, 0, 0, 0, 0, 0, 0, null, true, null));
++                        0, 0, 0, 0, 0, 0, 0, null, true, null, null));
+             }
+         }
+         out.sort(Comparator.comparing((EmployeeView v) -> !v.active())
+@@ -393,7 +405,7 @@ public class PayrollService {
+                 e.getBaseSalaryHalalas(), e.getHousingHalalas(),
+                 e.getTransportHalalas(), e.getOtherAllowancesHalalas(), e.getEmployerCostHalalas(),
+                 e.getMonthlyGrossHalalas(), e.getMonthlyGrossHalalas() + e.getEmployerCostHalalas(), e.getHireDate(),
+-                e.isActive(), e.getNotes());
++                e.isActive(), e.getNotes(), null);
+     }
+ 
+     private static RecordView view(SalaryRecord r, Lookup byId) {
+diff --git a/frontend/admin/public/i18n/ar.json b/frontend/admin/public/i18n/ar.json
+index b17acd6..acd2e89 100644
+--- a/frontend/admin/public/i18n/ar.json
++++ b/frontend/admin/public/i18n/ar.json
+@@ -52,6 +52,14 @@
+     "upgrade": "ترقية الآن",
+     "account": "الحساب"
+   },
++  "audit": {
++    "title": "سجل التعديلات",
++    "createdAt": "تاريخ الإنشاء",
++    "createdBy": "أنشئ بواسطة",
++    "updatedAt": "آخر تحديث",
++    "updatedBy": "حُدّث بواسطة",
++    "system": "النظام / العميل"
++  },
+   "common": {
+     "open": "فتح",
+     "save": "حفظ",
+@@ -59,6 +67,9 @@
+     "edit": "تعديل",
+     "delete": "حذف",
+     "close": "إغلاق",
++    "view": "عرض",
++    "yes": "نعم",
++    "no": "لا",
+     "start": "ابدأ",
+     "copy": "نسخ",
+     "copied": "تم النسخ",
+@@ -702,7 +713,11 @@
+     "openBooking": "فتح الطلب",
+     "empty": "لا توجد رسائل",
+     "showAll": "عرض كل الرسائل ({{n}})",
+-    "showLess": "عرض أقل"
++    "showLess": "عرض أقل",
++    "sentAt": "وقت الإرسال",
++    "deliveredAt": "وقت التسليم",
++    "body": "نص الرسالة",
++    "error": "الخطأ"
+   },
+   "templates": {
+     "BOOKING_RECEIVED": "استلام الطلب",
+diff --git a/frontend/admin/public/i18n/en.json b/frontend/admin/public/i18n/en.json
+index a98d6d6..e96d822 100644
+--- a/frontend/admin/public/i18n/en.json
++++ b/frontend/admin/public/i18n/en.json
+@@ -52,6 +52,14 @@
+     "upgrade": "Upgrade now",
+     "account": "Account"
+   },
++  "audit": {
++    "title": "Change history",
++    "createdAt": "Created on",
++    "createdBy": "Created by",
++    "updatedAt": "Last updated",
++    "updatedBy": "Updated by",
++    "system": "System / customer"
++  },
+   "common": {
+     "open": "Open",
+     "save": "Save",
+@@ -59,6 +67,9 @@
+     "edit": "Edit",
+     "delete": "Delete",
+     "close": "Close",
++    "view": "View",
++    "yes": "Yes",
++    "no": "No",
+     "start": "Start",
+     "copy": "Copy",
+     "copied": "Copied",
+@@ -702,7 +713,11 @@
+     "openBooking": "Open booking",
+     "empty": "No messages",
+     "showAll": "Show all messages ({{n}})",
+-    "showLess": "Show less"
++    "showLess": "Show less",
++    "sentAt": "Sent at",
++    "deliveredAt": "Delivered at",
++    "body": "Message text",
++    "error": "Error"
+   },
+   "templates": {
+     "BOOKING_RECEIVED": "Booking received",
+diff --git a/frontend/admin/src/app/app.config.ts b/frontend/admin/src/app/app.config.ts
+index 93fb4b7..5f3557a 100644
+--- a/frontend/admin/src/app/app.config.ts
++++ b/frontend/admin/src/app/app.config.ts
+@@ -36,6 +36,8 @@ export const appConfig: ApplicationConfig = {
+     }),
+     providePrimeNG({
+       ripple: true,
++      // Dialogs, drawers and dropdowns attach to <body>, so the app's sticky top bar never covers them.
++      overlayAppendTo: 'body',
+       theme: {
+         preset: FieldOpsPreset,
+         options: { darkModeSelector: '.app-dark', cssLayer: false },
+diff --git a/frontend/admin/src/app/core/api.types.ts b/frontend/admin/src/app/core/api.types.ts
+index 775588a..0d50734 100644
+--- a/frontend/admin/src/app/core/api.types.ts
++++ b/frontend/admin/src/app/core/api.types.ts
+@@ -121,7 +121,7 @@ export interface Page<T> {
+   total: number;
+ }
+ 
+-export interface CustomerSummary {
++export interface CustomerSummary extends Audited {
+   id: string;
+   name: string;
+   phone: string;
+@@ -169,7 +169,22 @@ export interface ServiceOption {
+   active: boolean;
+ }
+ 
+-export interface ServiceOffering {
++/** Who created / last changed a record and when; a null ...By means the system or a customer. */
++export interface AuditInfo {
++  createdAt?: string | null;
++  createdBy?: string | null;
++  createdByName?: string | null;
++  updatedAt?: string | null;
++  updatedBy?: string | null;
++  updatedByName?: string | null;
++}
++
++/** List items carry their audit info. */
++export interface Audited {
++  audit?: AuditInfo | null;
++}
++
++export interface ServiceOffering extends Audited {
+   id: string;
+   /** Arabic (main) name and description. */
+   name: string;
+@@ -193,7 +208,7 @@ export interface WorkShift {
+   end: string;
+ }
+ 
+-export interface Technician {
++export interface Technician extends Audited {
+   id: string;
+   userId: string;
+   name: string;
+@@ -210,7 +225,7 @@ export interface Technician {
+   ratingCount?: number;
+ }
+ 
+-export interface StaffUser {
++export interface StaffUser extends Audited {
+   id: string;
+   name: string;
+   phone: string;
+@@ -250,7 +265,7 @@ export interface TechnicianRef {
+   color: string;
+ }
+ 
+-export interface BookingSummary {
++export interface BookingSummary extends Audited {
+   id: string;
+   number: number;
+   status: BookingStatus;
+@@ -366,7 +381,7 @@ export interface CalendarData {
+ 
+ export type NotificationStatus = 'PENDING' | 'SENT' | 'DELIVERED' | 'READ' | 'FAILED' | 'SKIPPED';
+ 
+-export interface NotificationLog {
++export interface NotificationLog extends Audited {
+   id: string;
+   bookingId?: string;
+   template: string;
+@@ -436,7 +451,7 @@ export interface QrPath {
+   d: string;
+ }
+ 
+-export interface InvoiceSummary {
++export interface InvoiceSummary extends Audited {
+   id: string;
+   number: number;
+   status: InvoiceStatus;
+@@ -485,7 +500,7 @@ export interface Invoice {
+   publicUrl?: string;
+ }
+ 
+-export interface QuoteSummary {
++export interface QuoteSummary extends Audited {
+   id: string;
+   number: number;
+   status: QuoteStatus;
+@@ -644,7 +659,7 @@ export interface ReportSummary {
+ export type DiscountType = 'PERCENT' | 'AMOUNT';
+ 
+ /** A discount code. discountValue is a percent (1-100) for PERCENT, halalas for AMOUNT. */
+-export interface Promo {
++export interface Promo extends Audited {
+   id: string;
+   code: string;
+   title: string;
+diff --git a/frontend/admin/src/app/core/contact-inbox.service.ts b/frontend/admin/src/app/core/contact-inbox.service.ts
+index 9f9d5c7..e58b1de 100644
+--- a/frontend/admin/src/app/core/contact-inbox.service.ts
++++ b/frontend/admin/src/app/core/contact-inbox.service.ts
+@@ -1,10 +1,11 @@
++import { Audited } from './api.types';
+ import { HttpClient } from '@angular/common/http';
+ import { Injectable, inject, signal } from '@angular/core';
+ import { Observable, tap } from 'rxjs';
+ 
+ export type ContactTopic = 'BOOKING' | 'QUESTION' | 'QUOTE' | 'COMPLAINT' | 'OTHER';
+ 
+-export interface ContactMessage {
++export interface ContactMessage extends Audited {
+   id: string;
+   customerId?: string;
+   name: string;
+diff --git a/frontend/admin/src/app/features/analytics/visuals/visuals.export-menu.html b/frontend/admin/src/app/features/analytics/visuals/visuals.export-menu.html
+index 3225e24..aa05cd4 100644
+--- a/frontend/admin/src/app/features/analytics/visuals/visuals.export-menu.html
++++ b/frontend/admin/src/app/features/analytics/visuals/visuals.export-menu.html
+@@ -1,8 +1,8 @@
+ <p-button icon="pi pi-download" [label]="'analytics.export' | translate" [outlined]="true" [loading]="busy()" (onClick)="menu.toggle($event)" />
+ <p-menu #menu [model]="items()" [popup]="true" appendTo="body" />
+ 
+-<p-dialog [header]="(period() === 'month' ? 'analytics.monthlyReport' : 'analytics.yearlyReport') | translate" [visible]="dialog()"
+-          (visibleChange)="dialog.set($event)" [modal]="true" [style]="{ width: '380px', maxWidth: '95vw' }" [draggable]="false">
++<app-dialog [visible]="dialog()" (visibleChange)="dialog.set($event)" [title]="(period() === 'month' ? 'analytics.monthlyReport' : 'analytics.yearlyReport') | translate" icon="pi pi-file-export" width="380px">
++<div class="fo-dlg-body">
+   <div class="row">
+     @if (period() === 'month') {
+       <p-datepicker [(ngModel)]="month" view="month" dateFormat="yy-mm" [inline]="true" [maxDate]="today" />
+@@ -15,4 +15,6 @@
+     <p-button [text]="true" severity="secondary" [label]="'common.cancel' | translate" (onClick)="dialog.set(false)" />
+     <p-button icon="pi pi-download" [label]="'analytics.download' | translate" [loading]="busy()" (onClick)="downloadPeriod()" />
+   </div>
+-</p-dialog>
++
++</div>
++</app-dialog>
+diff --git a/frontend/admin/src/app/features/analytics/visuals/visuals.ts b/frontend/admin/src/app/features/analytics/visuals/visuals.ts
+index c003cc8..28cd7ce 100644
+--- a/frontend/admin/src/app/features/analytics/visuals/visuals.ts
++++ b/frontend/admin/src/app/features/analytics/visuals/visuals.ts
+@@ -4,7 +4,7 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
+ import { MenuItem, MessageService } from 'primeng/api';
+ import { Button } from 'primeng/button';
+ import { DatePicker } from 'primeng/datepicker';
+-import { Dialog } from 'primeng/dialog';
++import { AppDialog } from '../../../shared/dialog/dialog';
+ import { Menu } from 'primeng/menu';
+ import { SelectButton } from 'primeng/selectbutton';
+ 
+@@ -101,7 +101,7 @@ export class RegionMap {
+ /** Export menu: the current view to Excel or PDF, or the full report of a month or a year. */
+ @Component({
+   selector: 'app-export-menu',
+-  imports: [FormsModule, TranslatePipe, Button, Menu, Dialog, DatePicker, SelectButton],
++  imports: [FormsModule, TranslatePipe, Button, Menu, AppDialog, DatePicker, SelectButton],
+   styleUrl: './visuals.export-menu.scss',
+   templateUrl: './visuals.export-menu.html',
+ })
+diff --git a/frontend/admin/src/app/features/billing/invoice-detail/invoice-detail.page.html b/frontend/admin/src/app/features/billing/invoice-detail/invoice-detail.page.html
+index e2b688b..43c5630 100644
+--- a/frontend/admin/src/app/features/billing/invoice-detail/invoice-detail.page.html
++++ b/frontend/admin/src/app/features/billing/invoice-detail/invoice-detail.page.html
+@@ -70,7 +70,8 @@
+   </div>
+ }
+ 
+-<p-dialog [header]="'invoices.recordPayment' | translate" [(visible)]="payOpen" [modal]="true" [style]="{ width: '440px', maxWidth: '95vw' }" [draggable]="false">
++<app-dialog [(visible)]="payOpen" [title]="'invoices.recordPayment' | translate" icon="pi pi-money-bill" width="440px">
++<div class="fo-dlg-body">
+   <div class="form-grid">
+     <div class="field full">
+       <label for="p-method">{{ 'invoices.method' | translate }}</label>
+@@ -89,20 +90,29 @@
+       <input pInputText id="p-ref" [(ngModel)]="payRef" maxlength="100" dir="auto" />
+     </div>
+   </div>
+-  <div class="dialog-actions">
+-    <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="payOpen.set(false)" />
++  
++
++</div>
++<div class="fo-dlg-foot">
+     <p-button [label]="'common.save' | translate" [disabled]="!payAmount || payAmount <= 0" [loading]="busy()" (onClick)="pay()" />
+-  </div>
+-</p-dialog>
++  
++    <p-button [label]="'common.cancel' | translate" severity="secondary" [outlined]="true" (onClick)="payOpen.set(false)" />
++</div>
++</app-dialog>
+ 
+-<p-dialog [header]="'invoices.void' | translate" [(visible)]="voidOpen" [modal]="true" [style]="{ width: '440px', maxWidth: '95vw' }" [draggable]="false">
++<app-dialog [(visible)]="voidOpen" [title]="'invoices.void' | translate" icon="pi pi-ban" width="440px">
++<div class="fo-dlg-body">
+   <p class="muted">{{ 'invoices.voidHint' | translate }}</p>
+   <div class="field">
+     <label for="v-reason">{{ 'invoices.voidReason' | translate }}</label>
+     <textarea pTextarea id="v-reason" [(ngModel)]="voidReason" rows="3" maxlength="500"></textarea>
+   </div>
+-  <div class="dialog-actions">
+-    <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="voidOpen.set(false)" />
++  
++
++</div>
++<div class="fo-dlg-foot">
+     <p-button [label]="'invoices.void' | translate" severity="danger" [disabled]="!voidReason.trim()" [loading]="busy()" (onClick)="doVoid()" />
+-  </div>
+-</p-dialog>
++  
++    <p-button [label]="'common.cancel' | translate" severity="secondary" [outlined]="true" (onClick)="voidOpen.set(false)" />
++</div>
++</app-dialog>
+diff --git a/frontend/admin/src/app/features/billing/invoice-detail/invoice-detail.page.ts b/frontend/admin/src/app/features/billing/invoice-detail/invoice-detail.page.ts
+index 210d137..d3904a1 100644
+--- a/frontend/admin/src/app/features/billing/invoice-detail/invoice-detail.page.ts
++++ b/frontend/admin/src/app/features/billing/invoice-detail/invoice-detail.page.ts
+@@ -5,7 +5,7 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
+ import { MessageService } from 'primeng/api';
+ import { Button } from 'primeng/button';
+ import { DatePicker } from 'primeng/datepicker';
+-import { Dialog } from 'primeng/dialog';
++import { AppDialog } from '../../../shared/dialog/dialog';
+ import { InputNumber } from 'primeng/inputnumber';
+ import { InputText } from 'primeng/inputtext';
+ import { Select } from 'primeng/select';
+@@ -26,7 +26,7 @@ export const PAYMENT_METHODS: PaymentMethod[] = ['CASH', 'MADA', 'BANK_TRANSFER'
+ @Component({
+   selector: 'app-invoice-detail',
+   imports: [
+-    FormsModule, RouterLink, TranslatePipe, Button, Dialog, Select, InputNumber, InputText, Textarea, DatePicker,
++    FormsModule, RouterLink, TranslatePipe, Button, AppDialog, Select, InputNumber, InputText, Textarea, DatePicker,
+     InvoiceStatusTag, SarPipe, LocalDatePipe, DocumentView,
+   ],
+   styleUrl: './invoice-detail.page.scss',
+diff --git a/frontend/admin/src/app/features/billing/invoices/invoices.page.html b/frontend/admin/src/app/features/billing/invoices/invoices.page.html
+index 5b32c0f..6b5f16c 100644
+--- a/frontend/admin/src/app/features/billing/invoices/invoices.page.html
++++ b/frontend/admin/src/app/features/billing/invoices/invoices.page.html
+@@ -19,7 +19,9 @@
+         <th>{{ 'bookings.customer' | translate }}</th>
+         <th>{{ 'doc.total' | translate }}</th>
+         <th>{{ 'doc.balance' | translate }}</th>
++        <th>{{ 'audit.createdBy' | translate }}</th>
+         <th>{{ 'common.status' | translate }}</th>
++        <th></th>
+       </tr>
+     </ng-template>
+     <ng-template #body let-i>
+@@ -32,11 +34,26 @@
+         <td>{{ i.customerName }}</td>
+         <td><span class="ltr">{{ i.totalHalalas | sar }}</span></td>
+         <td><span class="ltr">{{ (i.status === 'VOID' ? 0 : i.totalHalalas - i.paidHalalas) | sar }}</span></td>
++        <td><app-created-by [audit]="i.audit" /></td>
+         <td><app-invoice-status [status]="i.status" /></td>
+-      </tr>
++        <td class="row-actions"><p-button icon="pi pi-eye" [text]="true" severity="secondary" (onClick)="view(i, $event)" [ariaLabel]="'common.view' | translate" /></td>
++            </tr>
+     </ng-template>
+     <ng-template #emptymessage>
+-      <tr><td colspan="6"><div class="empty"><i class="pi pi-file"></i>{{ 'invoices.empty' | translate }}</div></td></tr>
++      <tr><td colspan="8"><div class="empty"><i class="pi pi-file"></i>{{ 'invoices.empty' | translate }}</div></td></tr>
+     </ng-template>
+   </p-table>
+ </div>
++
++<app-details-dialog
++  [(visible)]="viewOpen"
++  [title]="viewing() ? ('INV-' + viewing()!.number) : ''"
++  [subtitle]="viewing()?.customerName"
++  icon="pi pi-receipt"
++  [fields]="viewing() ? viewFields(viewing()!) : []"
++  [audit]="viewing()?.audit"
++  [canEdit]="true"
++  editLabel="common.open"
++  editIcon="pi pi-external-link"
++  (edit)="open(viewing()!)"
++/>
+diff --git a/frontend/admin/src/app/features/billing/invoices/invoices.page.ts b/frontend/admin/src/app/features/billing/invoices/invoices.page.ts
+index 270f272..d593719 100644
+--- a/frontend/admin/src/app/features/billing/invoices/invoices.page.ts
++++ b/frontend/admin/src/app/features/billing/invoices/invoices.page.ts
+@@ -11,10 +11,12 @@ import { InvoiceStatusTag } from '../../../shared/document-status/document-statu
+ import { SarPipe } from '../../../shared/format';
+ import { LocalDatePipe } from '../../../shared/local-date.pipe';
+ import { BillingApi } from '../billing.api';
++import { DetailField, DetailsDialog } from '../../../shared/details-dialog/details-dialog';
++import { CreatedBy } from '../../../shared/details-dialog/audit-block';
+ 
+ @Component({
+   selector: 'app-invoices',
+-  imports: [FormsModule, RouterLink, TranslatePipe, TableModule, Button, SelectButton, InvoiceStatusTag, SarPipe, LocalDatePipe],
++  imports: [DetailsDialog, CreatedBy, FormsModule, RouterLink, TranslatePipe, TableModule, Button, SelectButton, InvoiceStatusTag, SarPipe, LocalDatePipe],
+   styleUrl: './invoices.page.scss',
+   templateUrl: './invoices.page.html',
+ })
+@@ -67,4 +69,26 @@ export class InvoicesPage {
+       error: () => this.loading.set(false),
+     });
+   }
++  /** Read-only details with who created / last changed the record (eye button in the table). */
++  protected readonly viewing = signal<InvoiceSummary | null>(null);
++  protected readonly viewOpen = signal(false);
++
++  protected view(item: InvoiceSummary, event?: Event): void {
++    event?.stopPropagation();
++    this.viewing.set(item);
++    this.viewOpen.set(true);
++  }
++
++  protected viewFields(x: InvoiceSummary): DetailField[] {
++    return [
++      { label: 'invoices.number', value: 'INV-' + x.number, kind: 'ltr' },
++      { label: 'common.status', value: this.translate.instant('invoiceStatus.' + x.status), kind: 'status', on: x.status !== 'VOID' },
++      { label: 'invoices.issuedAt', value: x.issuedAt, kind: 'datetime' },
++      { label: 'doc.dueDate', value: x.dueDate ?? null, kind: 'date' },
++      { label: 'bookings.customer', value: x.customerName },
++      { label: 'doc.total', value: x.totalHalalas, kind: 'money' },
++      { label: 'doc.balance', value: x.status === 'VOID' ? 0 : x.totalHalalas - x.paidHalalas, kind: 'money' },
++    ];
++  }
++
+ }
+diff --git a/frontend/admin/src/app/features/billing/quotes/quotes.page.html b/frontend/admin/src/app/features/billing/quotes/quotes.page.html
+index f3867a6..7911e44 100644
+--- a/frontend/admin/src/app/features/billing/quotes/quotes.page.html
++++ b/frontend/admin/src/app/features/billing/quotes/quotes.page.html
+@@ -19,7 +19,9 @@
+         <th>{{ 'bookings.customer' | translate }}</th>
+         <th>{{ 'doc.validUntil' | translate }}</th>
+         <th>{{ 'doc.total' | translate }}</th>
++        <th>{{ 'audit.createdBy' | translate }}</th>
+         <th>{{ 'common.status' | translate }}</th>
++        <th></th>
+       </tr>
+     </ng-template>
+     <ng-template #body let-q>
+@@ -29,11 +31,26 @@
+         <td>{{ q.customerName }}</td>
+         <td>{{ q.validUntil | ldate: 'dayMonthYear' }}</td>
+         <td><span class="ltr">{{ q.totalHalalas | sar }}</span></td>
++        <td><app-created-by [audit]="q.audit" /></td>
+         <td><app-quote-status [status]="q.status" [expired]="q.expired" /></td>
+-      </tr>
++        <td class="row-actions"><p-button icon="pi pi-eye" [text]="true" severity="secondary" (onClick)="view(q, $event)" [ariaLabel]="'common.view' | translate" /></td>
++            </tr>
+     </ng-template>
+     <ng-template #emptymessage>
+-      <tr><td colspan="6"><div class="empty"><i class="pi pi-file-edit"></i>{{ 'quotes.empty' | translate }}</div></td></tr>
++      <tr><td colspan="8"><div class="empty"><i class="pi pi-file-edit"></i>{{ 'quotes.empty' | translate }}</div></td></tr>
+     </ng-template>
+   </p-table>
+ </div>
++
++<app-details-dialog
++  [(visible)]="viewOpen"
++  [title]="viewing() ? ('Q-' + viewing()!.number) : ''"
++  [subtitle]="viewing()?.customerName"
++  icon="pi pi-file"
++  [fields]="viewing() ? viewFields(viewing()!) : []"
++  [audit]="viewing()?.audit"
++  [canEdit]="true"
++  editLabel="common.open"
++  editIcon="pi pi-external-link"
++  (edit)="open(viewing()!)"
++/>
+diff --git a/frontend/admin/src/app/features/billing/quotes/quotes.page.ts b/frontend/admin/src/app/features/billing/quotes/quotes.page.ts
+index 3512d65..12e2e19 100644
+--- a/frontend/admin/src/app/features/billing/quotes/quotes.page.ts
++++ b/frontend/admin/src/app/features/billing/quotes/quotes.page.ts
+@@ -11,10 +11,12 @@ import { QuoteStatusTag } from '../../../shared/document-status/document-status'
+ import { SarPipe } from '../../../shared/format';
+ import { LocalDatePipe } from '../../../shared/local-date.pipe';
+ import { BillingApi } from '../billing.api';
++import { DetailField, DetailsDialog } from '../../../shared/details-dialog/details-dialog';
++import { CreatedBy } from '../../../shared/details-dialog/audit-block';
+ 
+ @Component({
+   selector: 'app-quotes',
+-  imports: [FormsModule, RouterLink, TranslatePipe, TableModule, Button, SelectButton, QuoteStatusTag, SarPipe, LocalDatePipe],
++  imports: [DetailsDialog, CreatedBy, FormsModule, RouterLink, TranslatePipe, TableModule, Button, SelectButton, QuoteStatusTag, SarPipe, LocalDatePipe],
+   styleUrl: './quotes.page.scss',
+   templateUrl: './quotes.page.html',
+ })
+@@ -62,4 +64,25 @@ export class QuotesPage {
+       error: () => this.loading.set(false),
+     });
+   }
++  /** Read-only details with who created / last changed the record (eye button in the table). */
++  protected readonly viewing = signal<QuoteSummary | null>(null);
++  protected readonly viewOpen = signal(false);
++
++  protected view(item: QuoteSummary, event?: Event): void {
++    event?.stopPropagation();
++    this.viewing.set(item);
++    this.viewOpen.set(true);
++  }
++
++  protected viewFields(x: QuoteSummary): DetailField[] {
++    return [
++      { label: 'quotes.number', value: 'Q-' + x.number, kind: 'ltr' },
++      { label: 'common.status', value: this.translate.instant(x.expired ? 'quoteStatus.EXPIRED' : 'quoteStatus.' + x.status), kind: 'status', on: !x.expired && x.status !== 'REJECTED' },
++      { label: 'doc.date', value: x.createdAt, kind: 'datetime' },
++      { label: 'doc.validUntil', value: x.validUntil, kind: 'date' },
++      { label: 'bookings.customer', value: x.customerName },
++      { label: 'doc.total', value: x.totalHalalas, kind: 'money' },
++    ];
++  }
++
+ }
+diff --git a/frontend/admin/src/app/features/bookings/booking-detail/booking-detail.page.html b/frontend/admin/src/app/features/bookings/booking-detail/booking-detail.page.html
+index 71f7fa4..9b61a3e 100644
+--- a/frontend/admin/src/app/features/bookings/booking-detail/booking-detail.page.html
++++ b/frontend/admin/src/app/features/bookings/booking-detail/booking-detail.page.html
+@@ -263,7 +263,8 @@
+   </div>
+ 
+   <!-- full log: every visit event plus the messages sent to the customer, oldest first -->
+-  <p-dialog [header]="'bookingDetail.log.title' | translate: { n: b.number }" [(visible)]="logOpen" [modal]="true" [dismissableMask]="true" [style]="{ width: '640px', maxWidth: '95vw' }" [contentStyle]="{ maxHeight: '70vh' }" [draggable]="false">
++  <app-dialog [(visible)]="logOpen" [title]="'bookingDetail.log.title' | translate: { n: b.number }" icon="pi pi-history" width="640px">
++<div class="fo-dlg-body">
+     <div class="log-filters">
+       @for (f of logFilters; track f) {
+         @if (f !== 'messages' || isOffice) {
+@@ -309,7 +310,10 @@
+         <div class="log-empty">{{ 'bookingDetail.log.empty' | translate }}</div>
+       }
+     </ol>
+-  </p-dialog>
++  
++
++</div>
++</app-dialog>
+ } @else {
+   <div class="skeleton" style="height: 110px; margin-bottom: 1.25rem"></div>
+   <div class="layout">
+@@ -319,7 +323,8 @@
+   </div>
+ }
+ 
+-<p-dialog [header]="'bookingDetail.newMessage' | translate" [(visible)]="messageOpen" [modal]="true" [style]="{ width: '520px', maxWidth: '95vw' }" [draggable]="false">
++<app-dialog [(visible)]="messageOpen" [title]="'bookingDetail.newMessage' | translate" icon="pi pi-whatsapp" width="520px">
++<div class="fo-dlg-body">
+   @if (booking(); as b) {
+     <p class="muted" style="margin-top: 0">{{ 'bookingDetail.messageTo' | translate: { name: b.customerName } }} · <span class="ltr">{{ b.customerPhone | phone }}</span></p>
+   }
+@@ -334,30 +339,44 @@
+   @if (messageText.trim()) {
+     <div class="msg-preview" dir="rtl">{{ messagePreview() }}</div>
+   }
+-  <div class="dialog-actions">
+-    <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="messageOpen.set(false)" />
++  
++
++</div>
++<div class="fo-dlg-foot">
+     <p-button icon="pi pi-send" [label]="'bookingDetail.send' | translate" [disabled]="!messageText.trim()" [loading]="messageSending()" (onClick)="sendMessage()" />
+-  </div>
+-</p-dialog>
++  
++    <p-button [label]="'common.cancel' | translate" severity="secondary" [outlined]="true" (onClick)="messageOpen.set(false)" />
++</div>
++</app-dialog>
+ 
+-<p-dialog [header]="'bookings.assign' | translate" [(visible)]="assignOpen" [modal]="true" [style]="{ width: '480px', maxWidth: '95vw' }" [draggable]="false">
++<app-dialog [(visible)]="assignOpen" [title]="'bookings.assign' | translate" icon="pi pi-user-plus" width="480px">
++<div class="fo-dlg-body">
+   <div class="field">
+     <label for="a-techs">{{ 'bookings.technicians' | translate }}</label>
+     <p-multiselect inputId="a-techs" [options]="technicianOptions()" [(ngModel)]="selectedTechs" optionLabel="label" optionValue="value" display="chip" [fluid]="true" appendTo="body" />
+   </div>
+-  <div class="dialog-actions">
+-    <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="assignOpen.set(false)" />
++  
++
++</div>
++<div class="fo-dlg-foot">
+     <p-button [label]="'bookings.assign' | translate" [disabled]="!selectedTechs.length" [loading]="busy()" (onClick)="assign(false)" />
+-  </div>
+-</p-dialog>
++  
++    <p-button [label]="'common.cancel' | translate" severity="secondary" [outlined]="true" (onClick)="assignOpen.set(false)" />
++</div>
++</app-dialog>
+ 
+-<p-dialog [header]="'bookingAction.CANCELLED' | translate" [(visible)]="cancelOpen" [modal]="true" [style]="{ width: '480px', maxWidth: '95vw' }" [draggable]="false">
++<app-dialog [(visible)]="cancelOpen" [title]="'bookingAction.CANCELLED' | translate" icon="pi pi-times-circle" width="480px">
++<div class="fo-dlg-body">
+   <div class="field">
+     <label for="c-reason">{{ 'bookings.cancelReason' | translate }}</label>
+     <textarea pTextarea id="c-reason" [(ngModel)]="cancelReason" rows="3"></textarea>
+   </div>
+-  <div class="dialog-actions">
+-    <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="cancelOpen.set(false)" />
++  
++
++</div>
++<div class="fo-dlg-foot">
+     <p-button [label]="'bookingAction.CANCELLED' | translate" severity="danger" [loading]="busy()" (onClick)="doMove('CANCELLED', cancelReason)" />
+-  </div>
+-</p-dialog>
++  
++    <p-button [label]="'common.cancel' | translate" severity="secondary" [outlined]="true" (onClick)="cancelOpen.set(false)" />
++</div>
++</app-dialog>
+diff --git a/frontend/admin/src/app/features/bookings/booking-detail/booking-detail.page.ts b/frontend/admin/src/app/features/bookings/booking-detail/booking-detail.page.ts
+index dcf2d1b..39a393a 100644
+--- a/frontend/admin/src/app/features/bookings/booking-detail/booking-detail.page.ts
++++ b/frontend/admin/src/app/features/bookings/booking-detail/booking-detail.page.ts
+@@ -5,7 +5,7 @@ import { Router, RouterLink } from '@angular/router';
+ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
+ import { ConfirmationService, MenuItem, MessageService } from 'primeng/api';
+ import { Button } from 'primeng/button';
+-import { Dialog } from 'primeng/dialog';
++import { AppDialog } from '../../../shared/dialog/dialog';
+ import { Menu } from 'primeng/menu';
+ import { MultiSelect } from 'primeng/multiselect';
+ import { Textarea } from 'primeng/textarea';
+@@ -90,7 +90,7 @@ interface JourneyStep {
+ 
+ @Component({
+   selector: 'app-booking-detail',
+-  imports: [FormsModule, RouterLink, TranslatePipe, Button, Dialog, Menu, MultiSelect, Textarea, LocalDatePipe, LocalTimeRangePipe, PhonePipe, SarPipe, InvoiceStatusTag, PhotoGallery, MessagesPage, LockedFeature],
++  imports: [FormsModule, RouterLink, TranslatePipe, Button, AppDialog, Menu, MultiSelect, Textarea, LocalDatePipe, LocalTimeRangePipe, PhonePipe, SarPipe, InvoiceStatusTag, PhotoGallery, MessagesPage, LockedFeature],
+   styleUrl: './booking-detail.page.scss',
+   templateUrl: './booking-detail.page.html',
+ })
+diff --git a/frontend/admin/src/app/features/bookings/bookings.page.html b/frontend/admin/src/app/features/bookings/bookings.page.html
+index a73013c..3ab69f2 100644
+--- a/frontend/admin/src/app/features/bookings/bookings.page.html
++++ b/frontend/admin/src/app/features/bookings/bookings.page.html
+@@ -60,7 +60,9 @@
+         <th>{{ 'bookings.customer' | translate }}</th>
+         <th>{{ 'bookings.technicians' | translate }}</th>
+         <th>{{ 'bookings.amount' | translate }}</th>
++        <th>{{ 'audit.createdBy' | translate }}</th>
+         <th>{{ 'common.status' | translate }}</th>
++        <th></th>
+       </tr>
+     </ng-template>
+     <ng-template #body let-b>
+@@ -96,13 +98,28 @@
+             <div class="muted"><s class="ltr">{{ b.subtotalHalalas | sar }}</s></div>
+           }
+         </td>
++        <td><app-created-by [audit]="b.audit" /></td>
+         <td><app-booking-status [status]="b.status" /></td>
+-      </tr>
++        <td class="row-actions"><p-button icon="pi pi-eye" [text]="true" severity="secondary" (onClick)="view(b, $event)" [ariaLabel]="'common.view' | translate" /></td>
++            </tr>
+     </ng-template>
+     <ng-template #emptymessage>
+       <tr>
+-        <td colspan="7"><div class="empty"><i class="pi pi-calendar"></i>{{ 'bookings.empty' | translate }}</div></td>
++        <td colspan="9"><div class="empty"><i class="pi pi-calendar"></i>{{ 'bookings.empty' | translate }}</div></td>
+       </tr>
+     </ng-template>
+   </p-table>
+ </div>
++
++<app-details-dialog
++  [(visible)]="viewOpen"
++  [title]="viewing() ? ('#' + viewing()!.number) : ''"
++  [subtitle]="viewing()?.customerName"
++  icon="pi pi-calendar"
++  [fields]="viewing() ? viewFields(viewing()!) : []"
++  [audit]="viewing()?.audit"
++  [canEdit]="true"
++  editLabel="common.open"
++  editIcon="pi pi-external-link"
++  (edit)="open(viewing()!)"
++/>
+diff --git a/frontend/admin/src/app/features/bookings/bookings.page.ts b/frontend/admin/src/app/features/bookings/bookings.page.ts
+index 1af4da0..ab5d267 100644
+--- a/frontend/admin/src/app/features/bookings/bookings.page.ts
++++ b/frontend/admin/src/app/features/bookings/bookings.page.ts
+@@ -17,10 +17,12 @@ import { ALL_STATUSES, BookingStatusTag } from '../../shared/booking-status/book
+ import { PhonePipe, SarPipe } from '../../shared/format';
+ import { BookingsApi } from './bookings.api';
+ import { LocalDatePipe, LocalTimeRangePipe } from '../../shared/local-date.pipe';
++import { DetailField, DetailsDialog } from '../../shared/details-dialog/details-dialog';
++import { CreatedBy } from '../../shared/details-dialog/audit-block';
+ 
+ @Component({
+   selector: 'app-bookings',
+-  imports: [
++  imports: [DetailsDialog, CreatedBy, 
+     FormsModule,
+     RouterLink,
+     TranslatePipe,
+@@ -118,4 +120,28 @@ export class BookingsPage implements OnInit {
+         error: () => this.loading.set(false),
+       });
+   }
++  /** Read-only details with who created / last changed the record (eye button in the table). */
++  protected readonly viewing = signal<BookingSummary | null>(null);
++  protected readonly viewOpen = signal(false);
++
++  protected view(item: BookingSummary, event?: Event): void {
++    event?.stopPropagation();
++    this.viewing.set(item);
++    this.viewOpen.set(true);
++  }
++
++  protected viewFields(x: BookingSummary): DetailField[] {
++    const t = (k: string) => this.translate.instant(k);
++    return [
++      { label: 'common.status', value: t('bookingStatus.' + x.status), kind: 'status', on: x.status !== 'CANCELLED' && x.status !== 'NO_SHOW' },
++      { label: 'bookings.when', value: x.scheduledStart, kind: 'datetime' },
++      { label: 'bookings.requestedAt', value: x.createdAt ?? null, kind: 'datetime' },
++      { label: 'bookings.customer', value: x.customerName },
++      { label: 'customers.phone', value: x.customerPhone, kind: 'phone' },
++      { label: 'bookings.technicians', value: (x.technicians ?? []).map((tc) => tc.name).join('، ') },
++      { label: 'bookings.amount', value: x.totalHalalas ?? x.subtotalHalalas, kind: 'money' },
++      { label: 'bookings.services', value: (x.services ?? []).join('، '), full: true },
++    ];
++  }
++
+ }
+diff --git a/frontend/admin/src/app/features/customers/customer-detail/customer-detail.page.html b/frontend/admin/src/app/features/customers/customer-detail/customer-detail.page.html
+index f50c953..5a35fd1 100644
+--- a/frontend/admin/src/app/features/customers/customer-detail/customer-detail.page.html
++++ b/frontend/admin/src/app/features/customers/customer-detail/customer-detail.page.html
+@@ -93,14 +93,10 @@
+   <app-customer-form-dialog [(visible)]="editOpen" [customer]="c" (saved)="customer.set($event)" />
+ }
+ 
+-<p-dialog
+-  [header]="(editingAddress() ? 'customers.editAddress' : 'customers.addAddress') | translate"
+-  [(visible)]="addressOpen"
+-  [modal]="true"
+-  [style]="{ width: '560px', maxWidth: '95vw' }"
+-  [draggable]="false"
+->
+-  <form [formGroup]="addressForm" (ngSubmit)="saveAddress()" class="form-grid">
++<app-dialog [(visible)]="addressOpen" [title]="(editingAddress() ? 'customers.editAddress' : 'customers.addAddress') | translate" icon="pi pi-map-marker" width="560px">
++<form [formGroup]="addressForm" (ngSubmit)="saveAddress()" class="fo-dlg-form">
++<div class="fo-dlg-body">
++  <div class="fo-card form-grid">
+     <div class="field">
+       <label for="a-label">{{ 'customers.addressLabel' | translate }}</label>
+       <input pInputText id="a-label" formControlName="label" [placeholder]="'customers.addressLabelHint' | translate" />
+@@ -125,9 +121,12 @@
+       <label for="a-lng">{{ 'customers.lng' | translate }}</label>
+       <p-inputnumber inputId="a-lng" formControlName="lng" [minFractionDigits]="0" [maxFractionDigits]="6" [min]="-180" [max]="180" [useGrouping]="false" />
+     </div>
+-    <div class="dialog-actions full">
+-      <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="addressOpen.set(false)" />
++</div>
++  </div>
++<div class="fo-dlg-foot">
+       <p-button type="submit" [label]="'common.save' | translate" [disabled]="addressForm.invalid" [loading]="saving()" />
+-    </div>
+-  </form>
+-</p-dialog>
++    
++      <p-button [label]="'common.cancel' | translate" severity="secondary" [outlined]="true" (onClick)="addressOpen.set(false)" />
++</div>
++</form>
++</app-dialog>
+diff --git a/frontend/admin/src/app/features/customers/customer-detail/customer-detail.page.ts b/frontend/admin/src/app/features/customers/customer-detail/customer-detail.page.ts
+index 43fdc9a..4cc37aa 100644
+--- a/frontend/admin/src/app/features/customers/customer-detail/customer-detail.page.ts
++++ b/frontend/admin/src/app/features/customers/customer-detail/customer-detail.page.ts
+@@ -4,7 +4,7 @@ import { Router, RouterLink } from '@angular/router';
+ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
+ import { ConfirmationService, MessageService } from 'primeng/api';
+ import { Button } from 'primeng/button';
+-import { Dialog } from 'primeng/dialog';
++import { AppDialog } from '../../../shared/dialog/dialog';
+ import { InputNumber } from 'primeng/inputnumber';
+ import { InputText } from 'primeng/inputtext';
+ 
+@@ -27,7 +27,7 @@ import { PlacePicker, PlaceValue } from '../../../shared/place-picker/place-pick
+     RouterLink,
+     TranslatePipe,
+     Button,
+-    Dialog,
++    AppDialog,
+     InputText,
+     InputNumber,
+     PhonePipe,
+diff --git a/frontend/admin/src/app/features/customers/customer-form/customer-form.dialog.html b/frontend/admin/src/app/features/customers/customer-form/customer-form.dialog.html
+index cc20b0d..3196b02 100644
+--- a/frontend/admin/src/app/features/customers/customer-form/customer-form.dialog.html
++++ b/frontend/admin/src/app/features/customers/customer-form/customer-form.dialog.html
+@@ -1,14 +1,11 @@
+-<p-dialog
+-  [header]="(customer() ? 'customers.edit' : 'customers.new') | translate"
+-  [(visible)]="visible"
+-  [modal]="true"
+-  [style]="{ width: '560px', maxWidth: '95vw' }"
+-  [draggable]="false"
+->
++<app-dialog [(visible)]="visible" [title]="(customer() ? 'customers.edit' : 'customers.new') | translate" icon="pi pi-user" width="560px">
++<form [formGroup]="form" (ngSubmit)="save()" class="fo-dlg-form">
++<div class="fo-dlg-body">
+   @if (error()) {
+     <p-message severity="error">{{ error() }}</p-message>
+   }
+-  <form [formGroup]="form" (ngSubmit)="save()" class="form-grid">
++  
++<div class="fo-card form-grid">
+     <div class="field full">
+       <label for="c-name">{{ 'customers.name' | translate }}</label>
+       <input pInputText id="c-name" formControlName="name" />
+@@ -28,9 +25,12 @@
+       <label for="c-notes">{{ 'customers.notes' | translate }}</label>
+       <textarea pTextarea id="c-notes" formControlName="notes" rows="3"></textarea>
+     </div>
+-    <div class="dialog-actions full">
+-      <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="visible.set(false)" />
++</div>
++  </div>
++<div class="fo-dlg-foot">
+       <p-button type="submit" [label]="'common.save' | translate" [loading]="saving()" [disabled]="form.invalid" />
+-    </div>
+-  </form>
+-</p-dialog>
++    
++      <p-button [label]="'common.cancel' | translate" severity="secondary" [outlined]="true" (onClick)="visible.set(false)" />
++</div>
++</form>
++</app-dialog>
+diff --git a/frontend/admin/src/app/features/customers/customer-form/customer-form.dialog.ts b/frontend/admin/src/app/features/customers/customer-form/customer-form.dialog.ts
+index 2d1c080..2fd25d8 100644
+--- a/frontend/admin/src/app/features/customers/customer-form/customer-form.dialog.ts
++++ b/frontend/admin/src/app/features/customers/customer-form/customer-form.dialog.ts
+@@ -2,7 +2,7 @@ import { Component, effect, inject, input, model, output, signal } from '@angula
+ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
+ import { Button } from 'primeng/button';
+-import { Dialog } from 'primeng/dialog';
++import { AppDialog } from '../../../shared/dialog/dialog';
+ import { InputText } from 'primeng/inputtext';
+ import { Message } from 'primeng/message';
+ import { Textarea } from 'primeng/textarea';
+@@ -15,7 +15,7 @@ import { CustomersApi } from '../customers.api';
+ /** Create/edit customer. Pass `customer` to edit; leave null to create. */
+ @Component({
+   selector: 'app-customer-form-dialog',
+-  imports: [ReactiveFormsModule, TranslatePipe, Button, Dialog, InputText, Textarea, Message],
++  imports: [ReactiveFormsModule, TranslatePipe, Button, AppDialog, InputText, Textarea, Message],
+   templateUrl: './customer-form.dialog.html',
+ })
+ export class CustomerFormDialog {
+diff --git a/frontend/admin/src/app/features/customers/customers.page.html b/frontend/admin/src/app/features/customers/customers.page.html
+index c24acca..cccb457 100644
+--- a/frontend/admin/src/app/features/customers/customers.page.html
++++ b/frontend/admin/src/app/features/customers/customers.page.html
+@@ -35,7 +35,9 @@
+         <th>{{ 'customers.name' | translate }}</th>
+         <th>{{ 'customers.phone' | translate }}</th>
+         <th>{{ 'customers.email' | translate }}</th>
++        <th>{{ 'audit.createdBy' | translate }}</th>
+         <th>{{ 'common.createdAt' | translate }}</th>
++        <th></th>
+       </tr>
+     </ng-template>
+     <ng-template #body let-c>
+@@ -43,12 +45,14 @@
+         <td>{{ c.name }}</td>
+         <td><span class="ltr">{{ c.phone | phone }}</span></td>
+         <td><span class="ltr">{{ c.email }}</span></td>
++        <td><app-created-by [audit]="c.audit" /></td>
+         <td class="muted">{{ c.createdAt | ldate: 'mediumDate' }}</td>
+-      </tr>
++        <td class="row-actions"><p-button icon="pi pi-eye" [text]="true" severity="secondary" (onClick)="view(c, $event)" [ariaLabel]="'common.view' | translate" /></td>
++            </tr>
+     </ng-template>
+     <ng-template #emptymessage>
+       <tr>
+-        <td colspan="4">
++        <td colspan="6">
+           <div class="empty"><i class="pi pi-users"></i>{{ 'customers.empty' | translate }}</div>
+         </td>
+       </tr>
+@@ -57,3 +61,16 @@
+ </div>
+ 
+ <app-customer-form-dialog [(visible)]="dialogOpen" (saved)="onCreated($event)" />
++
++<app-details-dialog
++  [(visible)]="viewOpen"
++  [title]="viewing()?.name ?? ''"
++  [subtitle]="null"
++  icon="pi pi-user"
++  [fields]="viewing() ? viewFields(viewing()!) : []"
++  [audit]="viewing()?.audit"
++  [canEdit]="true"
++  editLabel="common.open"
++  editIcon="pi pi-external-link"
++  (edit)="open(viewing()!)"
++/>
+diff --git a/frontend/admin/src/app/features/customers/customers.page.ts b/frontend/admin/src/app/features/customers/customers.page.ts
+index a66e4b3..a1cc76f 100644
+--- a/frontend/admin/src/app/features/customers/customers.page.ts
++++ b/frontend/admin/src/app/features/customers/customers.page.ts
+@@ -14,10 +14,12 @@ import { PhonePipe } from '../../shared/format';
+ import { CustomerFormDialog } from './customer-form/customer-form.dialog';
+ import { CustomersApi } from './customers.api';
+ import { LocalDatePipe } from '../../shared/local-date.pipe';
++import { DetailField, DetailsDialog } from '../../shared/details-dialog/details-dialog';
++import { CreatedBy } from '../../shared/details-dialog/audit-block';
+ 
+ @Component({
+   selector: 'app-customers',
+-  imports: [TranslatePipe, TableModule, Button, IconField, InputIcon, InputText, LocalDatePipe, PhonePipe, CustomerFormDialog],
++  imports: [DetailsDialog, CreatedBy, TranslatePipe, TableModule, Button, IconField, InputIcon, InputText, LocalDatePipe, PhonePipe, CustomerFormDialog],
+   templateUrl: './customers.page.html',
+ })
+ export class CustomersPage implements OnInit {
+@@ -69,4 +71,22 @@ export class CustomersPage implements OnInit {
+       error: () => this.loading.set(false),
+     });
+   }
++  /** Read-only details with who created / last changed the record (eye button in the table). */
++  protected readonly viewing = signal<CustomerSummary | null>(null);
++  protected readonly viewOpen = signal(false);
++
++  protected view(item: CustomerSummary, event?: Event): void {
++    event?.stopPropagation();
++    this.viewing.set(item);
++    this.viewOpen.set(true);
++  }
++
++  protected viewFields(x: CustomerSummary): DetailField[] {
++    return [
++      { label: 'customers.name', value: x.name },
++      { label: 'customers.phone', value: x.phone, kind: 'phone' },
++      { label: 'customers.email', value: x.email, kind: 'ltr' },
++    ];
++  }
++
+ }
+diff --git a/frontend/admin/src/app/features/finance/finance.api.ts b/frontend/admin/src/app/features/finance/finance.api.ts
+index 51fefaf..dbb5a23 100644
+--- a/frontend/admin/src/app/features/finance/finance.api.ts
++++ b/frontend/admin/src/app/features/finance/finance.api.ts
+@@ -1,3 +1,4 @@
++import { Audited } from '../../core/api.types';
+ import { HttpClient } from '@angular/common/http';
+ import { Injectable, inject } from '@angular/core';
+ import { Observable } from 'rxjs';
+@@ -15,7 +16,7 @@ export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
+   'INSURANCE', 'OTHER',
+ ];
+ 
+-export interface Expense {
++export interface Expense extends Audited {
+   id: string;
+   category: ExpenseCategory;
+   amountHalalas: number;
+@@ -86,7 +87,7 @@ export type SalaryMethod = 'CASH' | 'BANK_TRANSFER' | 'OTHER';
+  * A payroll row. Technicians and coordinators are listed even before their salary is set (`salarySet` false,
+  * `id` null); for anyone with an app account, name and phone come from the account.
+  */
+-export interface Employee {
++export interface Employee extends Audited {
+   id: string | null;
+   userId: string | null;
+   /** Role of the linked account; null = staff without an app account. */
+diff --git a/frontend/admin/src/app/features/finance/finance.page.html b/frontend/admin/src/app/features/finance/finance.page.html
+index f2b48e0..62a3d3c 100644
+--- a/frontend/admin/src/app/features/finance/finance.page.html
++++ b/frontend/admin/src/app/features/finance/finance.page.html
+@@ -135,6 +135,7 @@
+           <th>{{ 'finance.exp.description' | translate }}</th>
+           <th style="text-align: end">{{ 'finance.exp.amount' | translate }}</th>
+           <th style="text-align: end">{{ 'finance.exp.vat' | translate }}</th>
++          <th>{{ 'audit.createdBy' | translate }}</th>
+           <th></th>
+         </tr>
+       </ng-template>
+@@ -150,22 +151,25 @@
+           </td>
+           <td style="text-align: end"><span class="ltr">{{ x.amountHalalas | sar }}</span></td>
+           <td style="text-align: end" class="muted"><span class="ltr">{{ x.vatHalalas | sar }}</span></td>
++          <td><app-created-by [audit]="x.audit" /></td>
+           <td class="row-actions">
++            <p-button icon="pi pi-eye" [text]="true" severity="secondary" (onClick)="view(x)" [ariaLabel]="'common.view' | translate" />
+             <p-button icon="pi pi-pencil" [text]="true" severity="secondary" (onClick)="openExpense(x)" [ariaLabel]="'common.edit' | translate" />
+             <p-button icon="pi pi-trash" [text]="true" severity="danger" (onClick)="deleteExpense(x)" [ariaLabel]="'common.delete' | translate" />
+           </td>
+         </tr>
+       </ng-template>
+       <ng-template #emptymessage>
+-        <tr><td colspan="6"><div class="empty"><i class="pi pi-receipt"></i>{{ 'finance.exp.empty' | translate }}</div></td></tr>
++        <tr><td colspan="7"><div class="empty"><i class="pi pi-receipt"></i>{{ 'finance.exp.empty' | translate }}</div></td></tr>
+       </ng-template>
+     </p-table>
+   </div>
+ }
+ 
+-<p-dialog [header]="(editing() ? 'finance.exp.edit' : 'finance.exp.new') | translate" [(visible)]="dialogOpen" [modal]="true"
+-          [style]="{ width: '620px', maxWidth: '95vw' }" [draggable]="false">
+-  <form [formGroup]="form" (ngSubmit)="saveExpense()" class="form-grid">
++<app-dialog [(visible)]="dialogOpen" [title]="(editing() ? 'finance.exp.edit' : 'finance.exp.new') | translate" icon="pi pi-wallet" width="620px">
++<form [formGroup]="form" (ngSubmit)="saveExpense()" class="fo-dlg-form">
++<div class="fo-dlg-body">
++  <div class="fo-card form-grid">
+     <div class="field">
+       <label for="e-cat">{{ 'finance.exp.category' | translate }}</label>
+       <p-select inputId="e-cat" formControlName="category" [options]="categoryOptions()" optionLabel="label" optionValue="value" appendTo="body" />
+@@ -203,9 +207,23 @@
+                 [placeholder]="'finance.exp.serviceNone' | translate" appendTo="body" />
+       <small class="hint">{{ 'finance.exp.serviceHint' | translate }}</small>
+     </div>
+-    <div class="dialog-actions full">
+-      <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="dialogOpen.set(false)" />
++</div>
++  </div>
++<div class="fo-dlg-foot">
+       <p-button type="submit" [label]="'common.save' | translate" [loading]="saving()" [disabled]="form.invalid" />
+-    </div>
+-  </form>
+-</p-dialog>
++    
++      <p-button [label]="'common.cancel' | translate" severity="secondary" [outlined]="true" (onClick)="dialogOpen.set(false)" />
++</div>
++</form>
++</app-dialog>
++
++<app-details-dialog
++  [(visible)]="viewOpen"
++  [title]="viewing()?.description ?? ''"
++  [subtitle]="viewing() ? ('expenseCategory.' + viewing()!.category | translate) : null"
++  icon="pi pi-receipt"
++  [fields]="viewing() ? viewFields(viewing()!) : []"
++  [audit]="viewing()?.audit"
++  [canEdit]="true"
++  (edit)="openExpense(viewing()!)"
++/>
+diff --git a/frontend/admin/src/app/features/finance/finance.page.ts b/frontend/admin/src/app/features/finance/finance.page.ts
+index 25c913c..9af20aa 100644
+--- a/frontend/admin/src/app/features/finance/finance.page.ts
++++ b/frontend/admin/src/app/features/finance/finance.page.ts
+@@ -7,7 +7,7 @@ import { ConfirmationService, MessageService } from 'primeng/api';
+ import { Button } from 'primeng/button';
+ import { UIChart } from 'primeng/chart';
+ import { DatePicker } from 'primeng/datepicker';
+-import { Dialog } from 'primeng/dialog';
++import { AppDialog } from '../../shared/dialog/dialog';
+ import { InputNumber } from 'primeng/inputnumber';
+ import { InputText } from 'primeng/inputtext';
+ import { Select } from 'primeng/select';
+@@ -27,6 +27,8 @@ import { MUTED, NEGATIVE, OTHER_COLOR, PALETTE, POSITIVE, alpha, baseOptions, mo
+ import { loader } from '../analytics/load';
+ import { KpiCard, StateBlock } from '../analytics/widgets/widgets';
+ import { EXPENSE_CATEGORIES, Expense, ExpenseCategory, ExpenseInput, FinanceApi, ExpenseList } from './finance.api';
++import { DetailField, DetailsDialog } from '../../shared/details-dialog/details-dialog';
++import { CreatedBy } from '../../shared/details-dialog/audit-block';
+ 
+ type TabKey = 'pnl' | 'expenses';
+ const PAGE = 25;
+@@ -37,8 +39,8 @@ const PAGE = 25;
+  */
+ @Component({
+   selector: 'app-finance',
+-  imports: [
+-    FormsModule, ReactiveFormsModule, TranslatePipe, UIChart, Tabs, TabList, Tab, Button, Dialog, InputNumber, InputText, Select,
++  imports: [DetailsDialog, CreatedBy, 
++    FormsModule, ReactiveFormsModule, TranslatePipe, UIChart, Tabs, TabList, Tab, Button, AppDialog, InputNumber, InputText, Select,
+     DatePicker, TableModule, Tag, Tooltip, SarPipe, LocalDatePipe, KpiCard, StateBlock,
+   ],
+   styleUrl: './finance.page.scss',
+@@ -269,4 +271,27 @@ export class FinancePage {
+     const lang = this.lang.current();
+     return baseOptions(lang, { cutout: '60%', interaction: { mode: 'nearest', intersect: true }, scales: { x: { display: false }, y: { display: false } }, plugins: { tooltip: moneyTooltip(lang) } });
+   });
++  /** Read-only details with who created / last changed the record (eye button in the table). */
++  protected readonly viewing = signal<Expense | null>(null);
++  protected readonly viewOpen = signal(false);
++
++  protected view(item: Expense, event?: Event): void {
++    event?.stopPropagation();
++    this.viewing.set(item);
++    this.viewOpen.set(true);
++  }
++
++  protected viewFields(x: Expense): DetailField[] {
++    return [
++      { label: 'finance.exp.date', value: x.spentOn, kind: 'date' },
++      { label: 'finance.exp.category', value: this.translate.instant('expenseCategory.' + x.category) },
++      { label: 'finance.exp.amount', value: x.amountHalalas, kind: 'money' },
++      { label: 'finance.exp.vat', value: x.vatHalalas, kind: 'money' },
++      { label: 'finance.exp.vendor', value: x.vendor },
++      { label: 'finance.exp.reference', value: x.reference, kind: 'ltr' },
++      { label: 'finance.exp.service', value: x.serviceId ? this.svcName(x.serviceId) : null },
++      { label: 'finance.exp.description', value: x.description, kind: 'multiline' },
++    ];
++  }
++
+ }
+diff --git a/frontend/admin/src/app/features/messages/messages.page.html b/frontend/admin/src/app/features/messages/messages.page.html
+index d15d1e3..30371f4 100644
+--- a/frontend/admin/src/app/features/messages/messages.page.html
++++ b/frontend/admin/src/app/features/messages/messages.page.html
+@@ -50,7 +50,9 @@
+         <th>{{ 'messages.message' | translate }}</th>
+         @if (!bookingId()) { <th>{{ 'messages.to' | translate }}</th> }
+         <th>{{ 'messages.channel' | translate }}</th>
++        <th>{{ 'audit.createdBy' | translate }}</th>
+         <th>{{ 'common.status' | translate }}</th>
++        <th></th>
+       </tr>
+     </ng-template>
+     <ng-template #body let-n>
+@@ -64,12 +66,22 @@
+         </td>
+         @if (!bookingId()) { <td><span class="ltr">{{ n.toPhone | phone }}</span></td> }
+         <td>{{ n.channel ? ('channels.' + n.channel | translate) : '—' }}</td>
++        <td><app-created-by [audit]="n.audit" /></td>
+         <td><p-tag [value]="'notificationStatus.' + n.status | translate" [severity]="severity[$any(n.status)]" /></td>
++        <td class="row-actions"><p-button icon="pi pi-eye" [text]="true" severity="secondary" (onClick)="view(n)" [ariaLabel]="'common.view' | translate" /></td>
+       </tr>
+     </ng-template>
+     <ng-template #emptymessage>
+-      <tr><td colspan="5"><div class="empty"><i class="pi pi-comments"></i>{{ 'messages.empty' | translate }}</div></td></tr>
++      <tr><td colspan="7"><div class="empty"><i class="pi pi-comments"></i>{{ 'messages.empty' | translate }}</div></td></tr>
+     </ng-template>
+   </p-table>
+ </div>
+ }
++
++<app-details-dialog
++  [(visible)]="viewOpen"
++  [title]="viewing() ? ('templates.' + viewing()!.template | translate) : ''"
++  icon="pi pi-comments"
++  [fields]="viewing() ? viewFields(viewing()!) : []"
++  [audit]="viewing()?.audit"
++/>
+diff --git a/frontend/admin/src/app/features/messages/messages.page.ts b/frontend/admin/src/app/features/messages/messages.page.ts
+index 508c981..5ec940b 100644
+--- a/frontend/admin/src/app/features/messages/messages.page.ts
++++ b/frontend/admin/src/app/features/messages/messages.page.ts
+@@ -8,6 +8,10 @@ import { Tag } from 'primeng/tag';
+ import { NotificationLog, NotificationStatus, Page } from '../../core/api.types';
+ import { PhonePipe } from '../../shared/format';
+ import { LocalDatePipe } from '../../shared/local-date.pipe';
++import { DetailField, DetailsDialog } from '../../shared/details-dialog/details-dialog';
++import { CreatedBy } from '../../shared/details-dialog/audit-block';
++import { TranslateService } from '@ngx-translate/core';
++import { Button } from 'primeng/button';
+ 
+ export const NOTIFICATION_SEVERITY: Record<NotificationStatus, 'success' | 'info' | 'warn' | 'danger' | 'secondary'> = {
+   PENDING: 'warn',
+@@ -21,7 +25,7 @@ export const NOTIFICATION_SEVERITY: Record<NotificationStatus, 'success' | 'info
+ /** Send log: every customer message, its channel and delivery status. Also embedded per booking. */
+ @Component({
+   selector: 'app-messages',
+-  imports: [RouterLink, TranslatePipe, TableModule, Tag, PhonePipe, LocalDatePipe],
++  imports: [DetailsDialog, CreatedBy, Button, RouterLink, TranslatePipe, TableModule, Tag, PhonePipe, LocalDatePipe],
+   styleUrl: './messages.page.scss',
+   templateUrl: './messages.page.html',
+ })
+@@ -73,4 +77,30 @@ export class MessagesPage implements OnInit {
+       error: () => this.loading.set(false),
+     });
+   }
++  /** Read-only details with who created / last changed the record (eye button in the table). */
++  private readonly translate = inject(TranslateService);
++  protected readonly viewing = signal<NotificationLog | null>(null);
++  protected readonly viewOpen = signal(false);
++
++  protected view(item: NotificationLog, event?: Event): void {
++    event?.stopPropagation();
++    this.viewing.set(item);
++    this.viewOpen.set(true);
++  }
++
++  protected viewFields(x: NotificationLog): DetailField[] {
++    const t = (k: string) => this.translate.instant(k);
++    return [
++      { label: 'messages.message', value: t('templates.' + x.template) },
++      { label: 'common.status', value: t('notificationStatus.' + x.status), kind: 'status', on: x.status !== 'FAILED' },
++      { label: 'messages.to', value: x.toPhone, kind: 'phone' },
++      { label: 'messages.channel', value: x.channel ? t('channels.' + x.channel) : null },
++      { label: 'messages.when', value: x.createdAt, kind: 'datetime' },
++      { label: 'messages.sentAt', value: x.sentAt ?? null, kind: 'datetime' },
++      { label: 'messages.deliveredAt', value: x.deliveredAt ?? null, kind: 'datetime' },
++      { label: 'messages.body', value: x.body, kind: 'multiline' },
++      ...(x.error ? [{ label: 'messages.error', value: x.error, full: true }] : []),
++    ];
++  }
++
+ }
+diff --git a/frontend/admin/src/app/features/payroll/payroll.page.html b/frontend/admin/src/app/features/payroll/payroll.page.html
+index 88db3b6..abda696 100644
+--- a/frontend/admin/src/app/features/payroll/payroll.page.html
++++ b/frontend/admin/src/app/features/payroll/payroll.page.html
+@@ -117,6 +117,7 @@
+             <th class="num">{{ 'payroll.base' | translate }}</th>
+             <th class="num">{{ 'payroll.allowances' | translate }}</th>
+             <th class="num">{{ 'payroll.emp.monthlyCost' | translate }}</th>
++            <th>{{ 'audit.createdBy' | translate }}</th>
+             <th>{{ 'common.status' | translate }}</th>
+             <th></th>
+           </tr>
+@@ -137,13 +138,16 @@
+               <td class="num"><span class="ltr">{{ e.housingHalalas + e.transportHalalas + e.otherAllowancesHalalas | sar }}</span></td>
+               <td class="num"><span class="ltr">{{ e.monthlyCostHalalas | sar }}</span></td>
+               <td><p-tag [value]="(e.active ? 'common.active' : 'common.inactive') | translate" [severity]="e.active ? 'success' : 'secondary'" /></td>
++              <td><app-created-by [audit]="e.audit" /></td>
+               <td class="row-actions">
++                <p-button icon="pi pi-eye" [text]="true" severity="secondary" (onClick)="view(e)" [ariaLabel]="'common.view' | translate" />
+                 <p-button icon="pi pi-pencil" [text]="true" severity="secondary" (onClick)="openEmployee(e)" [ariaLabel]="'common.edit' | translate" />
+                 <p-button icon="pi pi-trash" [text]="true" severity="danger" (onClick)="deleteEmployee(e)" [ariaLabel]="'common.delete' | translate" />
+               </td>
+             } @else {
+               <td colspan="3" class="muted">{{ 'payroll.emp.salaryNotSet' | translate }}</td>
+               <td><p-tag [value]="'payroll.emp.notSetTag' | translate" severity="warn" /></td>
++              <td></td>
+               <td class="row-actions">
+                 <p-button size="small" icon="pi pi-wallet" [label]="'payroll.emp.setSalary' | translate" (onClick)="openEmployee(e)" />
+               </td>
+@@ -151,7 +155,7 @@
+           </tr>
+         </ng-template>
+         <ng-template #emptymessage>
+-          <tr><td colspan="7"><div class="empty"><i class="pi pi-users"></i>{{ 'payroll.noEmployees' | translate }}</div></td></tr>
++          <tr><td colspan="8"><div class="empty"><i class="pi pi-users"></i>{{ 'payroll.noEmployees' | translate }}</div></td></tr>
+         </ng-template>
+       </p-table>
+     </div>
+@@ -241,9 +245,10 @@
+ }
+ 
+ <!-- Employee -->
+-<p-dialog [header]="dialogTitle()" [(visible)]="employeeOpen" [modal]="true"
+-          [style]="{ width: '680px', maxWidth: '95vw' }" [draggable]="false">
+-  <form [formGroup]="employeeForm" (ngSubmit)="saveEmployee()" class="form-grid">
++<app-dialog [(visible)]="employeeOpen" [title]="dialogTitle()" icon="pi pi-id-card" width="680px">
++<form [formGroup]="employeeForm" (ngSubmit)="saveEmployee()" class="fo-dlg-form">
++<div class="fo-dlg-body">
++  <div class="fo-card form-grid">
+     @if (member(); as m) {
+       <div class="member full">
+         <strong>{{ m.name }}</strong>
+@@ -299,17 +304,21 @@
+         <p-toggleswitch inputId="p-active" formControlName="active" />
+       </div>
+     }
+-    <div class="dialog-actions full">
+-      <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="employeeOpen.set(false)" />
++</div>
++  </div>
++<div class="fo-dlg-foot">
+       <p-button type="submit" [label]="'common.save' | translate" [loading]="busy()" [disabled]="employeeForm.invalid" />
+-    </div>
+-  </form>
+-</p-dialog>
++    
++      <p-button [label]="'common.cancel' | translate" severity="secondary" [outlined]="true" (onClick)="employeeOpen.set(false)" />
++</div>
++</form>
++</app-dialog>
+ 
+ <!-- Salary amounts -->
+-<p-dialog [header]="'payroll.editSalary' | translate: { n: editingRecord()?.employeeName ?? '' }" [(visible)]="recordOpen" [modal]="true"
+-          [style]="{ width: '620px', maxWidth: '95vw' }" [draggable]="false">
+-  <form [formGroup]="recordForm" (ngSubmit)="saveRecord()" class="form-grid">
++<app-dialog [(visible)]="recordOpen" [title]="'payroll.editSalary' | translate: { n: editingRecord()?.employeeName ?? '' }" icon="pi pi-calculator" width="620px">
++<form [formGroup]="recordForm" (ngSubmit)="saveRecord()" class="fo-dlg-form">
++<div class="fo-dlg-body">
++  <div class="fo-card form-grid">
+     @for (f of amountFields; track f.key) {
+       <div class="field">
+         <label [for]="'r-' + f.key">{{ f.label | translate }}</label>
+@@ -325,20 +334,25 @@
+       <div><span>{{ 'payroll.net' | translate }}</span><strong class="ltr">{{ recordCalc().net | sar }}</strong></div>
+       <div class="muted"><span>{{ 'payroll.kpi.cost' | translate }}</span><span class="ltr">{{ recordCalc().cost | sar }}</span></div>
+     </div>
+-    <div class="dialog-actions full">
+-      <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="recordOpen.set(false)" />
++</div>
++  </div>
++<div class="fo-dlg-foot">
+       <p-button type="submit" [label]="'common.save' | translate" [loading]="busy()" [disabled]="recordForm.invalid || recordCalc().net < 0" />
+-    </div>
+-  </form>
+-</p-dialog>
++    
++      <p-button [label]="'common.cancel' | translate" severity="secondary" [outlined]="true" (onClick)="recordOpen.set(false)" />
++</div>
++</form>
++</app-dialog>
+ 
+ <!-- Payment -->
+-<p-dialog [header]="'payroll.recordPaymentFor' | translate: { n: payingRecord()?.employeeName ?? '' }" [(visible)]="payOpen" [modal]="true"
+-          [style]="{ width: '520px', maxWidth: '95vw' }" [draggable]="false">
++<app-dialog [(visible)]="payOpen" [title]="'payroll.recordPaymentFor' | translate: { n: payingRecord()?.employeeName ?? '' }" icon="pi pi-money-bill" width="520px">
++<form [formGroup]="payForm" (ngSubmit)="savePayment()" class="fo-dlg-form">
++<div class="fo-dlg-body">
+   @if (payingRecord(); as r) {
+     <p class="muted" style="margin-top: 0">{{ 'payroll.dueNow' | translate: { v: money(r.dueHalalas), p: periodLabel(r.period) } }}</p>
+   }
+-  <form [formGroup]="payForm" (ngSubmit)="savePayment()" class="form-grid">
++  
++<div class="fo-card form-grid">
+     <div class="field">
+       <label for="pay-amount">{{ 'payroll.amount' | translate }}</label>
+       <p-inputnumber inputId="pay-amount" formControlName="amount" mode="decimal" [minFractionDigits]="2" [maxFractionDigits]="2" [min]="0.01" suffix=" SAR" />
+@@ -369,17 +383,23 @@
+         </ul>
+       </div>
+     }
+-    <div class="dialog-actions full">
+-      <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="payOpen.set(false)" />
++</div>
++  </div>
++<div class="fo-dlg-foot">
+       <p-button type="submit" [label]="'payroll.recordPayment' | translate" [loading]="busy()" [disabled]="payForm.invalid" />
+-    </div>
+-  </form>
+-</p-dialog>
++    
++      <p-button [label]="'common.cancel' | translate" severity="secondary" [outlined]="true" (onClick)="payOpen.set(false)" />
++</div>
++</form>
++</app-dialog>
+ 
+ <!-- Pay all -->
+-<p-dialog [header]="'payroll.payAllTitle' | translate: { m: monthLabel() }" [(visible)]="payAllOpen" [modal]="true" [style]="{ width: '480px', maxWidth: '95vw' }" [draggable]="false">
++<app-dialog [(visible)]="payAllOpen" [title]="'payroll.payAllTitle' | translate: { m: monthLabel() }" icon="pi pi-check-square" width="480px">
++<form [formGroup]="payAllForm" (ngSubmit)="savePayAll()" class="fo-dlg-form">
++<div class="fo-dlg-body">
+   <p class="muted" style="margin-top: 0">{{ 'payroll.payAllHint' | translate: { v: money(period.value().data?.totals?.dueHalalas ?? 0) } }}</p>
+-  <form [formGroup]="payAllForm" (ngSubmit)="savePayAll()" class="form-grid">
++  
++<div class="fo-card form-grid">
+     <div class="field">
+       <label for="pa-method">{{ 'payroll.method' | translate }}</label>
+       <p-select inputId="pa-method" formControlName="method" [options]="methodOptions()" optionLabel="label" optionValue="value" appendTo="body" />
+@@ -392,9 +412,23 @@
+       <label for="pa-ref">{{ 'payroll.reference' | translate }}</label>
+       <input pInputText id="pa-ref" formControlName="reference" dir="ltr" maxlength="100" />
+     </div>
+-    <div class="dialog-actions full">
+-      <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="payAllOpen.set(false)" />
++</div>
++  </div>
++<div class="fo-dlg-foot">
+       <p-button type="submit" icon="pi pi-send" [label]="'payroll.payAll' | translate" [loading]="busy()" [disabled]="payAllForm.invalid" />
+-    </div>
+-  </form>
+-</p-dialog>
++    
++      <p-button [label]="'common.cancel' | translate" severity="secondary" [outlined]="true" (onClick)="payAllOpen.set(false)" />
++</div>
++</form>
++</app-dialog>
++
++<app-details-dialog
++  [(visible)]="viewOpen"
++  [title]="viewing()?.name ?? ''"
++  [subtitle]="viewing()?.jobTitle"
++  icon="pi pi-id-card"
++  [fields]="viewing() ? viewFields(viewing()!) : []"
++  [audit]="viewing()?.audit"
++  [canEdit]="true"
++  (edit)="openEmployee(viewing()!)"
++/>
+diff --git a/frontend/admin/src/app/features/payroll/payroll.page.ts b/frontend/admin/src/app/features/payroll/payroll.page.ts
+index 8c7c476..58adb62 100644
+--- a/frontend/admin/src/app/features/payroll/payroll.page.ts
++++ b/frontend/admin/src/app/features/payroll/payroll.page.ts
+@@ -6,7 +6,7 @@ import { ConfirmationService, MessageService } from 'primeng/api';
+ import { Button } from 'primeng/button';
+ import { UIChart } from 'primeng/chart';
+ import { DatePicker } from 'primeng/datepicker';
+-import { Dialog } from 'primeng/dialog';
++import { AppDialog } from '../../shared/dialog/dialog';
+ import { InputNumber } from 'primeng/inputnumber';
+ import { InputText } from 'primeng/inputtext';
+ import { Select } from 'primeng/select';
+@@ -25,6 +25,8 @@ import { NEGATIVE, PALETTE, alpha, baseOptions, monthName, moneyAxis, moneyToolt
+ import { loader } from '../analytics/load';
+ import { KpiCard, StateBlock } from '../analytics/widgets/widgets';
+ import { Employee, EmployeeInput, FinanceApi, PayrollPeriod, SalaryMethod, SalaryPayment, SalaryRecord, SalaryStatus } from '../finance/finance.api';
++import { DetailField, DetailsDialog } from '../../shared/details-dialog/details-dialog';
++import { CreatedBy } from '../../shared/details-dialog/audit-block';
+ 
+ type TabKey = 'month' | 'employees' | 'pending' | 'history';
+ const METHODS: SalaryMethod[] = ['BANK_TRANSFER', 'CASH', 'OTHER'];
+@@ -39,8 +41,8 @@ function ym(d: Date): string {
+  */
+ @Component({
+   selector: 'app-payroll',
+-  imports: [
+-    FormsModule, ReactiveFormsModule, TranslatePipe, Tabs, TabList, Tab, Button, Dialog, InputNumber, InputText, Select, DatePicker,
++  imports: [DetailsDialog, CreatedBy, 
++    FormsModule, ReactiveFormsModule, TranslatePipe, Tabs, TabList, Tab, Button, AppDialog, InputNumber, InputText, Select, DatePicker,
+     TableModule, Tag, ToggleSwitch, UIChart, SarPipe, LocalDatePipe, KpiCard, StateBlock,
+   ],
+   styleUrl: './payroll.page.scss',
+@@ -418,6 +420,31 @@ export class PayrollPage {
+     const lang = this.lang.current();
+     return baseOptions(lang, { scales: { x: { stacked: true }, y: { stacked: true, ...moneyAxis(lang) } }, plugins: { tooltip: moneyTooltip(lang) } });
+   });
++  /** Read-only details with who created / last changed the record (eye button in the table). */
++  protected readonly viewing = signal<Employee | null>(null);
++  protected readonly viewOpen = signal(false);
++
++  protected view(item: Employee, event?: Event): void {
++    event?.stopPropagation();
++    this.viewing.set(item);
++    this.viewOpen.set(true);
++  }
++
++  protected viewFields(x: Employee): DetailField[] {
++    const t = (k: string) => this.translate.instant(k);
++    return [
++      { label: 'payroll.emp.name', value: x.name },
++      { label: 'payroll.emp.jobTitle', value: x.jobTitle },
++      { label: 'payroll.emp.phone', value: x.phone, kind: 'phone' },
++      { label: 'payroll.emp.account', value: x.role ? t('roles.' + x.role) : t('payroll.emp.noAccount') },
++      { label: 'common.status', value: t(x.active ? 'common.active' : 'common.inactive'), kind: 'status', on: x.active },
++      { label: 'payroll.base', value: x.baseSalaryHalalas, kind: 'money' },
++      { label: 'payroll.allowances', value: x.housingHalalas + x.transportHalalas + x.otherAllowancesHalalas, kind: 'money' },
++      { label: 'payroll.emp.monthlyCost', value: x.monthlyCostHalalas, kind: 'money' },
++      { label: 'payroll.emp.hireDate', value: x.hireDate, kind: 'date' },
++      { label: 'payroll.notes', value: x.notes, kind: 'multiline' },
++    ];
++  }
+ }
+ 
+ /** Noon local time of the chosen day, so the payment lands on that day in any time zone close to the company's. */
+@@ -425,4 +452,5 @@ function paidAt(d: Date | null): string | null {
+   if (!d) return null;
+   const x = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
+   return x.toISOString();
++
+ }
+diff --git a/frontend/admin/src/app/features/platform/plans/plans.page.html b/frontend/admin/src/app/features/platform/plans/plans.page.html
+index 8022821..0157fd5 100644
+--- a/frontend/admin/src/app/features/platform/plans/plans.page.html
++++ b/frontend/admin/src/app/features/platform/plans/plans.page.html
+@@ -11,84 +11,160 @@
+     <div class="panel plan" [class.off]="!p.active">
+       <h2>
+         <span>{{ p.nameAr }} · {{ p.nameEn }}</span>
+-        <p-tag [value]="(p.active ? 'platform.plans.offered' : 'platform.hidden') | translate" [severity]="p.active ? 'success' : 'secondary'" />
++        <p-tag
++          [value]="(p.active ? 'platform.plans.offered' : 'platform.hidden') | translate"
++          [severity]="p.active ? 'success' : 'secondary'"
++        />
+       </h2>
+-      <div class="price"><strong class="ltr">{{ p.priceMonthlyHalalas | sar }}</strong> <span>/ {{ 'settings.month' | translate }}</span></div>
++      <div class="price">
++        <strong class="ltr">{{ p.priceMonthlyHalalas | sar }}</strong>
++        <span>/ {{ 'settings.month' | translate }}</span>
++      </div>
+       <div class="muted">
+         @if (p.priceYearlyHalalas !== null) {
+-          <span class="ltr">{{ p.priceYearlyHalalas | sar }}</span> / {{ 'upgrade.year' | translate }} · {{ 'platform.plans.saves' | translate: { p: discount(p) } }}
++          <span class="ltr">{{ p.priceYearlyHalalas | sar }}</span> /
++          {{ 'upgrade.year' | translate }} ·
++          {{ 'platform.plans.saves' | translate: { p: discount(p) } }}
+         } @else {
+           {{ 'platform.plans.noYearly' | translate }}
+         }
+       </div>
+-      <div class="muted"><code>{{ p.id }}</code> · {{ 'upgrade.upTo' | translate: { n: p.maxTechnicians } }} · {{ 'platform.plans.companies' | translate: { n: p.companies } }}</div>
++      <div class="muted">
++        <code>{{ p.id }}</code> · {{ 'upgrade.upTo' | translate: { n: p.maxTechnicians } }} ·
++        {{ 'platform.plans.companies' | translate: { n: p.companies } }}
++      </div>
+       <ul>
+-        @for (f of p.features; track f) { <li>{{ 'upgrade.features.' + f | translate }}</li> }
++        @for (f of p.features; track f) {
++          <li>{{ 'upgrade.features.' + f | translate }}</li>
++        }
+       </ul>
+       <div class="actions">
+         @if (!p.companies) {
+-          <p-button icon="pi pi-trash" [text]="true" severity="danger" (onClick)="remove(p)" [ariaLabel]="'common.delete' | translate" />
++          <p-button
++            icon="pi pi-trash"
++            [text]="true"
++            severity="danger"
++            (onClick)="remove(p)"
++            [ariaLabel]="'common.delete' | translate"
++          />
+         }
+-        <p-button icon="pi pi-pencil" [label]="'common.edit' | translate" [outlined]="true" (onClick)="edit(p)" />
++        <p-button
++          icon="pi pi-pencil"
++          [label]="'common.edit' | translate"
++          [outlined]="true"
++          (onClick)="edit(p)"
++        />
+       </div>
+     </div>
+   }
+ </div>
+ 
+-<p-dialog [header]="(editingId() ? 'platform.plans.edit' : 'platform.plans.new') | translate" [(visible)]="open" [modal]="true" [style]="{ width: '640px', maxWidth: '95vw' }" [draggable]="false">
++<app-dialog
++  [(visible)]="open"
++  [title]="(editingId() ? 'platform.plans.edit' : 'platform.plans.new') | translate"
++  icon="pi pi-credit-card"
++  width="640px"
++>
+   @if (draft(); as d) {
+-    <div class="form-grid">
+-      @if (!editingId()) {
++    <div class="fo-dlg-body">
++      <div class="fo-card form-grid">
++        @if (!editingId()) {
++          <div class="field full">
++            <label for="pl-id">{{ 'platform.plans.code' | translate }}</label>
++            <input
++              pInputText
++              id="pl-id"
++              [(ngModel)]="d.id"
++              dir="ltr"
++              maxlength="30"
++              placeholder="starter"
++            />
++            <small class="hint">{{ 'platform.plans.codeHint' | translate }}</small>
++          </div>
++        }
++        <div class="field">
++          <label for="pl-ar">{{ 'platform.plans.nameAr' | translate }}</label>
++          <input pInputText id="pl-ar" [(ngModel)]="d.nameAr" maxlength="100" />
++        </div>
++        <div class="field">
++          <label for="pl-en">{{ 'platform.plans.nameEn' | translate }}</label>
++          <input pInputText id="pl-en" [(ngModel)]="d.nameEn" maxlength="100" dir="ltr" />
++        </div>
++        <div class="field">
++          <label for="pl-m">{{ 'platform.plans.monthly' | translate }}</label>
++          <p-inputnumber
++            inputId="pl-m"
++            [(ngModel)]="d.monthly"
++            mode="decimal"
++            [minFractionDigits]="0"
++            [maxFractionDigits]="2"
++            [min]="0"
++            suffix=" SAR"
++          />
++        </div>
++        <div class="field">
++          <label for="pl-y">{{ 'platform.plans.yearly' | translate }}</label>
++          <p-inputnumber
++            inputId="pl-y"
++            [(ngModel)]="d.yearly"
++            mode="decimal"
++            [minFractionDigits]="0"
++            [maxFractionDigits]="2"
++            [min]="0"
++            suffix=" SAR"
++          />
++          <small class="hint"
++            >{{ 'platform.plans.yearlyHint' | translate }}
++            @if (d.monthly) {
++              <button type="button" class="link" (click)="d.yearly = round(d.monthly * 10)">
++                {{ 'platform.plans.twoMonthsFree' | translate }}
++              </button>
++            }
++          </small>
++        </div>
++        <div class="field">
++          <label for="pl-t">{{ 'platform.plans.maxTechnicians' | translate }}</label>
++          <p-inputnumber inputId="pl-t" [(ngModel)]="d.maxTechnicians" [min]="1" [max]="1000" />
++        </div>
++        <div class="field">
++          <label for="pl-o">{{ 'platform.plans.order' | translate }}</label>
++          <p-inputnumber inputId="pl-o" [(ngModel)]="d.sortOrder" [min]="0" [max]="999" />
++        </div>
+         <div class="field full">
+-          <label for="pl-id">{{ 'platform.plans.code' | translate }}</label>
+-          <input pInputText id="pl-id" [(ngModel)]="d.id" dir="ltr" maxlength="30" placeholder="starter" />
+-          <small class="hint">{{ 'platform.plans.codeHint' | translate }}</small>
++          <label>{{ 'platform.plans.features' | translate }}</label>
++          <div class="feats">
++            @for (f of features(); track f) {
++              <label
++                ><p-checkbox
++                  [binary]="true"
++                  [ngModel]="d.features.includes(f)"
++                  (ngModelChange)="toggle(d, f, $event)"
++                  [inputId]="'f-' + f"
++                />{{ 'upgrade.features.' + f | translate }}</label
++              >
++            }
++          </div>
+         </div>
+-      }
+-      <div class="field">
+-        <label for="pl-ar">{{ 'platform.plans.nameAr' | translate }}</label>
+-        <input pInputText id="pl-ar" [(ngModel)]="d.nameAr" maxlength="100" />
+-      </div>
+-      <div class="field">
+-        <label for="pl-en">{{ 'platform.plans.nameEn' | translate }}</label>
+-        <input pInputText id="pl-en" [(ngModel)]="d.nameEn" maxlength="100" dir="ltr" />
+-      </div>
+-      <div class="field">
+-        <label for="pl-m">{{ 'platform.plans.monthly' | translate }}</label>
+-        <p-inputnumber inputId="pl-m" [(ngModel)]="d.monthly" mode="decimal" [minFractionDigits]="0" [maxFractionDigits]="2" [min]="0" suffix=" SAR" />
+-      </div>
+-      <div class="field">
+-        <label for="pl-y">{{ 'platform.plans.yearly' | translate }}</label>
+-        <p-inputnumber inputId="pl-y" [(ngModel)]="d.yearly" mode="decimal" [minFractionDigits]="0" [maxFractionDigits]="2" [min]="0" suffix=" SAR" />
+-        <small class="hint">{{ 'platform.plans.yearlyHint' | translate }}
+-          @if (d.monthly) { <button type="button" class="link" (click)="d.yearly = round(d.monthly * 10)">{{ 'platform.plans.twoMonthsFree' | translate }}</button> }
+-        </small>
+-      </div>
+-      <div class="field">
+-        <label for="pl-t">{{ 'platform.plans.maxTechnicians' | translate }}</label>
+-        <p-inputnumber inputId="pl-t" [(ngModel)]="d.maxTechnicians" [min]="1" [max]="1000" />
+-      </div>
+-      <div class="field">
+-        <label for="pl-o">{{ 'platform.plans.order' | translate }}</label>
+-        <p-inputnumber inputId="pl-o" [(ngModel)]="d.sortOrder" [min]="0" [max]="999" />
+-      </div>
+-      <div class="field full">
+-        <label>{{ 'platform.plans.features' | translate }}</label>
+-        <div class="feats">
+-          @for (f of features(); track f) {
+-            <label><p-checkbox [binary]="true" [ngModel]="d.features.includes(f)" (ngModelChange)="toggle(d, f, $event)" [inputId]="'f-' + f" />{{ 'upgrade.features.' + f | translate }}</label>
+-          }
++        <div class="field full">
++          <label for="pl-a">{{ 'platform.plans.offer' | translate }}</label>
++          <p-toggleswitch inputId="pl-a" [(ngModel)]="d.active" />
++          <small class="hint">{{ 'platform.plans.offerHint' | translate }}</small>
+         </div>
+       </div>
+-      <div class="field full">
+-        <label for="pl-a">{{ 'platform.plans.offer' | translate }}</label>
+-        <p-toggleswitch inputId="pl-a" [(ngModel)]="d.active" />
+-        <small class="hint">{{ 'platform.plans.offerHint' | translate }}</small>
+-      </div>
+-      <div class="dialog-actions full">
+-        <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="open.set(false)" />
+-        <p-button [label]="'common.save' | translate" [loading]="saving()" (onClick)="save(d)" [disabled]="!d.nameAr || !d.nameEn || d.monthly === null || !d.maxTechnicians" />
+-      </div>
++    </div>
++    <div class="fo-dlg-foot">
++      <p-button
++        [label]="'common.save' | translate"
++        [loading]="saving()"
++        (onClick)="save(d)"
++        [disabled]="!d.nameAr || !d.nameEn || d.monthly === null || !d.maxTechnicians"
++      />
++      <p-button
++        [label]="'common.cancel' | translate"
++        severity="secondary"
++        [outlined]="true"
++        (onClick)="open.set(false)"
++      />
+     </div>
+   }
+-</p-dialog>
++</app-dialog>
+diff --git a/frontend/admin/src/app/features/platform/plans/plans.page.ts b/frontend/admin/src/app/features/platform/plans/plans.page.ts
+index 9d47481..1accf7b 100644
+--- a/frontend/admin/src/app/features/platform/plans/plans.page.ts
++++ b/frontend/admin/src/app/features/platform/plans/plans.page.ts
+@@ -4,7 +4,7 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
+ import { ConfirmationService, MessageService } from 'primeng/api';
+ import { Button } from 'primeng/button';
+ import { Checkbox } from 'primeng/checkbox';
+-import { Dialog } from 'primeng/dialog';
++import { AppDialog } from '../../../shared/dialog/dialog';
+ import { InputNumber } from 'primeng/inputnumber';
+ import { InputText } from 'primeng/inputtext';
+ import { Tag } from 'primeng/tag';
+@@ -29,7 +29,7 @@ interface Draft {
+ /** Subscription plans: names, monthly and yearly prices, technician limit, features, and whether it is offered. */
+ @Component({
+   selector: 'app-platform-plans',
+-  imports: [FormsModule, TranslatePipe, Button, Dialog, InputNumber, InputText, Checkbox, ToggleSwitch, Tag, SarPipe],
++  imports: [FormsModule, TranslatePipe, Button, AppDialog, InputNumber, InputText, Checkbox, ToggleSwitch, Tag, SarPipe],
+   styleUrl: './plans.page.scss',
+   templateUrl: './plans.page.html',
+ })
+diff --git a/frontend/admin/src/app/features/promos/promos.page.html b/frontend/admin/src/app/features/promos/promos.page.html
+index 58fa9e7..2396c4c 100644
+--- a/frontend/admin/src/app/features/promos/promos.page.html
++++ b/frontend/admin/src/app/features/promos/promos.page.html
+@@ -18,9 +18,8 @@
+         <th>{{ 'promos.validity' | translate }}</th>
+         <th>{{ 'promos.usage' | translate }}</th>
+         <th>{{ 'common.status' | translate }}</th>
+-        @if (isOwner) {
+-          <th></th>
+-        }
++        <th>{{ 'audit.createdBy' | translate }}</th>
++        <th></th>
+       </tr>
+     </ng-template>
+     <ng-template #body let-p>
+@@ -65,30 +64,28 @@
+         <td>
+           <p-tag [value]="'promos.state.' + state(p) | translate" [severity]="severity(p)" />
+         </td>
+-        @if (isOwner) {
+-          <td class="row-actions">
++        <td><app-created-by [audit]="p.audit" /></td>
++        <td class="row-actions">
++          <p-button icon="pi pi-eye" [text]="true" severity="secondary" (onClick)="view(p)" [ariaLabel]="'common.view' | translate" />
++          @if (isOwner) {
+             <p-button icon="pi pi-pencil" [text]="true" severity="secondary" (onClick)="open(p)" />
+             <p-button icon="pi pi-trash" [text]="true" severity="danger" (onClick)="remove(p)" />
+-          </td>
+-        }
++          }
++        </td>
+       </tr>
+     </ng-template>
+     <ng-template #emptymessage>
+       <tr>
+-        <td colspan="7"><div class="empty"><i class="pi pi-ticket"></i>{{ 'promos.empty' | translate }}</div></td>
++        <td colspan="9"><div class="empty"><i class="pi pi-ticket"></i>{{ 'promos.empty' | translate }}</div></td>
+       </tr>
+     </ng-template>
+   </p-table>
+ </div>
+ 
+-<p-dialog
+-  [header]="(editing() ? 'promos.edit' : 'promos.new') | translate"
+-  [(visible)]="dialogOpen"
+-  [modal]="true"
+-  [style]="{ width: '720px', maxWidth: '95vw' }"
+-  [draggable]="false"
+->
+-  <form [formGroup]="form" (ngSubmit)="save()" class="form-grid">
++<app-dialog [(visible)]="dialogOpen" [title]="(editing() ? 'promos.edit' : 'promos.new') | translate" icon="pi pi-ticket" width="720px">
++<form [formGroup]="form" (ngSubmit)="save()" class="fo-dlg-form">
++<div class="fo-dlg-body">
++  <div class="fo-card form-grid">
+     <div class="field">
+       <label for="p-code">{{ 'promos.code' | translate }}</label>
+       <input pInputText id="p-code" dir="ltr" formControlName="code" placeholder="WELCOME20" (input)="upperCode()" maxlength="30" />
+@@ -169,10 +166,23 @@
+         <code class="ltr">{{ form.controls.code.value || 'CODE' }}</code>
+       </div>
+     }
+-
+-    <div class="dialog-actions full">
+-      <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="dialogOpen.set(false)" />
++</div>
++  </div>
++<div class="fo-dlg-foot">
+       <p-button type="submit" [label]="'common.save' | translate" [loading]="saving()" [disabled]="form.invalid" />
+-    </div>
+-  </form>
+-</p-dialog>
++    
++      <p-button [label]="'common.cancel' | translate" severity="secondary" [outlined]="true" (onClick)="dialogOpen.set(false)" />
++</div>
++</form>
++</app-dialog>
++
++<app-details-dialog
++  [(visible)]="viewOpen"
++  [title]="viewing()?.code ?? ''"
++  [subtitle]="viewing() ? label(viewing()!.title, viewing()!.titleEn) : null"
++  icon="pi pi-ticket"
++  [fields]="viewing() ? viewFields(viewing()!) : []"
++  [audit]="viewing()?.audit"
++  [canEdit]="isOwner"
++  (edit)="open(viewing()!)"
++/>
+diff --git a/frontend/admin/src/app/features/promos/promos.page.ts b/frontend/admin/src/app/features/promos/promos.page.ts
+index 98406df..71196e9 100644
+--- a/frontend/admin/src/app/features/promos/promos.page.ts
++++ b/frontend/admin/src/app/features/promos/promos.page.ts
+@@ -6,7 +6,7 @@ import { ConfirmationService, MessageService } from 'primeng/api';
+ import { Button } from 'primeng/button';
+ import { Checkbox } from 'primeng/checkbox';
+ import { DatePicker } from 'primeng/datepicker';
+-import { Dialog } from 'primeng/dialog';
++import { AppDialog } from '../../shared/dialog/dialog';
+ import { InputNumber } from 'primeng/inputnumber';
+ import { InputText } from 'primeng/inputtext';
+ import { SelectButton } from 'primeng/selectbutton';
+@@ -20,6 +20,8 @@ import { errorMessage } from '../../core/http/api-error';
+ import { LanguageService } from '../../core/i18n/language.service';
+ import { SarPipe, toHalalas, toSar } from '../../shared/format';
+ import { LocalDatePipe } from '../../shared/local-date.pipe';
++import { DetailField, DetailsDialog } from '../../shared/details-dialog/details-dialog';
++import { CreatedBy } from '../../shared/details-dialog/audit-block';
+ 
+ const BASE = '/api/v1/promos';
+ 
+@@ -48,14 +50,14 @@ const STATE_SEVERITY: Record<PromoState, 'success' | 'info' | 'secondary' | 'war
+  */
+ @Component({
+   selector: 'app-promos',
+-  imports: [
++  imports: [DetailsDialog, CreatedBy, 
+     ReactiveFormsModule,
+     TranslatePipe,
+     TableModule,
+     Button,
+     Checkbox,
+     DatePicker,
+-    Dialog,
++    AppDialog,
+     InputNumber,
+     InputText,
+     SelectButton,
+@@ -223,6 +225,33 @@ export class PromosPage implements OnInit {
+     this.saving.set(false);
+     this.messages.add({ severity: 'error', summary: errorMessage(err, this.translate) });
+   }
++  /** Read-only details with who created / last changed the record (eye button in the table). */
++  protected readonly viewing = signal<Promo | null>(null);
++  protected readonly viewOpen = signal(false);
++
++  protected view(item: Promo, event?: Event): void {
++    event?.stopPropagation();
++    this.viewing.set(item);
++    this.viewOpen.set(true);
++  }
++
++  protected viewFields(x: Promo): DetailField[] {
++    const t = (k: string, p?: object) => this.translate.instant(k, p);
++    const sar = (h: number) => (h / 100).toLocaleString('en-US', { maximumFractionDigits: 2 }) + ' SAR';
++    return [
++      { label: 'promos.code', value: x.code, kind: 'ltr' },
++      { label: 'common.status', value: t('promos.state.' + this.state(x)), kind: 'status', on: this.severity(x) === 'success' },
++      { label: 'promos.titleCol', value: x.title },
++      { label: 'promos.titleEn', value: x.titleEn ?? null, kind: 'ltr' },
++      { label: 'promos.discount', value: x.discountType === 'PERCENT' ? x.discountValue + '%' : sar(x.discountValue), kind: 'ltr' },
++      { label: 'promos.minOrder', value: x.minSubtotalHalalas ? sar(x.minSubtotalHalalas) : null, kind: 'ltr' },
++      { label: 'promos.startsAt', value: x.startsAt ?? null, kind: 'date' },
++      { label: 'promos.endsAt', value: x.endsAt ?? t('promos.noEnd'), kind: x.endsAt ? 'date' : 'text' },
++      { label: 'promos.usage', value: x.usageLimit ? x.usedCount + ' / ' + x.usageLimit : '' + x.usedCount, kind: 'ltr' },
++      { label: 'promos.firstOnly', value: t(x.firstBookingOnly ? 'common.yes' : 'common.no') },
++      { label: 'promos.announced', value: t(x.announce ? 'common.yes' : 'common.no') },
++    ];
++  }
+ }
+ 
+ function startOfDay(d: Date): Date {
+@@ -231,4 +260,5 @@ function startOfDay(d: Date): Date {
+ 
+ function addDays(d: Date, n: number): Date {
+   return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
++
+ }
+diff --git a/frontend/admin/src/app/features/services/services.page.html b/frontend/admin/src/app/features/services/services.page.html
+index 0fd5cfc..79be18e 100644
+--- a/frontend/admin/src/app/features/services/services.page.html
++++ b/frontend/admin/src/app/features/services/services.page.html
+@@ -16,6 +16,7 @@
+         <th>{{ 'services.pricing' | translate }}</th>
+         <th>{{ 'services.price' | translate }}</th>
+         <th>{{ 'services.duration' | translate }}</th>
++        <th>{{ 'audit.createdBy' | translate }}</th>
+         <th>{{ 'common.status' | translate }}</th>
+         <th></th>
+       </tr>
+@@ -43,6 +44,7 @@
+           }
+         </td>
+         <td>{{ 'services.minutes' | translate: { n: s.durationMin } }}</td>
++        <td><app-created-by [audit]="s.audit" /></td>
+         <td>
+           <p-tag
+             [value]="(s.active ? 'common.active' : 'common.inactive') | translate"
+@@ -68,7 +70,7 @@
+     </ng-template>
+     <ng-template #emptymessage>
+       <tr>
+-        <td colspan="6"><div class="empty"><i class="pi pi-list-check"></i>{{ 'services.empty' | translate }}</div></td>
++        <td colspan="7"><div class="empty"><i class="pi pi-list-check"></i>{{ 'services.empty' | translate }}</div></td>
+       </tr>
+     </ng-template>
+   </p-table>
+@@ -165,6 +167,7 @@
+             <div class="rows-empty">{{ 'services.noAddons' | translate }}</div>
+           }
+         </section>
++        <app-audit-block [audit]="v.audit" />
+       </div>
+       <footer class="dlg-foot">
+         @if (isOwner) {
+diff --git a/frontend/admin/src/app/features/services/services.page.ts b/frontend/admin/src/app/features/services/services.page.ts
+index 25b37bc..6a10909 100644
+--- a/frontend/admin/src/app/features/services/services.page.ts
++++ b/frontend/admin/src/app/features/services/services.page.ts
+@@ -20,6 +20,7 @@ import { errorMessage } from '../../core/http/api-error';
+ import { LanguageService } from '../../core/i18n/language.service';
+ import { SarPipe, toHalalas, toSar } from '../../shared/format';
+ import { defaultServiceImage } from '../../shared/service-image';
++import { AuditBlock, CreatedBy } from '../../shared/details-dialog/audit-block';
+ 
+ const BASE = '/api/v1/services';
+ 
+@@ -58,6 +59,8 @@ type OptionGroup = ReturnType<typeof makeOptionGroup>;
+ @Component({
+   selector: 'app-services',
+   imports: [
++    AuditBlock,
++    CreatedBy,
+     ReactiveFormsModule,
+     TranslatePipe,
+     TableModule,
+diff --git a/frontend/admin/src/app/features/technicians/technicians.page.html b/frontend/admin/src/app/features/technicians/technicians.page.html
+index 90215fa..1c981e8 100644
+--- a/frontend/admin/src/app/features/technicians/technicians.page.html
++++ b/frontend/admin/src/app/features/technicians/technicians.page.html
+@@ -32,9 +32,8 @@
+         <th>{{ 'technicians.skills' | translate }}</th>
+         <th>{{ 'technicians.workDays' | translate }}</th>
+         <th>{{ 'common.status' | translate }}</th>
+-        @if (isOwner) {
+-          <th></th>
+-        }
++        <th>{{ 'audit.createdBy' | translate }}</th>
++        <th></th>
+       </tr>
+     </ng-template>
+     <ng-template #body let-t>
+@@ -78,17 +77,19 @@
+             <div><small class="muted"><i class="pi pi-key"></i> {{ 'password.pending' | translate }}</small></div>
+           }
+         </td>
+-        @if (isOwner) {
+-          <td class="row-actions">
++        <td><app-created-by [audit]="t.audit" /></td>
++        <td class="row-actions">
++          <p-button icon="pi pi-eye" [text]="true" severity="secondary" (onClick)="view(t)" [ariaLabel]="'common.view' | translate" />
++          @if (isOwner) {
+             <p-button icon="pi pi-key" [text]="true" severity="secondary" (onClick)="resetFor.set(t)" [ariaLabel]="'password.reset' | translate" />
+             <p-button icon="pi pi-pencil" [text]="true" severity="secondary" (onClick)="open(t)" />
+-          </td>
+-        }
++          }
++        </td>
+       </tr>
+     </ng-template>
+     <ng-template #emptymessage>
+       <tr>
+-        <td colspan="7"><div class="empty"><i class="pi pi-wrench"></i>{{ 'technicians.empty' | translate }}</div></td>
++        <td colspan="9"><div class="empty"><i class="pi pi-wrench"></i>{{ 'technicians.empty' | translate }}</div></td>
+       </tr>
+     </ng-template>
+   </p-table>
+@@ -99,17 +100,14 @@
+                              [url]="'/api/v1/technicians/' + rt.id + '/password'" (done)="reload()" />
+ }
+ 
+-<p-dialog
+-  [header]="(editing() ? 'technicians.edit' : 'technicians.new') | translate"
+-  [(visible)]="dialogOpen"
+-  [modal]="true"
+-  [style]="{ width: '680px', maxWidth: '95vw' }"
+-  [draggable]="false"
+->
++<app-dialog [(visible)]="dialogOpen" [title]="(editing() ? 'technicians.edit' : 'technicians.new') | translate" icon="pi pi-wrench" width="680px">
++<form [formGroup]="form" (ngSubmit)="save()" class="fo-dlg-form">
++<div class="fo-dlg-body">
+   @if (error()) {
+     <p-message severity="error">{{ error() }}</p-message>
+   }
+-  <form [formGroup]="form" (ngSubmit)="save()" class="form-grid">
++  
++<div class="fo-card form-grid">
+     <div class="field">
+       <label for="t-name">{{ 'technicians.name' | translate }}</label>
+       <input pInputText id="t-name" formControlName="name" />
+@@ -176,10 +174,23 @@
+       </div>
+       <p-button icon="pi pi-plus" size="small" [text]="true" [label]="'technicians.addShift' | translate" (onClick)="addShift()" />
+     </div>
+-
+-    <div class="dialog-actions full">
+-      <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="dialogOpen.set(false)" />
++</div>
++  </div>
++<div class="fo-dlg-foot">
+       <p-button type="submit" [label]="'common.save' | translate" [loading]="saving()" [disabled]="form.invalid" />
+-    </div>
+-  </form>
+-</p-dialog>
++    
++      <p-button [label]="'common.cancel' | translate" severity="secondary" [outlined]="true" (onClick)="dialogOpen.set(false)" />
++</div>
++</form>
++</app-dialog>
++
++<app-details-dialog
++  [(visible)]="viewOpen"
++  [title]="viewing()?.name ?? ''"
++  [subtitle]="viewing()?.phone"
++  icon="pi pi-wrench"
++  [fields]="viewing() ? viewFields(viewing()!) : []"
++  [audit]="viewing()?.audit"
++  [canEdit]="isOwner"
++  (edit)="open(viewing()!)"
++/>
+diff --git a/frontend/admin/src/app/features/technicians/technicians.page.ts b/frontend/admin/src/app/features/technicians/technicians.page.ts
+index 9b1c87f..5bd49d0 100644
+--- a/frontend/admin/src/app/features/technicians/technicians.page.ts
++++ b/frontend/admin/src/app/features/technicians/technicians.page.ts
+@@ -4,7 +4,7 @@ import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angula
+ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
+ import { MessageService } from 'primeng/api';
+ import { Button } from 'primeng/button';
+-import { Dialog } from 'primeng/dialog';
++import { AppDialog } from '../../shared/dialog/dialog';
+ import { InputNumber } from 'primeng/inputnumber';
+ import { InputText } from 'primeng/inputtext';
+ import { Message } from 'primeng/message';
+@@ -24,6 +24,8 @@ import { PhonePipe, SAUDI_MOBILE_PATTERN, toHalalas } from '../../shared/format'
+ import { FinanceApi } from '../finance/finance.api';
+ import { ResetPasswordDialog } from '../../shared/reset-password/reset-password.dialog';
+ import { STRONG_PASSWORD } from '../auth/change-password/change-password.page';
++import { DetailField, DetailsDialog } from '../../shared/details-dialog/details-dialog';
++import { CreatedBy } from '../../shared/details-dialog/audit-block';
+ 
+ const BASE = '/api/v1/technicians';
+ /** Saudi work week order. */
+@@ -46,12 +48,12 @@ type ShiftGroup = ReturnType<typeof makeShift>;
+ 
+ @Component({
+   selector: 'app-technicians',
+-  imports: [
++  imports: [DetailsDialog, CreatedBy, 
+     ReactiveFormsModule,
+     TranslatePipe,
+     TableModule,
+     Button,
+-    Dialog,
++    AppDialog,
+     InputText,
+     InputNumber,
+     Password,
+@@ -229,4 +231,28 @@ export class TechniciansPage implements OnInit {
+       },
+     });
+   }
++  /** Read-only details with who created / last changed the record (eye button in the table). */
++  protected readonly viewing = signal<Technician | null>(null);
++  protected readonly viewOpen = signal(false);
++
++  protected view(item: Technician, event?: Event): void {
++    event?.stopPropagation();
++    this.viewing.set(item);
++    this.viewOpen.set(true);
++  }
++
++  protected viewFields(x: Technician): DetailField[] {
++    const t = (k: string, p?: object) => this.translate.instant(k, p);
++    return [
++      { label: 'technicians.name', value: x.name },
++      { label: 'technicians.phone', value: x.phone, kind: 'phone' },
++      { label: 'users.emailOptional', value: x.email ?? null, kind: 'ltr' },
++      { label: 'common.status', value: t(x.active ? 'common.active' : 'common.inactive'), kind: 'status', on: x.active },
++      { label: 'technicians.rating', value: x.ratingAverage != null ? x.ratingAverage.toFixed(1) + ' / 5 · ' + t('technicians.ratingCount', { n: x.ratingCount }) : t('technicians.noRating') },
++      { label: 'technicians.workDays', value: this.workDays(x) },
++      { label: 'users.lastLogin', value: x.lastLoginAt ?? null, kind: 'datetime' },
++      { label: 'technicians.skills', value: (x.skills ?? []).map((s) => this.serviceLabel(s)).join('، '), full: true },
++    ];
++  }
++
+ }
+diff --git a/frontend/admin/src/app/features/users/users.page.html b/frontend/admin/src/app/features/users/users.page.html
+index f3af0f8..e9c47e7 100644
+--- a/frontend/admin/src/app/features/users/users.page.html
++++ b/frontend/admin/src/app/features/users/users.page.html
+@@ -14,6 +14,7 @@
+         <th>{{ 'users.phone' | translate }}</th>
+         <th>{{ 'users.role' | translate }}</th>
+         <th>{{ 'users.lastLogin' | translate }}</th>
++        <th>{{ 'audit.createdBy' | translate }}</th>
+         <th>{{ 'common.status' | translate }}</th>
+         <th></th>
+       </tr>
+@@ -29,6 +30,7 @@
+           }
+         </td>
+         <td class="muted">{{ u.lastLoginAt ? (u.lastLoginAt | ldate: 'short') : '—' }}</td>
++        <td><app-created-by [audit]="u.audit" /></td>
+         <td>
+           <p-tag [value]="(u.active ? 'common.active' : 'common.inactive') | translate" [severity]="u.active ? 'success' : 'secondary'" />
+           @if (u.mustChangePassword) {
+@@ -36,7 +38,8 @@
+           }
+         </td>
+         <td class="row-actions">
+-          @if (u.id !== myId) {
++          <p-button icon="pi pi-eye" [text]="true" severity="secondary" (onClick)="view(u)" [ariaLabel]="'common.view' | translate" />
++            @if (u.id !== myId) {
+             <p-button icon="pi pi-key" [text]="true" severity="secondary" (onClick)="resetFor.set(u)" [ariaLabel]="'password.reset' | translate" />
+           }
+           @if (u.role !== 'TECHNICIAN') {
+@@ -53,17 +56,14 @@
+                              [url]="'/api/v1/users/' + ru.id + '/password'" (done)="reload()" />
+ }
+ 
+-<p-dialog
+-  [header]="(editing() ? 'users.edit' : 'users.new') | translate"
+-  [(visible)]="dialogOpen"
+-  [modal]="true"
+-  [style]="{ width: '560px', maxWidth: '95vw' }"
+-  [draggable]="false"
+->
++<app-dialog [(visible)]="dialogOpen" [title]="(editing() ? 'users.edit' : 'users.new') | translate" icon="pi pi-users" width="560px">
++<form [formGroup]="form" (ngSubmit)="save()" class="fo-dlg-form">
++<div class="fo-dlg-body">
+   @if (error()) {
+     <p-message severity="error">{{ error() }}</p-message>
+   }
+-  <form [formGroup]="form" (ngSubmit)="save()" class="form-grid">
++  
++<div class="fo-card form-grid">
+     <div class="field">
+       <label for="u-name">{{ 'users.name' | translate }}</label>
+       <input pInputText id="u-name" formControlName="name" />
+@@ -125,9 +125,23 @@
+         }
+       </fieldset>
+     }
+-    <div class="dialog-actions full">
+-      <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="dialogOpen.set(false)" />
++</div>
++  </div>
++<div class="fo-dlg-foot">
+       <p-button type="submit" [label]="'common.save' | translate" [loading]="saving()" [disabled]="form.invalid || (role() === 'COORDINATOR' && screens().size === 0)" />
+-    </div>
+-  </form>
+-</p-dialog>
++    
++      <p-button [label]="'common.cancel' | translate" severity="secondary" [outlined]="true" (onClick)="dialogOpen.set(false)" />
++</div>
++</form>
++</app-dialog>
++
++<app-details-dialog
++  [(visible)]="viewOpen"
++  [title]="viewing()?.name ?? ''"
++  [subtitle]="viewing() ? ('roles.' + viewing()!.role | translate) : null"
++  icon="pi pi-user"
++  [fields]="viewing() ? viewFields(viewing()!) : []"
++  [audit]="viewing()?.audit"
++  [canEdit]="viewing()?.role !== 'TECHNICIAN'"
++  (edit)="open(viewing()!)"
++/>
+diff --git a/frontend/admin/src/app/features/users/users.page.ts b/frontend/admin/src/app/features/users/users.page.ts
+index 64aae3e..e41542a 100644
+--- a/frontend/admin/src/app/features/users/users.page.ts
++++ b/frontend/admin/src/app/features/users/users.page.ts
+@@ -4,7 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
+ import { MessageService } from 'primeng/api';
+ import { Button } from 'primeng/button';
+-import { Dialog } from 'primeng/dialog';
++import { AppDialog } from '../../shared/dialog/dialog';
+ import { InputNumber } from 'primeng/inputnumber';
+ import { InputText } from 'primeng/inputtext';
+ import { Message } from 'primeng/message';
+@@ -23,17 +23,19 @@ import { PhonePipe, SAUDI_MOBILE_PATTERN, toHalalas } from '../../shared/format'
+ import { TenantService } from '../../core/tenant.service';
+ import { FinanceApi } from '../finance/finance.api';
+ import { LocalDatePipe } from '../../shared/local-date.pipe';
++import { DetailField, DetailsDialog } from '../../shared/details-dialog/details-dialog';
++import { CreatedBy } from '../../shared/details-dialog/audit-block';
+ 
+ const BASE = '/api/v1/users';
+ 
+ @Component({
+   selector: 'app-users',
+-  imports: [
++  imports: [DetailsDialog, CreatedBy, 
+     ReactiveFormsModule,
+     TranslatePipe,
+     TableModule,
+     Button,
+-    Dialog,
++    AppDialog,
+     InputText,
+     InputNumber,
+     Password,
+@@ -189,4 +191,29 @@ export class UsersPage implements OnInit {
+       },
+     });
+   }
++  /** Read-only details with who created / last changed the record (eye button in the table). */
++  protected readonly viewing = signal<StaffUser | null>(null);
++  protected readonly viewOpen = signal(false);
++
++  protected view(item: StaffUser, event?: Event): void {
++    event?.stopPropagation();
++    this.viewing.set(item);
++    this.viewOpen.set(true);
++  }
++
++  protected viewFields(x: StaffUser): DetailField[] {
++    const t = (k: string, p?: object) => this.translate.instant(k, p);
++    return [
++      { label: 'users.name', value: x.name },
++      { label: 'users.phone', value: x.phone, kind: 'phone' },
++      { label: 'users.emailOptional', value: x.email ?? null, kind: 'ltr' },
++      { label: 'users.role', value: t('roles.' + x.role) },
++      { label: 'common.status', value: t(x.active ? 'common.active' : 'common.inactive'), kind: 'status', on: x.active },
++      { label: 'users.lastLogin', value: x.lastLoginAt ?? null, kind: 'datetime' },
++      ...(x.role === 'COORDINATOR'
++        ? [{ label: 'users.screens', value: (x.screens ?? []).map((sc) => t('users.screen.' + sc)).join('، '), full: true }]
++        : []),
++    ];
++  }
++
+ }
+diff --git a/frontend/admin/src/app/layout/upgrade-dialog/upgrade-dialog.html b/frontend/admin/src/app/layout/upgrade-dialog/upgrade-dialog.html
+index 0f00150..888d53e 100644
+--- a/frontend/admin/src/app/layout/upgrade-dialog/upgrade-dialog.html
++++ b/frontend/admin/src/app/layout/upgrade-dialog/upgrade-dialog.html
+@@ -1,5 +1,5 @@
+-<p-dialog [header]="'upgrade.title' | translate" [(visible)]="visible" [modal]="true" [dismissableMask]="true" [draggable]="false"
+-          [style]="{ width: '920px', maxWidth: '95vw' }">
++<app-dialog [(visible)]="visible" [title]="'upgrade.title' | translate" icon="pi pi-star" width="920px">
++<div class="fo-dlg-body">
+   @if (featurePlan(); as fp) {
+     <p class="intro feature-intro">
+       <i class="pi pi-lock"></i>
+@@ -51,4 +51,6 @@
+   } @else {
+     <div class="loading"><i class="pi pi-spin pi-spinner"></i></div>
+   }
+-</p-dialog>
++
++</div>
++</app-dialog>
+diff --git a/frontend/admin/src/app/layout/upgrade-dialog/upgrade-dialog.ts b/frontend/admin/src/app/layout/upgrade-dialog/upgrade-dialog.ts
+index 4f8f7bf..3295269 100644
+--- a/frontend/admin/src/app/layout/upgrade-dialog/upgrade-dialog.ts
++++ b/frontend/admin/src/app/layout/upgrade-dialog/upgrade-dialog.ts
+@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
+ import { Component, computed, effect, inject, model, signal } from '@angular/core';
+ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
+ import { Button } from 'primeng/button';
+-import { Dialog } from 'primeng/dialog';
++import { AppDialog } from '../../shared/dialog/dialog';
+ 
+ import { Plan } from '../../core/api.types';
+ import { LanguageService } from '../../core/i18n/language.service';
+@@ -14,7 +14,7 @@ import { SarPipe } from '../../shared/format';
+ /** Plan picker opened from "Upgrade now". Paid plans are activated by support until online payment exists. */
+ @Component({
+   selector: 'app-upgrade-dialog',
+-  imports: [TranslatePipe, Button, Dialog, SarPipe],
++  imports: [TranslatePipe, Button, AppDialog, SarPipe],
+   styleUrl: './upgrade-dialog.scss',
+   templateUrl: './upgrade-dialog.html',
+ })
+diff --git a/frontend/admin/src/app/shared/details-dialog/audit-block.ts b/frontend/admin/src/app/shared/details-dialog/audit-block.ts
+new file mode 100644
+index 0000000..615beed
+--- /dev/null
++++ b/frontend/admin/src/app/shared/details-dialog/audit-block.ts
+@@ -0,0 +1,57 @@
++import { Component, input } from '@angular/core';
++import { TranslatePipe } from '@ngx-translate/core';
++
++import { AuditInfo } from '../../core/api.types';
++import { LocalDatePipe } from '../local-date.pipe';
++
++/** "Created on … by …, last updated on … by …" as a small card (details dialogs). */
++@Component({
++  selector: 'app-audit-block',
++  imports: [TranslatePipe, LocalDatePipe],
++  template: `
++    @if (audit(); as a) {
++      <section class="fo-sec fo-audit">
++        <div class="fo-sec-head"><div><h3><i class="pi pi-history" aria-hidden="true"></i>{{ 'audit.title' | translate }}</h3></div></div>
++        <div class="fo-details">
++          <div class="fo-detail">
++            <small>{{ 'audit.createdAt' | translate }}</small>
++            <b>{{ a.createdAt ? (a.createdAt | ldate: 'medium') : '—' }}</b>
++          </div>
++          <div class="fo-detail">
++            <small>{{ 'audit.createdBy' | translate }}</small>
++            <b>{{ a.createdByName || ('audit.system' | translate) }}</b>
++          </div>
++          <div class="fo-detail">
++            <small>{{ 'audit.updatedAt' | translate }}</small>
++            <b>{{ a.updatedAt ? (a.updatedAt | ldate: 'medium') : '—' }}</b>
++          </div>
++          <div class="fo-detail">
++            <small>{{ 'audit.updatedBy' | translate }}</small>
++            <b>{{ a.updatedByName || ('audit.system' | translate) }}</b>
++          </div>
++        </div>
++      </section>
++    }
++  `,
++})
++export class AuditBlock {
++  readonly audit = input<AuditInfo | null | undefined>(null);
++}
++
++
++/** The "created by" table cell: the user's name, or "System / customer" when no staff user made it. */
++@Component({
++  selector: 'app-created-by',
++  imports: [TranslatePipe, LocalDatePipe],
++  template: `
++    <span class="fo-created-by">
++      <span class="who" [class.sys]="!audit()?.createdByName">{{ audit()?.createdByName || ('audit.system' | translate) }}</span>
++      @if (audit()?.createdAt; as at) {
++        <small>{{ at | ldate: 'dayMonthYear' }}</small>
++      }
++    </span>
++  `,
++})
++export class CreatedBy {
++  readonly audit = input<AuditInfo | null | undefined>(null);
++}
+diff --git a/frontend/admin/src/app/shared/details-dialog/details-dialog.html b/frontend/admin/src/app/shared/details-dialog/details-dialog.html
+new file mode 100644
+index 0000000..156b790
+--- /dev/null
++++ b/frontend/admin/src/app/shared/details-dialog/details-dialog.html
+@@ -0,0 +1,35 @@
++<app-dialog [(visible)]="visible" [title]="title()" [subtitle]="subtitle()" [icon]="icon()" [width]="width()" [dismissable]="true">
++  <div class="fo-dlg-body">
++    @if (fields().length) {
++      <div class="fo-details">
++        @for (f of fields(); track $index) {
++          <div class="fo-detail" [class.full]="f.full || f.kind === 'multiline'">
++            <small>{{ f.label | translate }}</small>
++            @if (isEmpty(f) && f.kind !== 'status') {
++              <span class="fo-muted">—</span>
++            } @else {
++              @switch (f.kind) {
++                @case ('money') { <b class="ltr">{{ +f.value! | sar }}</b> }
++                @case ('date') { <b>{{ '' + f.value | ldate: 'dayMonthYear' }}</b> }
++                @case ('datetime') { <b>{{ '' + f.value | ldate: 'medium' }}</b> }
++                @case ('phone') { <b class="ltr">{{ '' + f.value | phone }}</b> }
++                @case ('ltr') { <b class="ltr">{{ f.value }}</b> }
++                @case ('status') { <span class="fo-pill" [class.off]="!f.on">{{ '' + f.value }}</span> }
++                @case ('multiline') { <p class="fo-multiline">{{ f.value }}</p> }
++                @default { <b>{{ f.value }}</b> }
++              }
++            }
++          </div>
++        }
++      </div>
++    }
++    <ng-content />
++    <app-audit-block [audit]="audit()" />
++  </div>
++  <div class="fo-dlg-foot">
++    @if (canEdit()) {
++      <p-button [icon]="editIcon()" [label]="editLabel() | translate" (onClick)="onEdit()" />
++    }
++    <p-button [label]="'common.close' | translate" severity="secondary" [outlined]="true" (onClick)="visible.set(false)" />
++  </div>
++</app-dialog>
+diff --git a/frontend/admin/src/app/shared/details-dialog/details-dialog.ts b/frontend/admin/src/app/shared/details-dialog/details-dialog.ts
+new file mode 100644
+index 0000000..9bcb5de
+--- /dev/null
++++ b/frontend/admin/src/app/shared/details-dialog/details-dialog.ts
+@@ -0,0 +1,54 @@
++import { Component, input, model, output } from '@angular/core';
++import { TranslatePipe } from '@ngx-translate/core';
++import { Button } from 'primeng/button';
++
++import { AuditInfo } from '../../core/api.types';
++import { PhonePipe, SarPipe } from '../format';
++import { LocalDatePipe } from '../local-date.pipe';
++import { AppDialog } from '../dialog/dialog';
++import { AuditBlock } from './audit-block';
++
++/** One read-only value in the details dialog; {@code label} is a translation key. */
++export interface DetailField {
++  label: string;
++  value?: string | number | boolean | null;
++  /** How to show the value (default text). */
++  kind?: 'text' | 'money' | 'date' | 'datetime' | 'phone' | 'status' | 'multiline' | 'ltr';
++  /** status: green when true / given, grey otherwise. */
++  on?: boolean;
++  /** Spans the whole row (long text). */
++  full?: boolean;
++}
++
++/**
++ * Read-only details of a record: value tiles, optional extra sections (projected), and who created / last changed
++ * it. Every list page opens it from the eye button in the table.
++ */
++@Component({
++  selector: 'app-details-dialog',
++  imports: [AppDialog, AuditBlock, Button, TranslatePipe, SarPipe, PhonePipe, LocalDatePipe],
++  templateUrl: './details-dialog.html',
++})
++export class DetailsDialog {
++  readonly visible = model(false);
++  readonly title = input<string>('');
++  readonly subtitle = input<string | null | undefined>(null);
++  readonly icon = input<string>('pi pi-eye');
++  readonly fields = input<DetailField[]>([]);
++  readonly audit = input<AuditInfo | null | undefined>(null);
++  readonly canEdit = input(false);
++  /** The main button's label (translation key) and icon: "Edit" by default, e.g. "Open" for records with a page. */
++  readonly editLabel = input('common.edit');
++  readonly editIcon = input('pi pi-pencil');
++  readonly width = input('980px');
++  readonly edit = output<void>();
++
++  protected isEmpty(f: DetailField): boolean {
++    return f.value === null || f.value === undefined || f.value === '';
++  }
++
++  protected onEdit(): void {
++    this.visible.set(false);
++    this.edit.emit();
++  }
++}
+diff --git a/frontend/admin/src/app/shared/dialog/dialog.html b/frontend/admin/src/app/shared/dialog/dialog.html
+new file mode 100644
+index 0000000..1cbca16
+--- /dev/null
++++ b/frontend/admin/src/app/shared/dialog/dialog.html
+@@ -0,0 +1,29 @@
++<p-dialog
++  [visible]="visible()"
++  (visibleChange)="visible.set($event)"
++  (onHide)="hide.emit()"
++  [modal]="true"
++  [showHeader]="false"
++  [dismissableMask]="dismissable()"
++  [closeOnEscape]="true"
++  [draggable]="false"
++  [style]="{ width: width(), maxWidth: '96vw' }"
++  appendTo="body"
++  styleClass="fo-dialog"
++>
++  <div class="fo-dlg">
++    <header class="fo-dlg-head">
++      <span class="fo-dlg-ico"><i [class]="icon()" aria-hidden="true"></i></span>
++      <div class="fo-dlg-title">
++        <h2>{{ title() }}</h2>
++        @if (subtitle()) {
++          <p>{{ subtitle() }}</p>
++        }
++      </div>
++      <button type="button" class="fo-dlg-close" (click)="visible.set(false)" [attr.aria-label]="'common.close' | translate">
++        <i class="pi pi-times" aria-hidden="true"></i>
++      </button>
++    </header>
++    <ng-content />
++  </div>
++</p-dialog>
+diff --git a/frontend/admin/src/app/shared/dialog/dialog.ts b/frontend/admin/src/app/shared/dialog/dialog.ts
+new file mode 100644
+index 0000000..e5942ee
+--- /dev/null
++++ b/frontend/admin/src/app/shared/dialog/dialog.ts
+@@ -0,0 +1,34 @@
++import { Component, input, model, output } from '@angular/core';
++import { TranslatePipe } from '@ngx-translate/core';
++import { Dialog } from 'primeng/dialog';
++
++/**
++ * The app's dialog frame: round icon, title and subtitle, close button; the body scrolls between a fixed header and
++ * footer. Attached to <body> (above the top bar).
++ *
++ * Content goes inside; mark the parts with the global classes:
++ * <pre>
++ * <app-dialog [(visible)]="open" [title]="'x.title' | translate" icon="pi pi-user">
++ *   <form class="fo-dlg-form" (ngSubmit)="save()">
++ *     <div class="fo-dlg-body"> <div class="fo-card form-grid">…</div> </div>
++ *     <div class="fo-dlg-foot"> …buttons… </div>
++ *   </form>
++ * </app-dialog>
++ * </pre>
++ */
++@Component({
++  selector: 'app-dialog',
++  imports: [Dialog, TranslatePipe],
++  templateUrl: './dialog.html',
++})
++export class AppDialog {
++  readonly visible = model(false);
++  readonly title = input<string>('');
++  readonly subtitle = input<string | null | undefined>(null);
++  /** PrimeIcons class, e.g. "pi pi-user". */
++  readonly icon = input<string>('pi pi-file-edit');
++  readonly width = input<string>('720px');
++  /** Closing by clicking outside (off by default for forms). */
++  readonly dismissable = input(false);
++  readonly hide = output<void>();
++}
+diff --git a/frontend/admin/src/app/shared/reset-password/reset-password.dialog.html b/frontend/admin/src/app/shared/reset-password/reset-password.dialog.html
+index be968a6..7f7aae5 100644
+--- a/frontend/admin/src/app/shared/reset-password/reset-password.dialog.html
++++ b/frontend/admin/src/app/shared/reset-password/reset-password.dialog.html
+@@ -1,5 +1,5 @@
+-<p-dialog [header]="'password.resetTitle' | translate: { name: name() }" [(visible)]="visible" [modal]="true"
+-          [style]="{ width: '440px', maxWidth: '95vw' }" [draggable]="false" (onShow)="generate()">
++<app-dialog [(visible)]="visible" [title]="'password.resetTitle' | translate: { name: name() }" icon="pi pi-key" width="440px">
++<div class="fo-dlg-body">
+   <p class="note">{{ 'password.resetBody' | translate }}</p>
+   <div class="field">
+     <label for="rp-pass">{{ 'password.temporary' | translate }}</label>
+@@ -10,8 +10,12 @@
+     </div>
+     <small class="hint">{{ 'password.rule' | translate }}</small>
+   </div>
+-  <div class="dialog-actions">
+-    <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="visible.set(false)" />
++  
++
++</div>
++<div class="fo-dlg-foot">
+     <p-button [label]="'password.reset' | translate" icon="pi pi-key" [disabled]="!valid()" [loading]="saving()" (onClick)="save()" />
+-  </div>
+-</p-dialog>
++  
++    <p-button [label]="'common.cancel' | translate" severity="secondary" [outlined]="true" (onClick)="visible.set(false)" />
++</div>
++</app-dialog>
+diff --git a/frontend/admin/src/app/shared/reset-password/reset-password.dialog.ts b/frontend/admin/src/app/shared/reset-password/reset-password.dialog.ts
+index 1998b72..cfe18f1 100644
+--- a/frontend/admin/src/app/shared/reset-password/reset-password.dialog.ts
++++ b/frontend/admin/src/app/shared/reset-password/reset-password.dialog.ts
+@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
+ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
+ import { MessageService } from 'primeng/api';
+ import { Button } from 'primeng/button';
+-import { Dialog } from 'primeng/dialog';
++import { AppDialog } from '../dialog/dialog';
+ import { InputText } from 'primeng/inputtext';
+ 
+ import { errorMessage } from '../../core/http/api-error';
+@@ -16,7 +16,7 @@ import { STRONG_PASSWORD } from '../../features/auth/change-password/change-pass
+  */
+ @Component({
+   selector: 'app-reset-password-dialog',
+-  imports: [FormsModule, TranslatePipe, Button, Dialog, InputText],
++  imports: [FormsModule, TranslatePipe, Button, AppDialog, InputText],
+   styleUrl: './reset-password.dialog.scss',
+   templateUrl: './reset-password.dialog.html',
+ })
+diff --git a/frontend/admin/src/styles.scss b/frontend/admin/src/styles.scss
+index d629372..7bad970 100644
+--- a/frontend/admin/src/styles.scss
++++ b/frontend/admin/src/styles.scss
+@@ -388,3 +388,81 @@ body {
+     color: var(--slate-30);
+   }
+ }
++
++// ---------- Dialog frame (shared/dialog) and details dialog (shared/details-dialog) ----------
++// Header and footer stay put; only .fo-dlg-body scrolls (one scrollbar). Same look as the services dialog.
++.p-dialog.fo-dialog {
++  border-radius: 22px;
++  overflow: hidden;
++  max-height: calc(100vh - 2rem);
++  .p-dialog-content { padding: 0; overflow: hidden; display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
++}
++.fo-dlg, .fo-dlg-form { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; max-height: calc(100vh - 2rem); }
++.fo-dlg-head {
++  display: flex; align-items: center; gap: 1rem; flex: none;
++  padding: 1.1rem 1.5rem; border-bottom: 1px solid var(--fo-border); background: var(--fo-surface);
++  .fo-dlg-ico {
++    width: 52px; height: 52px; flex: none; border-radius: 50%; display: grid; place-items: center;
++    background: var(--brand-92); color: var(--brand-26);
++    i { font-size: 1.35rem; }
++  }
++  .fo-dlg-title { flex: 1; min-width: 0; }
++  h2 { margin: 0; font-size: 1.25rem; font-weight: 800; color: var(--fo-text); }
++  p { margin: .2rem 0 0; color: var(--fo-muted); font-size: .85rem; }
++}
++.fo-dlg-close {
++  width: 40px; height: 40px; flex: none; border: 0; border-radius: 50%; background: transparent; cursor: pointer; color: var(--slate-27);
++  &:hover { background: var(--slate-96); }
++}
++.fo-dlg-body {
++  flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 1.25rem 1.5rem;
++  display: flex; flex-direction: column; gap: 1rem; background: var(--fo-surface);
++}
++.fo-dlg-foot {
++  display: flex; align-items: center; justify-content: flex-end; gap: .6rem; flex-wrap: wrap; flex: none;
++  padding: 1rem 1.5rem; border-top: 1px solid var(--fo-border); background: var(--fo-surface);
++  .start { margin-inline-end: auto; }
++  .p-button { border-radius: 14px; padding-inline: 1.3rem; }
++}
++// A white card inside the body (forms), and numbered / titled sections.
++.fo-card { background: var(--fo-surface); border: 1px solid var(--fo-border); border-radius: 14px; padding: 1rem; }
++.fo-sec { border: 1px solid var(--fo-border); border-radius: 18px; background: var(--brand-98); padding: .9rem; }
++.fo-sec-head {
++  display: flex; align-items: center; gap: .75rem; padding: 0 .25rem .75rem;
++  > div { flex: 1; min-width: 0; }
++  h3 { margin: 0; font-size: 1rem; font-weight: 800; color: var(--fo-text); display: flex; align-items: center; gap: .5rem; }
++  h3 i { color: var(--brand-26); }
++  p { margin: .15rem 0 0; font-size: .8rem; color: var(--fo-muted); }
++  .num {
++    width: 30px; height: 30px; flex: none; border-radius: 50%; display: grid; place-items: center;
++    background: var(--brand-26); color: var(--white); font-weight: 800; font-size: .85rem;
++  }
++}
++// Read-only value tiles.
++.fo-details { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: .75rem; }
++.fo-detail {
++  display: flex; flex-direction: column; gap: .25rem; min-width: 0;
++  padding: .75rem .9rem; border-radius: 12px; background: var(--fo-surface); border: 1px solid var(--fo-border);
++  &.full { grid-column: 1 / -1; }
++  small { color: var(--fo-muted); font-size: .75rem; }
++  b { color: var(--fo-text); font-weight: 700; overflow-wrap: anywhere; }
++}
++.fo-multiline { margin: 0; white-space: pre-line; color: var(--slate-27); line-height: 1.7; }
++.fo-muted { color: var(--fo-muted); }
++.fo-pill {
++  display: inline-flex; align-items: center; gap: .35rem; width: fit-content; padding: .25rem .7rem; border-radius: 999px;
++  font-size: .8rem; font-weight: 700; background: var(--brand-93); color: var(--brand-24);
++  &::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
++  &.off { background: var(--slate-95); color: var(--slate-44); }
++}
++.fo-audit { background: var(--slate-98); }
++// "Created by" table cell.
++.fo-created-by {
++  display: inline-flex; flex-direction: column; line-height: 1.3;
++  .who { font-weight: 600; color: var(--fo-text); }
++  .who.sys { color: var(--fo-muted); font-weight: 500; }
++  small { color: var(--fo-muted); font-size: .72rem; }
++}
++@media (max-width: 640px) {
++  .fo-dlg-head, .fo-dlg-body, .fo-dlg-foot { padding-inline: 1rem; }
++}

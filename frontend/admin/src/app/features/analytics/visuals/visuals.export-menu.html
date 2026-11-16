@@ -1,8 +1,8 @@
 <p-button icon="pi pi-download" [label]="'analytics.export' | translate" [outlined]="true" [loading]="busy()" (onClick)="menu.toggle($event)" />
 <p-menu #menu [model]="items()" [popup]="true" appendTo="body" />
 
-<p-dialog [header]="(period() === 'month' ? 'analytics.monthlyReport' : 'analytics.yearlyReport') | translate" [visible]="dialog()"
-          (visibleChange)="dialog.set($event)" [modal]="true" [style]="{ width: '380px', maxWidth: '95vw' }" [draggable]="false">
+<app-dialog [visible]="dialog()" (visibleChange)="dialog.set($event)" [title]="(period() === 'month' ? 'analytics.monthlyReport' : 'analytics.yearlyReport') | translate" icon="pi pi-file-export" width="380px">
+<div class="fo-dlg-body">
   <div class="row">
     @if (period() === 'month') {
       <p-datepicker [(ngModel)]="month" view="month" dateFormat="yy-mm" [inline]="true" [maxDate]="today" />
@@ -15,4 +15,6 @@
     <p-button [text]="true" severity="secondary" [label]="'common.cancel' | translate" (onClick)="dialog.set(false)" />
     <p-button icon="pi pi-download" [label]="'analytics.download' | translate" [loading]="busy()" (onClick)="downloadPeriod()" />
   </div>
-</p-dialog>
+
+</div>
+</app-dialog>

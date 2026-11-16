@@ -60,7 +60,9 @@
         <th>{{ 'bookings.customer' | translate }}</th>
         <th>{{ 'bookings.technicians' | translate }}</th>
         <th>{{ 'bookings.amount' | translate }}</th>
+        <th>{{ 'audit.createdBy' | translate }}</th>
         <th>{{ 'common.status' | translate }}</th>
+        <th></th>
       </tr>
     </ng-template>
     <ng-template #body let-b>
@@ -96,13 +98,28 @@
             <div class="muted"><s class="ltr">{{ b.subtotalHalalas | sar }}</s></div>
           }
         </td>
+        <td><app-created-by [audit]="b.audit" /></td>
         <td><app-booking-status [status]="b.status" /></td>
-      </tr>
+        <td class="row-actions"><p-button icon="pi pi-eye" [text]="true" severity="secondary" (onClick)="view(b, $event)" [ariaLabel]="'common.view' | translate" /></td>
+            </tr>
     </ng-template>
     <ng-template #emptymessage>
       <tr>
-        <td colspan="7"><div class="empty"><i class="pi pi-calendar"></i>{{ 'bookings.empty' | translate }}</div></td>
+        <td colspan="9"><div class="empty"><i class="pi pi-calendar"></i>{{ 'bookings.empty' | translate }}</div></td>
       </tr>
     </ng-template>
   </p-table>
 </div>
+
+<app-details-dialog
+  [(visible)]="viewOpen"
+  [title]="viewing() ? ('#' + viewing()!.number) : ''"
+  [subtitle]="viewing()?.customerName"
+  icon="pi pi-calendar"
+  [fields]="viewing() ? viewFields(viewing()!) : []"
+  [audit]="viewing()?.audit"
+  [canEdit]="true"
+  editLabel="common.open"
+  editIcon="pi pi-external-link"
+  (edit)="open(viewing()!)"
+/>

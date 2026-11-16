@@ -18,9 +18,8 @@
         <th>{{ 'promos.validity' | translate }}</th>
         <th>{{ 'promos.usage' | translate }}</th>
         <th>{{ 'common.status' | translate }}</th>
-        @if (isOwner) {
-          <th></th>
-        }
+        <th>{{ 'audit.createdBy' | translate }}</th>
+        <th></th>
       </tr>
     </ng-template>
     <ng-template #body let-p>
@@ -65,30 +64,28 @@
         <td>
           <p-tag [value]="'promos.state.' + state(p) | translate" [severity]="severity(p)" />
         </td>
-        @if (isOwner) {
-          <td class="row-actions">
+        <td><app-created-by [audit]="p.audit" /></td>
+        <td class="row-actions">
+          <p-button icon="pi pi-eye" [text]="true" severity="secondary" (onClick)="view(p)" [ariaLabel]="'common.view' | translate" />
+          @if (isOwner) {
             <p-button icon="pi pi-pencil" [text]="true" severity="secondary" (onClick)="open(p)" />
             <p-button icon="pi pi-trash" [text]="true" severity="danger" (onClick)="remove(p)" />
-          </td>
-        }
+          }
+        </td>
       </tr>
     </ng-template>
     <ng-template #emptymessage>
       <tr>
-        <td colspan="7"><div class="empty"><i class="pi pi-ticket"></i>{{ 'promos.empty' | translate }}</div></td>
+        <td colspan="9"><div class="empty"><i class="pi pi-ticket"></i>{{ 'promos.empty' | translate }}</div></td>
       </tr>
     </ng-template>
   </p-table>
 </div>
 
-<p-dialog
-  [header]="(editing() ? 'promos.edit' : 'promos.new') | translate"
-  [(visible)]="dialogOpen"
-  [modal]="true"
-  [style]="{ width: '720px', maxWidth: '95vw' }"
-  [draggable]="false"
->
-  <form [formGroup]="form" (ngSubmit)="save()" class="form-grid">
+<app-dialog [(visible)]="dialogOpen" [title]="(editing() ? 'promos.edit' : 'promos.new') | translate" icon="pi pi-ticket" width="720px">
+<form [formGroup]="form" (ngSubmit)="save()" class="fo-dlg-form">
+<div class="fo-dlg-body">
+  <div class="fo-card form-grid">
     <div class="field">
       <label for="p-code">{{ 'promos.code' | translate }}</label>
       <input pInputText id="p-code" dir="ltr" formControlName="code" placeholder="WELCOME20" (input)="upperCode()" maxlength="30" />
@@ -169,10 +166,23 @@
         <code class="ltr">{{ form.controls.code.value || 'CODE' }}</code>
       </div>
     }
-
-    <div class="dialog-actions full">
-      <p-button [label]="'common.cancel' | translate" severity="secondary" [text]="true" (onClick)="dialogOpen.set(false)" />
+</div>
+  </div>
+<div class="fo-dlg-foot">
       <p-button type="submit" [label]="'common.save' | translate" [loading]="saving()" [disabled]="form.invalid" />
-    </div>
-  </form>
-</p-dialog>
+
+      <p-button [label]="'common.cancel' | translate" severity="secondary" [outlined]="true" (onClick)="dialogOpen.set(false)" />
+</div>
+</form>
+</app-dialog>
+
+<app-details-dialog
+  [(visible)]="viewOpen"
+  [title]="viewing()?.code ?? ''"
+  [subtitle]="viewing() ? label(viewing()!.title, viewing()!.titleEn) : null"
+  icon="pi pi-ticket"
+  [fields]="viewing() ? viewFields(viewing()!) : []"
+  [audit]="viewing()?.audit"
+  [canEdit]="isOwner"
+  (edit)="open(viewing()!)"
+/>

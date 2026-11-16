@@ -11,10 +11,12 @@ import { QuoteStatusTag } from '../../../shared/document-status/document-status'
 import { SarPipe } from '../../../shared/format';
 import { LocalDatePipe } from '../../../shared/local-date.pipe';
 import { BillingApi } from '../billing.api';
+import { DetailField, DetailsDialog } from '../../../shared/details-dialog/details-dialog';
+import { CreatedBy } from '../../../shared/details-dialog/audit-block';
 
 @Component({
   selector: 'app-quotes',
-  imports: [FormsModule, RouterLink, TranslatePipe, TableModule, Button, SelectButton, QuoteStatusTag, SarPipe, LocalDatePipe],
+  imports: [DetailsDialog, CreatedBy, FormsModule, RouterLink, TranslatePipe, TableModule, Button, SelectButton, QuoteStatusTag, SarPipe, LocalDatePipe],
   styleUrl: './quotes.page.scss',
   templateUrl: './quotes.page.html',
 })
@@ -62,4 +64,25 @@ export class QuotesPage {
       error: () => this.loading.set(false),
     });
   }
+  /** Read-only details with who created / last changed the record (eye button in the table). */
+  protected readonly viewing = signal<QuoteSummary | null>(null);
+  protected readonly viewOpen = signal(false);
+
+  protected view(item: QuoteSummary, event?: Event): void {
+    event?.stopPropagation();
+    this.viewing.set(item);
+    this.viewOpen.set(true);
+  }
+
+  protected viewFields(x: QuoteSummary): DetailField[] {
+    return [
+      { label: 'quotes.number', value: 'Q-' + x.number, kind: 'ltr' },
+      { label: 'common.status', value: this.translate.instant(x.expired ? 'quoteStatus.EXPIRED' : 'quoteStatus.' + x.status), kind: 'status', on: !x.expired && x.status !== 'REJECTED' },
+      { label: 'doc.date', value: x.createdAt, kind: 'datetime' },
+      { label: 'doc.validUntil', value: x.validUntil, kind: 'date' },
+      { label: 'bookings.customer', value: x.customerName },
+      { label: 'doc.total', value: x.totalHalalas, kind: 'money' },
+    ];
+  }
+
 }

@@ -1,5 +1,7 @@
 package com.fieldops.app.catalog;
 
+import com.fieldops.app.common.audit.AuditNames;
+import com.fieldops.app.common.audit.Audited;
 import java.util.List;
 import java.util.UUID;
 
@@ -33,8 +35,10 @@ public class CatalogController {
 
     private final CatalogService service;
     private final ServiceImageService images;
+    private final AuditNames audits;
 
-    public CatalogController(CatalogService service, ServiceImageService images) {
+    public CatalogController(CatalogService service, ServiceImageService images, AuditNames audits) {
+        this.audits = audits;
         this.service = service;
         this.images = images;
     }
@@ -56,8 +60,8 @@ public class CatalogController {
     }
 
     @GetMapping
-    public List<ServiceDto> list(@RequestParam(defaultValue = "false") boolean activeOnly) {
-        return service.list(activeOnly).stream().map(ServiceDto::of).toList();
+    public List<Audited<ServiceDto>> list(@RequestParam(defaultValue = "false") boolean activeOnly) {
+        return audits.list(service.list(activeOnly), ServiceDto::of);
     }
 
     @GetMapping("/{id}")
