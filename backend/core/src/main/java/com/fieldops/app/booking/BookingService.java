@@ -232,7 +232,7 @@ public class BookingService {
             b.setCancelReason(trim(reason));
         }
         if (target == BookingStatus.COMPLETED && tenants.current().isAutoInvoice()
-                && tenants.hasFeature(tenants.current(), PlanFeature.QUOTES_INVOICES)) {
+                && tenants.hasFeature(tenants.current(), PlanFeature.INVOICES)) {
             b.requestInvoice(Instant.now(clock));
         }
         log(b.getId(), VisitEvent.Type.STATUS_CHANGED, from, target, trim(reason));

@@ -229,8 +229,8 @@
 
         <section class="card">
           <div class="card-h"><i class="pi pi-receipt"></i><h2>{{ 'invoices.billing' | translate }}</h2></div>
-          @if (tenants.locked('quotes_invoices')) {
-            <app-locked-feature feature="quotes_invoices" />
+          @if (tenants.locked('invoices')) {
+            <app-locked-feature feature="invoices" />
           } @else {
           @for (inv of invoices(); track inv.id) {
             <div class="inv">

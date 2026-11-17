@@ -52,7 +52,7 @@ public class TenantController {
     /** Public: used by the pricing page. */
     @GetMapping("/plans")
     public List<PlanDto> plans() {
-        return service.activePlans().stream().map(PlanDto::of).toList();
+        return service.activePlans().stream().map(PlanDto::sold).toList();
     }
 
     @GetMapping("/tenant")
@@ -209,7 +209,13 @@ public class TenantController {
 
     public record PlanDto(String id, String nameAr, String nameEn, long priceMonthlyHalalas,
                           Long priceYearlyHalalas, int maxTechnicians, List<String> features) {
-        /** {@code features} = what the company can use now: the plan's, plus the trial extras while on trial. */
+        /** The plan as sold (pricing page, upgrade dialog): its own features only. */
+        static PlanDto sold(Plan p) {
+            return new PlanDto(p.getId(), p.getNameAr(), p.getNameEn(), p.getPriceMonthlyHalalas(),
+                    p.getPriceYearlyHalalas(), p.getMaxTechnicians(), p.getFeatures());
+        }
+
+        /** {@code features} = what the company can use now: the plan's, or everything while on trial. */
         static PlanDto of(Plan p, TenantStatus status) {
             return new PlanDto(p.getId(), p.getNameAr(), p.getNameEn(), p.getPriceMonthlyHalalas(),
                     p.getPriceYearlyHalalas(), p.getMaxTechnicians(),

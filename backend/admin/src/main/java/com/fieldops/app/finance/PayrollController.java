@@ -37,7 +37,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/v1/payroll")
-@RequiresFeature(PlanFeature.REPORTS)
+@RequiresFeature(PlanFeature.PAYROLL)
 @PreAuthorize("hasRole('OWNER')")
 public class PayrollController {
 

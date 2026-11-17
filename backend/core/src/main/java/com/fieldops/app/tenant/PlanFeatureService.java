@@ -14,8 +14,9 @@ import com.fieldops.app.common.tenant.TenantContext;
 import com.fieldops.app.common.web.ApiException;
 
 /**
- * Answers "does this company's plan include feature X?" (plus the trial extras while on trial, see
- * {@link PlanFeature#DURING_TRIAL}). Decided from the database only (tenant row and its plan), cached briefly like {@link TenantAccessService}. Call {@link #evict} after a plan change.
+ * Answers "does this company's plan include feature X?" (everything while on trial, see
+ * {@link PlanFeature#DURING_TRIAL}). Decided from the database only (tenant row and
+ * its plan), cached briefly like {@link TenantAccessService}. Call {@link #evict} after a plan change.
  */
 @Service
 public class PlanFeatureService {
@@ -50,6 +51,16 @@ public class PlanFeatureService {
         if (!has(feature)) {
             throw ApiException.forbidden("feature_not_in_plan", "Your plan does not include " + feature);
         }
+    }
+
+    /** Like {@link #require} with several features: one of them is enough. */
+    public void requireAny(String... any) {
+        for (String f : any) {
+            if (has(f)) {
+                return;
+            }
+        }
+        throw ApiException.forbidden("feature_not_in_plan", "Your plan does not include " + String.join(" / ", any));
     }
 
     public void evict(UUID tenantId) {

@@ -85,7 +85,8 @@ public class PublicDocumentService {
     private CompanyDto company() {
         Tenant t = tenants.current();
         return new CompanyDto(t.getName(), t.getSlug(), t.getLogoUrl(), t.getPhone(), t.getVatNumber(), t.getAddress(),
-                t.getCommercialRegistration(), t.getTimezone());
+                t.getCommercialRegistration(), t.getTimezone(),
+                tenants.hasFeature(t, com.fieldops.app.tenant.PlanFeature.BOOKING_PAGE));
     }
 
     private <T> T as(String token, PublicLink.Type type, java.util.function.Function<PublicLink, T> work) {

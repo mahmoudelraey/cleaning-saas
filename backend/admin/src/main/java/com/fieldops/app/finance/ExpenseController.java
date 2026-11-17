@@ -27,7 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 /** Operating expenses. Owners, and coordinators the owner gave the Expenses screen (ScreenAccessInterceptor). */
 @RestController
 @RequestMapping("/api/v1/expenses")
-@RequiresFeature(PlanFeature.REPORTS)
+@RequiresFeature(PlanFeature.FINANCE)
 @PreAuthorize("hasAnyRole('OWNER','COORDINATOR')")
 public class ExpenseController {
 

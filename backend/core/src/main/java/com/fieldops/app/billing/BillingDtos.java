@@ -85,9 +85,9 @@ public final class BillingDtos {
         }
     }
 
-    /** Company block for the public invoice/quote page. */
+    /** Company block for the public invoice/quote page; {@code portal}: link to the customer portal is shown. */
     public record CompanyDto(String name, String slug, String logoUrl, String phone, String vatNumber,
-                             String address, String commercialRegistration, String timezone) {
+                             String address, String commercialRegistration, String timezone, boolean portal) {
     }
 
     public record PublicInvoiceDto(CompanyDto company, InvoiceDto invoice) {

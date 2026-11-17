@@ -339,7 +339,7 @@ export class BookingDetailPage implements OnInit {
       // Only when the plan has invoicing (otherwise the API answers feature_not_in_plan).
       this.tenants.ensureLoaded().subscribe({
         next: () => {
-          if (this.tenants.has('quotes_invoices')) {
+          if (this.tenants.has('invoices')) {
             this.billing.bookingInvoices(this.id()).subscribe({ next: (i) => this.invoices.set(i), error: () => {} });
           }
         },

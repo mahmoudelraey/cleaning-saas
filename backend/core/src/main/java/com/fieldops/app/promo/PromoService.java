@@ -15,6 +15,9 @@ import com.fieldops.app.booking.BookingStatus;
 import com.fieldops.app.common.web.ApiException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+
+import com.fieldops.app.tenant.PlanFeature;
+import com.fieldops.app.tenant.PlanFeatureService;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -29,10 +32,12 @@ public class PromoService {
     private static final Set<BookingStatus> NOT_COUNTED = Set.of(BookingStatus.CANCELLED);
 
     private final PromoRepository promos;
+    private final PlanFeatureService features;
     private final Clock clock;
 
-    public PromoService(PromoRepository promos, Clock clock) {
+    public PromoService(PromoRepository promos, PlanFeatureService features, Clock clock) {
         this.promos = promos;
+        this.features = features;
         this.clock = clock;
     }
 
@@ -109,6 +114,9 @@ public class PromoService {
     /** The newest announced promo that a customer could use right now, if any. */
     @Transactional(readOnly = true)
     public Optional<Promo> announced() {
+        if (!features.has(PlanFeature.PROMOS)) {
+            return Optional.empty();
+        }
         Instant now = Instant.now(clock);
         return promos.findByAnnounceTrueAndActiveTrueOrderByCreatedAtDesc().stream()
                 .filter(p -> p.liveAt(now))
@@ -127,7 +135,7 @@ public class PromoService {
     @Transactional
     public Applied check(String rawCode, UUID customerId, long subtotal, boolean forBooking) {
         String code = normalize(rawCode);
-        if (code.isEmpty()) {
+        if (code.isEmpty() || !features.has(PlanFeature.PROMOS)) { // plan without promos: codes don't exist
             throw ApiException.notFound("promo");
         }
         Promo p = (forBooking ? promos.findByCodeForUpdate(code) : promos.findByCode(code))

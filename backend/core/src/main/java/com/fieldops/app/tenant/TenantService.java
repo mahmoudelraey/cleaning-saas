@@ -221,7 +221,7 @@ public class TenantService {
 
     @Transactional(readOnly = true)
     public boolean hasFeature(Tenant tenant, String feature) {
-        return planOf(tenant).getFeatures().contains(feature);
+        return PlanFeature.effective(planOf(tenant).getFeatures(), tenant.getStatus()).contains(feature);
     }
 
     public Plan planOf(Tenant tenant) {

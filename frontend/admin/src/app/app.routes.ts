@@ -113,7 +113,7 @@ export const routes: Routes = [
       {
         // Discount codes; managing them is part of managing prices, so the Services screen opens it.
         path: 'promos',
-        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('SERVICES')],
+        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('SERVICES'), featureGuard('promos')],
         loadComponent: () => import('./features/promos/promos.page').then((m) => m.PromosPage),
       },
       {
@@ -123,55 +123,55 @@ export const routes: Routes = [
       },
       {
         path: 'invoices',
-        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('INVOICES'), featureGuard('quotes_invoices')],
+        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('INVOICES'), featureGuard('invoices')],
         loadComponent: () => import('./features/billing/invoices/invoices.page').then((m) => m.InvoicesPage),
       },
       {
         path: 'invoices/new',
-        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('INVOICES'), featureGuard('quotes_invoices')],
+        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('INVOICES'), featureGuard('invoices')],
         data: { kind: 'invoice' },
         loadComponent: () => import('./features/billing/document-editor/document-editor.page').then((m) => m.DocumentEditorPage),
       },
       {
         path: 'invoices/:id',
-        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('INVOICES'), featureGuard('quotes_invoices')],
+        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('INVOICES'), featureGuard('invoices')],
         loadComponent: () => import('./features/billing/invoice-detail/invoice-detail.page').then((m) => m.InvoiceDetailPage),
       },
       {
         path: 'quotes',
-        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('QUOTES'), featureGuard('quotes_invoices')],
+        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('QUOTES'), featureGuard('quotes')],
         loadComponent: () => import('./features/billing/quotes/quotes.page').then((m) => m.QuotesPage),
       },
       {
         path: 'quotes/new',
-        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('QUOTES'), featureGuard('quotes_invoices')],
+        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('QUOTES'), featureGuard('quotes')],
         data: { kind: 'quote' },
         loadComponent: () => import('./features/billing/document-editor/document-editor.page').then((m) => m.DocumentEditorPage),
       },
       {
         path: 'quotes/:id/edit',
-        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('QUOTES'), featureGuard('quotes_invoices')],
+        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('QUOTES'), featureGuard('quotes')],
         data: { kind: 'quote' },
         loadComponent: () => import('./features/billing/document-editor/document-editor.page').then((m) => m.DocumentEditorPage),
       },
       {
         path: 'quotes/:id',
-        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('QUOTES'), featureGuard('quotes_invoices')],
+        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('QUOTES'), featureGuard('quotes')],
         loadComponent: () => import('./features/billing/quote-detail/quote-detail.page').then((m) => m.QuoteDetailPage),
       },
       {
         path: 'messages',
-        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('MESSAGES')],
+        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('MESSAGES'), featureGuard('messages')],
         loadComponent: () => import('./features/messages/messages.page').then((m) => m.MessagesPage),
       },
       {
         path: 'contact-requests',
-        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('CONTACT_REQUESTS')],
+        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('CONTACT_REQUESTS'), featureGuard('contact_requests')],
         loadComponent: () => import('./features/contact/contact-requests/contact-requests.page').then((m) => m.ContactRequestsPage),
       },
       {
         path: 'reviews',
-        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('REVIEWS')],
+        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('REVIEWS'), featureGuard('reviews')],
         loadComponent: () => import('./features/reviews/reviews.page').then((m) => m.ReviewsPage),
       },
       {
@@ -181,17 +181,17 @@ export const routes: Routes = [
       },
       {
         path: 'sales',
-        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('SALES'), featureGuard('reports')],
+        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('SALES'), featureGuard('sales')],
         loadComponent: () => import('./features/sales/sales.page').then((m) => m.SalesPage),
       },
       {
         path: 'finance',
-        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('EXPENSES'), featureGuard('reports')],
+        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('EXPENSES'), featureGuard('finance')],
         loadComponent: () => import('./features/finance/finance.page').then((m) => m.FinancePage),
       },
       {
         path: 'payroll',
-        canActivate: [roleGuard('OWNER'), featureGuard('reports')],
+        canActivate: [roleGuard('OWNER'), featureGuard('payroll')],
         loadComponent: () => import('./features/payroll/payroll.page').then((m) => m.PayrollPage),
       },
       // FieldOps owner's console.

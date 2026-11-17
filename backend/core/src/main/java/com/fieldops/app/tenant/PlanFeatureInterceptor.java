@@ -29,8 +29,8 @@ public class PlanFeatureInterceptor implements HandlerInterceptor {
         if (rule == null) {
             rule = AnnotatedElementUtils.findMergedAnnotation(hm.getBeanType(), RequiresFeature.class);
         }
-        if (rule != null) {
-            features.require(rule.value());
+        if (rule != null && rule.value().length > 0) {
+            features.requireAny(rule.value());
         }
         return true;
     }

@@ -52,10 +52,7 @@ public class PlatformService {
     /** Dates entered in the console are Saudi days. */
     static final ZoneId ZONE = ZoneId.of("Asia/Riyadh");
     private static final Pattern PLAN_ID = Pattern.compile("[a-z][a-z0-9_-]{1,29}");
-    public static final List<String> FEATURES = List.of(PlanFeature.SCHEDULING, PlanFeature.CUSTOMERS,
-            PlanFeature.BOOKING_PAGE, PlanFeature.WHATSAPP_LIMITED, PlanFeature.WHATSAPP, PlanFeature.QUOTES_INVOICES,
-            PlanFeature.PHOTOS, PlanFeature.REPORTS, PlanFeature.ONLINE_PAYMENTS, PlanFeature.BRANDING,
-            PlanFeature.PRIORITY_SUPPORT);
+    public static final List<String> FEATURES = PlanFeature.ALL;
 
     private final TenantRepository tenants;
     private final PlanRepository plans;

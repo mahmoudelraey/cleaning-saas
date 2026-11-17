@@ -9,7 +9,9 @@
         <p-button [label]="lang.current() === 'ar' ? 'English' : 'العربية'" [text]="true" size="small" (onClick)="lang.toggle()" />
         <a [href]="pdfUrl()" target="_blank" rel="noopener"><p-button icon="pi pi-download" [label]="'doc.pdf' | translate" [outlined]="true" size="small" /></a>
         <p-button icon="pi pi-print" [label]="'doc.print' | translate" [outlined]="true" size="small" (onClick)="print()" />
-        <a [href]="portalLink(c.slug)" target="_blank" rel="noopener"><p-button icon="pi pi-calendar" [label]="'doc.myBookings' | translate" [outlined]="true" size="small" /></a>
+        @if (c.portal) {
+          <a [href]="portalLink(c.slug)" target="_blank" rel="noopener"><p-button icon="pi pi-calendar" [label]="'doc.myBookings' | translate" [outlined]="true" size="small" /></a>
+        }
         @if (c.phone) {
           <a [href]="'https://wa.me/' + c.phone.replace('+', '')" target="_blank" rel="noopener">
             <p-button icon="pi pi-whatsapp" [label]="'doc.contact' | translate" severity="success" size="small" />

@@ -117,9 +117,16 @@ public class CustomerPortalService {
 
     // --- company ------------------------------------------------------------------------------------
 
-    /** The company behind a portal link; only companies whose subscription is usable. */
+    /**
+     * The company behind a portal link; only companies whose subscription is usable and whose plan includes the
+     * customer portal (otherwise 404, as if the link did not exist).
+     */
     public Tenant company(String slug) {
-        return tenants.bySlug(slug);
+        Tenant t = tenants.bySlug(slug);
+        if (!tenants.hasFeature(t, PlanFeature.BOOKING_PAGE)) {
+            throw ApiException.notFound("tenant");
+        }
+        return t;
     }
 
     public boolean bookingOpen(Tenant t) {

@@ -3,7 +3,7 @@
     <h1>{{ 'reviews.title' | translate }}</h1>
     <p>{{ 'reviews.subtitle' | translate }}</p>
   </div>
-  <a [href]="tenants.portalUrl()" target="_blank" rel="noopener">
+  <a [href]="tenants.portalUrl()" target="_blank" rel="noopener" [hidden]="tenants.locked('booking_page')">
     <p-button icon="pi pi-external-link" [label]="'reviews.viewPage' | translate" [outlined]="true" />
   </a>
 </div>

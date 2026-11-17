@@ -2,6 +2,8 @@ package com.fieldops.app.promo;
 
 import com.fieldops.app.common.audit.AuditNames;
 import com.fieldops.app.common.audit.Audited;
+import com.fieldops.app.tenant.PlanFeature;
+import com.fieldops.app.tenant.RequiresFeature;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -25,6 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /** Promotions (discount codes). Coordinators with the Services screen can see them; only owners change them. */
 @RestController
+@RequiresFeature(PlanFeature.PROMOS)
 @RequestMapping("/api/v1/promos")
 @PreAuthorize("hasAnyRole('OWNER','COORDINATOR')")
 public class PromoController {

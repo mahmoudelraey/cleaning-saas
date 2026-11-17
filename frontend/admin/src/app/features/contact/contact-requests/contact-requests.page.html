@@ -3,7 +3,7 @@
     <h1>{{ 'contactRequests.title' | translate }}</h1>
     <p>{{ 'contactRequests.subtitle' | translate }}</p>
   </div>
-  <a [href]="tenants.portalUrl() + '/contact'" target="_blank" rel="noopener">
+  <a [href]="tenants.portalUrl() + '/contact'" target="_blank" rel="noopener" [hidden]="tenants.locked('booking_page')">
     <p-button icon="pi pi-external-link" [label]="'contactRequests.viewPage' | translate" [outlined]="true" />
   </a>
 </div>

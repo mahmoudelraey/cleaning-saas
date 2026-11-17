@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 /** Profit and loss by month (revenue, salaries, expenses) and service costs. Owner only: it reveals salaries. */
 @RestController
 @RequestMapping("/api/v1/finance")
-@RequiresFeature(PlanFeature.REPORTS)
+@RequiresFeature(PlanFeature.FINANCE)
 @PreAuthorize("hasRole('OWNER')")
 public class FinanceController {
 
@@ -37,6 +37,8 @@ public class FinanceController {
         return analytics.finance(year);
     }
 
+    /** Unit cost, also edited from the Sales page (profitability). */
+    @RequiresFeature({PlanFeature.FINANCE, PlanFeature.SALES})
     @PutMapping("/service-costs/{serviceId}")
     public ResponseEntity<Void> setServiceCost(@PathVariable UUID serviceId, @RequestBody CostRequest req) {
         costs.setCost(serviceId, req.costHalalas());

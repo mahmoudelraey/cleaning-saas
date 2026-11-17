@@ -47,7 +47,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1")
 @PreAuthorize("hasAnyRole('OWNER','COORDINATOR')")
-@RequiresFeature(PlanFeature.QUOTES_INVOICES)
+@RequiresFeature({PlanFeature.INVOICES, PlanFeature.QUOTES})
 public class BillingController {
 
     private final BillingService billing;
@@ -62,6 +62,7 @@ public class BillingController {
 
     // ---------------------------------------------------------------------------------------- invoices
 
+    @RequiresFeature(PlanFeature.INVOICES)
     @GetMapping("/invoices")
     public PageResponse<Audited<InvoiceSummary>> invoices(@RequestParam(required = false) String status,
                                                  @RequestParam(required = false) UUID customerId,
@@ -70,12 +71,14 @@ public class BillingController {
         return audits.page(billing.searchInvoices(status, customerId, pageRequest(page, size)), InvoiceSummary::of);
     }
 
+    @RequiresFeature(PlanFeature.INVOICES)
     @GetMapping("/invoices/{id}")
     public InvoiceDto invoice(@PathVariable UUID id) {
         BillingService.InvoiceDetail d = billing.invoiceDetail(id);
         return InvoiceDto.of(d.invoice(), d.payments(), d.publicUrl());
     }
 
+    @RequiresFeature(PlanFeature.INVOICES)
     @PostMapping("/invoices")
     @ResponseStatus(HttpStatus.CREATED)
     public InvoiceDto issue(@Valid @RequestBody IssueInvoiceRequest req) {
@@ -85,11 +88,13 @@ public class BillingController {
         return invoice(inv.getId());
     }
 
+    @RequiresFeature(PlanFeature.INVOICES)
     @GetMapping("/bookings/{bookingId}/invoices")
     public List<InvoiceSummary> bookingInvoices(@PathVariable UUID bookingId) {
         return billing.invoicesForBooking(bookingId).stream().map(InvoiceSummary::of).toList();
     }
 
+    @RequiresFeature(PlanFeature.INVOICES)
     @PostMapping("/bookings/{bookingId}/invoice")
     @ResponseStatus(HttpStatus.CREATED)
     public InvoiceDto issueForBooking(@PathVariable UUID bookingId, @Valid @RequestBody(required = false) FromBookingRequest req) {
@@ -100,6 +105,7 @@ public class BillingController {
         return invoice(inv.getId());
     }
 
+    @RequiresFeature(PlanFeature.INVOICES)
     @PostMapping("/invoices/{id}/payments")
     @ResponseStatus(HttpStatus.CREATED)
     public PaymentDto pay(@PathVariable UUID id, @Valid @RequestBody PaymentRequest req) {
@@ -107,6 +113,7 @@ public class BillingController {
                 req.method(), req.amountHalalas(), req.reference(), req.paidAt())));
     }
 
+    @RequiresFeature(PlanFeature.INVOICES)
     @PostMapping("/invoices/{id}/void")
     @PreAuthorize("hasRole('OWNER')")
     public InvoiceDto voidInvoice(@PathVariable UUID id, @Valid @RequestBody VoidRequest req) {
@@ -114,16 +121,19 @@ public class BillingController {
         return invoice(id);
     }
 
+    @RequiresFeature(PlanFeature.INVOICES)
     @PostMapping("/invoices/{id}/send")
     public LinkDto send(@PathVariable UUID id) {
         return new LinkDto(billing.sendInvoice(id));
     }
 
+    @RequiresFeature(PlanFeature.INVOICES)
     @PostMapping("/invoices/{id}/link")
     public LinkDto invoiceLink(@PathVariable UUID id) {
         return new LinkDto(billing.invoiceLink(id));
     }
 
+    @RequiresFeature(PlanFeature.INVOICES)
     @GetMapping("/invoices/{id}/pdf")
     public ResponseEntity<byte[]> invoicePdf(@PathVariable UUID id) {
         Invoice inv = billing.getInvoice(id);
@@ -132,6 +142,7 @@ public class BillingController {
 
     // ------------------------------------------------------------------------------------------ quotes
 
+    @RequiresFeature(PlanFeature.QUOTES)
     @GetMapping("/quotes")
     public PageResponse<Audited<QuoteSummary>> quotes(@RequestParam(required = false) String status,
                                              @RequestParam(required = false) UUID customerId,
@@ -142,18 +153,21 @@ public class BillingController {
                 q -> QuoteSummary.of(q, today));
     }
 
+    @RequiresFeature(PlanFeature.QUOTES)
     @GetMapping("/quotes/{id}")
     public QuoteDto quote(@PathVariable UUID id) {
         BillingService.QuoteDetail d = billing.quoteDetail(id);
         return QuoteDto.of(d.quote(), LocalDate.now(billing.zone()), d.publicUrl(), d.invoiceId());
     }
 
+    @RequiresFeature(PlanFeature.QUOTES)
     @PostMapping("/quotes")
     @ResponseStatus(HttpStatus.CREATED)
     public QuoteDto createQuote(@Valid @RequestBody QuoteRequest req) {
         return quote(billing.createQuote(command(req)).getId());
     }
 
+    @RequiresFeature(PlanFeature.QUOTES)
     @PostMapping("/bookings/{bookingId}/quote")
     @ResponseStatus(HttpStatus.CREATED)
     public QuoteDto quoteForBooking(@PathVariable UUID bookingId,
@@ -162,34 +176,40 @@ public class BillingController {
         return quote(billing.quoteFromBooking(bookingId, r.validUntil(), r.notes()).getId());
     }
 
+    @RequiresFeature(PlanFeature.QUOTES)
     @PutMapping("/quotes/{id}")
     public QuoteDto updateQuote(@PathVariable UUID id, @Valid @RequestBody QuoteRequest req) {
         billing.updateQuote(id, command(req));
         return quote(id);
     }
 
+    @RequiresFeature(PlanFeature.QUOTES)
     @PostMapping("/quotes/{id}/send")
     public LinkDto sendQuote(@PathVariable UUID id) {
         return new LinkDto(billing.sendQuote(id));
     }
 
+    @RequiresFeature(PlanFeature.QUOTES)
     @PostMapping("/quotes/{id}/link")
     public LinkDto quoteLink(@PathVariable UUID id) {
         return new LinkDto(billing.quoteLink(id));
     }
 
+    @RequiresFeature(PlanFeature.QUOTES)
     @PostMapping("/quotes/{id}/accept")
     public QuoteDto accept(@PathVariable UUID id) {
         billing.respondToQuote(id, true);
         return quote(id);
     }
 
+    @RequiresFeature(PlanFeature.QUOTES)
     @PostMapping("/quotes/{id}/reject")
     public QuoteDto reject(@PathVariable UUID id) {
         billing.respondToQuote(id, false);
         return quote(id);
     }
 
+    @RequiresFeature(PlanFeature.QUOTES)
     @PostMapping("/quotes/{id}/invoice")
     @ResponseStatus(HttpStatus.CREATED)
     public InvoiceDto convert(@PathVariable UUID id, @Valid @RequestBody(required = false) ConvertQuoteRequest req) {
@@ -198,6 +218,7 @@ public class BillingController {
         return invoice(inv.getId());
     }
 
+    @RequiresFeature(PlanFeature.QUOTES)
     @GetMapping("/quotes/{id}/pdf")
     public ResponseEntity<byte[]> quotePdf(@PathVariable UUID id) {
         Quote q = billing.getQuote(id);

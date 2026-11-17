@@ -2,6 +2,8 @@ package com.fieldops.app.contact;
 
 import com.fieldops.app.common.audit.AuditNames;
 import com.fieldops.app.common.audit.Audited;
+import com.fieldops.app.tenant.PlanFeature;
+import com.fieldops.app.tenant.RequiresFeature;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /** The office's inbox of "Contact us" messages from the customer portal. */
 @RestController
+@RequiresFeature(PlanFeature.CONTACT_REQUESTS)
 @RequestMapping("/api/v1/contact-messages")
 @PreAuthorize("hasAnyRole('OWNER','COORDINATOR')")
 public class ContactMessageController {
@@ -36,6 +39,8 @@ public class ContactMessageController {
     }
 
     /** For the sidebar badge. */
+    /** Sidebar badge: answered on every plan (0 is fine to show). */
+    @RequiresFeature({})
     @GetMapping("/count")
     public CountDto countNew() {
         return new CountDto(contacts.countNew());

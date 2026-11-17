@@ -40,7 +40,7 @@
         <label class="check"><p-checkbox formControlName="pricesIncludeVat" [binary]="true" /> {{ 'settings.pricesIncludeVat' | translate }}</label>
         <small class="hint">{{ 'settings.pricesIncludeVatHint' | translate }}</small>
       </div>
-      <div class="field full" [hidden]="tenants.locked('quotes_invoices')">
+      <div class="field full" [hidden]="tenants.locked('invoices')">
         <label class="check"><p-checkbox formControlName="autoInvoice" [binary]="true" /> {{ 'settings.autoInvoice' | translate }}</label>
         <small class="hint">{{ 'settings.autoInvoiceHint' | translate }}</small>
       </div>
@@ -93,12 +93,15 @@
       <small class="hint">{{ 'settings.pp.handleHint' | translate }}</small>
       <div class="link-row">
         <p-button [label]="'common.save' | translate" size="small" [loading]="contactSaving()" (onClick)="saveContact()" />
-        <a [href]="tenants.portalUrl() + '/contact'" target="_blank" rel="noopener"><p-button icon="pi pi-external-link" [label]="'settings.contact.preview' | translate" [text]="true" size="small" /></a>
+        <a [href]="tenants.portalUrl() + '/contact'" target="_blank" rel="noopener" [hidden]="tenants.locked('booking_page')"><p-button icon="pi pi-external-link" [label]="'settings.contact.preview' | translate" [text]="true" size="small" /></a>
       </div>
     </div>
     <div class="panel" style="margin-top: 1rem">
       <h2>{{ 'settings.google.title' | translate }}</h2>
       <p class="hint">{{ 'settings.google.hint' | translate }}</p>
+      @if (tenants.locked('booking_page')) {
+        <app-locked-feature feature="booking_page" />
+      } @else {
       @if (!t.google?.available) {
         <p class="hint warn">{{ 'settings.google.notAvailable' | translate }}</p>
       } @else if (t.google?.placeId) {
@@ -127,6 +130,7 @@
             <p class="hint">{{ 'settings.google.noResults' | translate }}</p>
           }
         }
+      }
       }
     </div>
     <div class="panel" style="margin-top: 1rem">
@@ -185,7 +189,6 @@
             <small class="hint">{{ 'settings.onlineBookingHint' | translate }}</small>
           </span>
         </label>
-      }
       <div class="field" style="margin-top: .75rem">
         <label for="s-slug">{{ 'settings.slug' | translate }}</label>
         <div class="slug-edit ltr">
@@ -204,10 +207,14 @@
         <p-button icon="pi pi-copy" [text]="true" size="small" (onClick)="copyLink(tenants.portalUrl())" [ariaLabel]="'common.copy' | translate" />
         <a [href]="tenants.portalUrl()" target="_blank" rel="noopener"><p-button icon="pi pi-external-link" [text]="true" size="small" /></a>
       </div>
+      }
     </div>
     <div class="panel" style="margin-top: 1rem">
       <h2>{{ 'settings.publicPage' | translate }}</h2>
       <p class="hint">{{ 'settings.publicPageHint' | translate }}</p>
+      @if (tenants.locked('booking_page')) {
+        <app-locked-feature feature="booking_page" />
+      } @else {
       <div class="pp-grid">
         <div class="field">
           <label for="pp-hero">{{ 'settings.pp.heroTitle' | translate }} <span class="hint">({{ 'settings.pp.ar' | translate }})</span></label>
@@ -280,6 +287,7 @@
         <p-button [label]="'common.save' | translate" size="small" [loading]="ppSaving()" (onClick)="savePublicPage()" />
         <a [href]="tenants.portalUrl()" target="_blank" rel="noopener"><p-button icon="pi pi-external-link" [label]="'settings.pp.preview' | translate" [text]="true" size="small" /></a>
       </div>
+      }
     </div>
     </div>
   }

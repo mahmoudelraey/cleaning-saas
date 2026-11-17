@@ -548,6 +548,8 @@ export interface PublicCompany {
   address?: string;
   commercialRegistration?: string;
   timezone: string;
+  /** The company's plan includes the customer portal (show the "my bookings" link). */
+  portal?: boolean;
 }
 
 export interface PublicInvoice {

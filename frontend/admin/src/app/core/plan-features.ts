@@ -1,13 +1,23 @@
-/** Same keys as the backend's PlanFeature / plans.features. */
+/**
+ * Same keys as the backend's PlanFeature / plans.features. Most are one page (locked in the sidebar with the
+ * upgrade dialog when the plan lacks it). Trial companies get every feature.
+ */
 export type PlanFeatureKey =
   | 'scheduling'
   | 'customers'
   | 'booking_page'
-  | 'whatsapp'
   | 'whatsapp_limited'
-  | 'quotes_invoices'
+  | 'whatsapp'
+  | 'messages'
+  | 'reviews'
+  | 'contact_requests'
+  | 'promos'
+  | 'invoices'
+  | 'quotes'
   | 'photos'
   | 'reports'
-  | 'online_payments'
+  | 'sales'
+  | 'finance'
+  | 'payroll'
   | 'branding'
   | 'priority_support';

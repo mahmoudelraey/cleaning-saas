@@ -1,5 +1,7 @@
 package com.fieldops.app.review;
 
+import com.fieldops.app.tenant.PlanFeature;
+import com.fieldops.app.tenant.RequiresFeature;
 import java.util.List;
 import java.util.UUID;
 
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /** Customer ratings of completed visits; the owner chooses which comments the public page shows. */
 @RestController
+@RequiresFeature(PlanFeature.REVIEWS)
 @RequestMapping("/api/v1/reviews")
 public class ReviewController {
 

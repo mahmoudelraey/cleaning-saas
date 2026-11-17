@@ -99,7 +99,7 @@ export class UsersPage implements OnInit {
   });
 
   /** Owners on a plan with payroll can enter the monthly salary while adding the person. */
-  protected readonly canSetSalary = this.auth.hasRole('OWNER') && !inject(TenantService).locked('reports');
+  protected readonly canSetSalary = this.auth.hasRole('OWNER') && !inject(TenantService).locked('payroll');
 
   /** Creates the payroll entry for a new account; the account itself is already saved, so failures only warn. */
   private setUpSalary(userId: string, salarySar: number | null): void {

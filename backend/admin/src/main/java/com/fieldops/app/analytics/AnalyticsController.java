@@ -40,7 +40,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/v1/analytics")
-@RequiresFeature(PlanFeature.REPORTS)
+@RequiresFeature({PlanFeature.REPORTS, PlanFeature.SALES})
 @PreAuthorize("hasAnyRole('OWNER','COORDINATOR')")
 public class AnalyticsController {
 
