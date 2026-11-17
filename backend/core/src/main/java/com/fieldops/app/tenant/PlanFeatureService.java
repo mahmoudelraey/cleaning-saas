@@ -14,8 +14,8 @@ import com.fieldops.app.common.tenant.TenantContext;
 import com.fieldops.app.common.web.ApiException;
 
 /**
- * Answers "does this company's plan include feature X?". Decided from the database only (tenant row and
- * its plan), cached briefly like {@link TenantAccessService}. Call {@link #evict} after a plan change.
+ * Answers "does this company's plan include feature X?" (plus the trial extras while on trial, see
+ * {@link PlanFeature#DURING_TRIAL}). Decided from the database only (tenant row and its plan), cached briefly like {@link TenantAccessService}. Call {@link #evict} after a plan change.
  */
 @Service
 public class PlanFeatureService {
@@ -61,8 +61,8 @@ public class PlanFeatureService {
         Entry e = cache.get(tenantId);
         if (e == null || !now.isBefore(e.validUntil())) {
             Set<String> loaded = tenants.findById(tenantId)
-                    .flatMap(t -> plans.findById(t.getPlanId()))
-                    .map(p -> Set.copyOf(p.getFeatures()))
+                    .flatMap(t -> plans.findById(t.getPlanId())
+                            .map(p -> Set.copyOf(PlanFeature.effective(p.getFeatures(), t.getStatus()))))
                     .orElse(Set.of());
             e = new Entry(loaded, now.plus(TTL));
             cache.put(tenantId, e);

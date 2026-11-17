@@ -1,0 +1,940 @@
+diff --git a/backend/admin/src/main/java/com/fieldops/app/analytics/AnalyticsController.java b/backend/admin/src/main/java/com/fieldops/app/analytics/AnalyticsController.java
+index 5014fe1..12e624b 100644
+--- a/backend/admin/src/main/java/com/fieldops/app/analytics/AnalyticsController.java
++++ b/backend/admin/src/main/java/com/fieldops/app/analytics/AnalyticsController.java
+@@ -40,7 +40,7 @@ import org.springframework.web.bind.annotation.RestController;
+  */
+ @RestController
+ @RequestMapping("/api/v1/analytics")
+-@RequiresFeature(PlanFeature.REPORTS)
++@RequiresFeature({PlanFeature.REPORTS, PlanFeature.SALES})
+ @PreAuthorize("hasAnyRole('OWNER','COORDINATOR')")
+ public class AnalyticsController {
+ 
+diff --git a/backend/admin/src/main/java/com/fieldops/app/billing/BillingController.java b/backend/admin/src/main/java/com/fieldops/app/billing/BillingController.java
+index 01add99..5a9896d 100644
+--- a/backend/admin/src/main/java/com/fieldops/app/billing/BillingController.java
++++ b/backend/admin/src/main/java/com/fieldops/app/billing/BillingController.java
+@@ -47,7 +47,7 @@ import org.springframework.web.bind.annotation.RestController;
+ @RestController
+ @RequestMapping("/api/v1")
+ @PreAuthorize("hasAnyRole('OWNER','COORDINATOR')")
+-@RequiresFeature(PlanFeature.QUOTES_INVOICES)
++@RequiresFeature({PlanFeature.INVOICES, PlanFeature.QUOTES})
+ public class BillingController {
+ 
+     private final BillingService billing;
+@@ -62,6 +62,7 @@ public class BillingController {
+ 
+     // ---------------------------------------------------------------------------------------- invoices
+ 
++    @RequiresFeature(PlanFeature.INVOICES)
+     @GetMapping("/invoices")
+     public PageResponse<Audited<InvoiceSummary>> invoices(@RequestParam(required = false) String status,
+                                                  @RequestParam(required = false) UUID customerId,
+@@ -70,12 +71,14 @@ public class BillingController {
+         return audits.page(billing.searchInvoices(status, customerId, pageRequest(page, size)), InvoiceSummary::of);
+     }
+ 
++    @RequiresFeature(PlanFeature.INVOICES)
+     @GetMapping("/invoices/{id}")
+     public InvoiceDto invoice(@PathVariable UUID id) {
+         BillingService.InvoiceDetail d = billing.invoiceDetail(id);
+         return InvoiceDto.of(d.invoice(), d.payments(), d.publicUrl());
+     }
+ 
++    @RequiresFeature(PlanFeature.INVOICES)
+     @PostMapping("/invoices")
+     @ResponseStatus(HttpStatus.CREATED)
+     public InvoiceDto issue(@Valid @RequestBody IssueInvoiceRequest req) {
+@@ -85,11 +88,13 @@ public class BillingController {
+         return invoice(inv.getId());
+     }
+ 
++    @RequiresFeature(PlanFeature.INVOICES)
+     @GetMapping("/bookings/{bookingId}/invoices")
+     public List<InvoiceSummary> bookingInvoices(@PathVariable UUID bookingId) {
+         return billing.invoicesForBooking(bookingId).stream().map(InvoiceSummary::of).toList();
+     }
+ 
++    @RequiresFeature(PlanFeature.INVOICES)
+     @PostMapping("/bookings/{bookingId}/invoice")
+     @ResponseStatus(HttpStatus.CREATED)
+     public InvoiceDto issueForBooking(@PathVariable UUID bookingId, @Valid @RequestBody(required = false) FromBookingRequest req) {
+@@ -100,6 +105,7 @@ public class BillingController {
+         return invoice(inv.getId());
+     }
+ 
++    @RequiresFeature(PlanFeature.INVOICES)
+     @PostMapping("/invoices/{id}/payments")
+     @ResponseStatus(HttpStatus.CREATED)
+     public PaymentDto pay(@PathVariable UUID id, @Valid @RequestBody PaymentRequest req) {
+@@ -107,6 +113,7 @@ public class BillingController {
+                 req.method(), req.amountHalalas(), req.reference(), req.paidAt())));
+     }
+ 
++    @RequiresFeature(PlanFeature.INVOICES)
+     @PostMapping("/invoices/{id}/void")
+     @PreAuthorize("hasRole('OWNER')")
+     public InvoiceDto voidInvoice(@PathVariable UUID id, @Valid @RequestBody VoidRequest req) {
+@@ -114,16 +121,19 @@ public class BillingController {
+         return invoice(id);
+     }
+ 
++    @RequiresFeature(PlanFeature.INVOICES)
+     @PostMapping("/invoices/{id}/send")
+     public LinkDto send(@PathVariable UUID id) {
+         return new LinkDto(billing.sendInvoice(id));
+     }
+ 
++    @RequiresFeature(PlanFeature.INVOICES)
+     @PostMapping("/invoices/{id}/link")
+     public LinkDto invoiceLink(@PathVariable UUID id) {
+         return new LinkDto(billing.invoiceLink(id));
+     }
+ 
++    @RequiresFeature(PlanFeature.INVOICES)
+     @GetMapping("/invoices/{id}/pdf")
+     public ResponseEntity<byte[]> invoicePdf(@PathVariable UUID id) {
+         Invoice inv = billing.getInvoice(id);
+@@ -132,6 +142,7 @@ public class BillingController {
+ 
+     // ------------------------------------------------------------------------------------------ quotes
+ 
++    @RequiresFeature(PlanFeature.QUOTES)
+     @GetMapping("/quotes")
+     public PageResponse<Audited<QuoteSummary>> quotes(@RequestParam(required = false) String status,
+                                              @RequestParam(required = false) UUID customerId,
+@@ -142,18 +153,21 @@ public class BillingController {
+                 q -> QuoteSummary.of(q, today));
+     }
+ 
++    @RequiresFeature(PlanFeature.QUOTES)
+     @GetMapping("/quotes/{id}")
+     public QuoteDto quote(@PathVariable UUID id) {
+         BillingService.QuoteDetail d = billing.quoteDetail(id);
+         return QuoteDto.of(d.quote(), LocalDate.now(billing.zone()), d.publicUrl(), d.invoiceId());
+     }
+ 
++    @RequiresFeature(PlanFeature.QUOTES)
+     @PostMapping("/quotes")
+     @ResponseStatus(HttpStatus.CREATED)
+     public QuoteDto createQuote(@Valid @RequestBody QuoteRequest req) {
+         return quote(billing.createQuote(command(req)).getId());
+     }
+ 
++    @RequiresFeature(PlanFeature.QUOTES)
+     @PostMapping("/bookings/{bookingId}/quote")
+     @ResponseStatus(HttpStatus.CREATED)
+     public QuoteDto quoteForBooking(@PathVariable UUID bookingId,
+@@ -162,34 +176,40 @@ public class BillingController {
+         return quote(billing.quoteFromBooking(bookingId, r.validUntil(), r.notes()).getId());
+     }
+ 
++    @RequiresFeature(PlanFeature.QUOTES)
+     @PutMapping("/quotes/{id}")
+     public QuoteDto updateQuote(@PathVariable UUID id, @Valid @RequestBody QuoteRequest req) {
+         billing.updateQuote(id, command(req));
+         return quote(id);
+     }
+ 
++    @RequiresFeature(PlanFeature.QUOTES)
+     @PostMapping("/quotes/{id}/send")
+     public LinkDto sendQuote(@PathVariable UUID id) {
+         return new LinkDto(billing.sendQuote(id));
+     }
+ 
++    @RequiresFeature(PlanFeature.QUOTES)
+     @PostMapping("/quotes/{id}/link")
+     public LinkDto quoteLink(@PathVariable UUID id) {
+         return new LinkDto(billing.quoteLink(id));
+     }
+ 
++    @RequiresFeature(PlanFeature.QUOTES)
+     @PostMapping("/quotes/{id}/accept")
+     public QuoteDto accept(@PathVariable UUID id) {
+         billing.respondToQuote(id, true);
+         return quote(id);
+     }
+ 
++    @RequiresFeature(PlanFeature.QUOTES)
+     @PostMapping("/quotes/{id}/reject")
+     public QuoteDto reject(@PathVariable UUID id) {
+         billing.respondToQuote(id, false);
+         return quote(id);
+     }
+ 
++    @RequiresFeature(PlanFeature.QUOTES)
+     @PostMapping("/quotes/{id}/invoice")
+     @ResponseStatus(HttpStatus.CREATED)
+     public InvoiceDto convert(@PathVariable UUID id, @Valid @RequestBody(required = false) ConvertQuoteRequest req) {
+@@ -198,6 +218,7 @@ public class BillingController {
+         return invoice(inv.getId());
+     }
+ 
++    @RequiresFeature(PlanFeature.QUOTES)
+     @GetMapping("/quotes/{id}/pdf")
+     public ResponseEntity<byte[]> quotePdf(@PathVariable UUID id) {
+         Quote q = billing.getQuote(id);
+diff --git a/backend/admin/src/main/java/com/fieldops/app/contact/ContactMessageController.java b/backend/admin/src/main/java/com/fieldops/app/contact/ContactMessageController.java
+index 4881c43..3c33eea 100644
+--- a/backend/admin/src/main/java/com/fieldops/app/contact/ContactMessageController.java
++++ b/backend/admin/src/main/java/com/fieldops/app/contact/ContactMessageController.java
+@@ -2,6 +2,8 @@ package com.fieldops.app.contact;
+ 
+ import com.fieldops.app.common.audit.AuditNames;
+ import com.fieldops.app.common.audit.Audited;
++import com.fieldops.app.tenant.PlanFeature;
++import com.fieldops.app.tenant.RequiresFeature;
+ import java.time.Instant;
+ import java.util.List;
+ import java.util.UUID;
+@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
+ 
+ /** The office's inbox of "Contact us" messages from the customer portal. */
+ @RestController
++@RequiresFeature(PlanFeature.CONTACT_REQUESTS)
+ @RequestMapping("/api/v1/contact-messages")
+ @PreAuthorize("hasAnyRole('OWNER','COORDINATOR')")
+ public class ContactMessageController {
+@@ -36,6 +39,8 @@ public class ContactMessageController {
+     }
+ 
+     /** For the sidebar badge. */
++    /** Sidebar badge: answered on every plan (0 is fine to show). */
++    @RequiresFeature({})
+     @GetMapping("/count")
+     public CountDto countNew() {
+         return new CountDto(contacts.countNew());
+diff --git a/backend/admin/src/main/java/com/fieldops/app/finance/ExpenseController.java b/backend/admin/src/main/java/com/fieldops/app/finance/ExpenseController.java
+index c645ffc..f4d4c3c 100644
+--- a/backend/admin/src/main/java/com/fieldops/app/finance/ExpenseController.java
++++ b/backend/admin/src/main/java/com/fieldops/app/finance/ExpenseController.java
+@@ -27,7 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
+ /** Operating expenses. Owners, and coordinators the owner gave the Expenses screen (ScreenAccessInterceptor). */
+ @RestController
+ @RequestMapping("/api/v1/expenses")
+-@RequiresFeature(PlanFeature.REPORTS)
++@RequiresFeature(PlanFeature.FINANCE)
+ @PreAuthorize("hasAnyRole('OWNER','COORDINATOR')")
+ public class ExpenseController {
+ 
+diff --git a/backend/admin/src/main/java/com/fieldops/app/finance/FinanceController.java b/backend/admin/src/main/java/com/fieldops/app/finance/FinanceController.java
+index f90d551..57237cd 100644
+--- a/backend/admin/src/main/java/com/fieldops/app/finance/FinanceController.java
++++ b/backend/admin/src/main/java/com/fieldops/app/finance/FinanceController.java
+@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
+ /** Profit and loss by month (revenue, salaries, expenses) and service costs. Owner only: it reveals salaries. */
+ @RestController
+ @RequestMapping("/api/v1/finance")
+-@RequiresFeature(PlanFeature.REPORTS)
++@RequiresFeature(PlanFeature.FINANCE)
+ @PreAuthorize("hasRole('OWNER')")
+ public class FinanceController {
+ 
+@@ -37,6 +37,8 @@ public class FinanceController {
+         return analytics.finance(year);
+     }
+ 
++    /** Unit cost, also edited from the Sales page (profitability). */
++    @RequiresFeature({PlanFeature.FINANCE, PlanFeature.SALES})
+     @PutMapping("/service-costs/{serviceId}")
+     public ResponseEntity<Void> setServiceCost(@PathVariable UUID serviceId, @RequestBody CostRequest req) {
+         costs.setCost(serviceId, req.costHalalas());
+diff --git a/backend/admin/src/main/java/com/fieldops/app/finance/PayrollController.java b/backend/admin/src/main/java/com/fieldops/app/finance/PayrollController.java
+index a11e142..33b9290 100644
+--- a/backend/admin/src/main/java/com/fieldops/app/finance/PayrollController.java
++++ b/backend/admin/src/main/java/com/fieldops/app/finance/PayrollController.java
+@@ -37,7 +37,7 @@ import org.springframework.web.bind.annotation.RestController;
+  */
+ @RestController
+ @RequestMapping("/api/v1/payroll")
+-@RequiresFeature(PlanFeature.REPORTS)
++@RequiresFeature(PlanFeature.PAYROLL)
+ @PreAuthorize("hasRole('OWNER')")
+ public class PayrollController {
+ 
+diff --git a/backend/admin/src/main/java/com/fieldops/app/platform/PlatformService.java b/backend/admin/src/main/java/com/fieldops/app/platform/PlatformService.java
+index ec91aec..60f344a 100644
+--- a/backend/admin/src/main/java/com/fieldops/app/platform/PlatformService.java
++++ b/backend/admin/src/main/java/com/fieldops/app/platform/PlatformService.java
+@@ -52,10 +52,7 @@ public class PlatformService {
+     /** Dates entered in the console are Saudi days. */
+     static final ZoneId ZONE = ZoneId.of("Asia/Riyadh");
+     private static final Pattern PLAN_ID = Pattern.compile("[a-z][a-z0-9_-]{1,29}");
+-    public static final List<String> FEATURES = List.of(PlanFeature.SCHEDULING, PlanFeature.CUSTOMERS,
+-            PlanFeature.BOOKING_PAGE, PlanFeature.WHATSAPP_LIMITED, PlanFeature.WHATSAPP, PlanFeature.QUOTES_INVOICES,
+-            PlanFeature.PHOTOS, PlanFeature.REPORTS, PlanFeature.ONLINE_PAYMENTS, PlanFeature.BRANDING,
+-            PlanFeature.PRIORITY_SUPPORT);
++    public static final List<String> FEATURES = PlanFeature.ALL;
+ 
+     private final TenantRepository tenants;
+     private final PlanRepository plans;
+diff --git a/backend/admin/src/main/java/com/fieldops/app/promo/PromoController.java b/backend/admin/src/main/java/com/fieldops/app/promo/PromoController.java
+index 97c4b7b..1494e57 100644
+--- a/backend/admin/src/main/java/com/fieldops/app/promo/PromoController.java
++++ b/backend/admin/src/main/java/com/fieldops/app/promo/PromoController.java
+@@ -2,6 +2,8 @@ package com.fieldops.app.promo;
+ 
+ import com.fieldops.app.common.audit.AuditNames;
+ import com.fieldops.app.common.audit.Audited;
++import com.fieldops.app.tenant.PlanFeature;
++import com.fieldops.app.tenant.RequiresFeature;
+ import java.time.Instant;
+ import java.util.List;
+ import java.util.UUID;
+@@ -25,6 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
+ 
+ /** Promotions (discount codes). Coordinators with the Services screen can see them; only owners change them. */
+ @RestController
++@RequiresFeature(PlanFeature.PROMOS)
+ @RequestMapping("/api/v1/promos")
+ @PreAuthorize("hasAnyRole('OWNER','COORDINATOR')")
+ public class PromoController {
+diff --git a/backend/admin/src/main/java/com/fieldops/app/review/ReviewController.java b/backend/admin/src/main/java/com/fieldops/app/review/ReviewController.java
+index e122ffc..a810532 100644
+--- a/backend/admin/src/main/java/com/fieldops/app/review/ReviewController.java
++++ b/backend/admin/src/main/java/com/fieldops/app/review/ReviewController.java
+@@ -1,5 +1,7 @@
+ package com.fieldops.app.review;
+ 
++import com.fieldops.app.tenant.PlanFeature;
++import com.fieldops.app.tenant.RequiresFeature;
+ import java.util.List;
+ import java.util.UUID;
+ 
+@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
+ 
+ /** Customer ratings of completed visits; the owner chooses which comments the public page shows. */
+ @RestController
++@RequiresFeature(PlanFeature.REVIEWS)
+ @RequestMapping("/api/v1/reviews")
+ public class ReviewController {
+ 
+diff --git a/backend/admin/src/main/java/com/fieldops/app/tenant/TenantController.java b/backend/admin/src/main/java/com/fieldops/app/tenant/TenantController.java
+index 1754151..99a7304 100644
+--- a/backend/admin/src/main/java/com/fieldops/app/tenant/TenantController.java
++++ b/backend/admin/src/main/java/com/fieldops/app/tenant/TenantController.java
+@@ -209,9 +209,11 @@ public class TenantController {
+ 
+     public record PlanDto(String id, String nameAr, String nameEn, long priceMonthlyHalalas,
+                           Long priceYearlyHalalas, int maxTechnicians, List<String> features) {
+-        static PlanDto of(Plan p) {
++        /** {@code features} = what the company can use now: the plan's, or everything while on trial. */
++        static PlanDto of(Plan p, TenantStatus status) {
+             return new PlanDto(p.getId(), p.getNameAr(), p.getNameEn(), p.getPriceMonthlyHalalas(),
+-                    p.getPriceYearlyHalalas(), p.getMaxTechnicians(), p.getFeatures());
++                    p.getPriceYearlyHalalas(), p.getMaxTechnicians(),
++                    List.copyOf(PlanFeature.effective(p.getFeatures(), status)));
+         }
+     }
+ 
+@@ -224,7 +226,7 @@ public class TenantController {
+             return new TenantDto(t.getId(), t.getName(), t.getNameEn(), t.getSlug(), t.getLogoUrl(), t.getPhone(),
+                     t.getVatNumber(), t.getAddress(), t.getAddressEn(), t.getCommercialRegistration(), t.isPricesIncludeVat(),
+                     t.isAutoInvoice(), t.isBookingPageEnabled(), t.getBookingPageNote(),
+-                    t.getTimezone(), t.getStatus().name(), t.getTrialEndsAt(), PlanDto.of(plan), t.getPublicPage(),
++                    t.getTimezone(), t.getStatus().name(), t.getTrialEndsAt(), PlanDto.of(plan, t.getStatus()), t.getPublicPage(),
+                     new GoogleDto(googleAvailable, t.getGooglePlaceId(), t.getGooglePlaceName()));
+         }
+     }
+diff --git a/backend/admin/src/main/resources/db/migration/V36__plans_per_page.sql b/backend/admin/src/main/resources/db/migration/V36__plans_per_page.sql
+new file mode 100644
+index 0000000..51ba197
+--- /dev/null
++++ b/backend/admin/src/main/resources/db/migration/V36__plans_per_page.sql
+@@ -0,0 +1,60 @@
++-- Plans are now defined by the pages they include (see PlanFeature):
++--   messages, reviews, contact_requests, promos, invoices, quotes, photos, reports, sales, finance, payroll
++--   plus booking_page, whatsapp_limited / whatsapp, branding, priority_support.
++-- "quotes_invoices" splits into "invoices" + "quotes"; "reports" (which opened Reports, Sales, Finance and Payroll)
++-- splits into one feature per page; "online_payments" is removed (no online payment yet).
++-- Five default plans: Starter, Basic, Pro, Business, Enterprise. Prices and limits stay editable in Platform → Plans.
++-- Trial companies get every feature in code (PlanFeature.DURING_TRIAL), whatever their trial plan.
++
++-- 1. Plans the platform admin created by hand: keep what they could open before, in the new keys.
++UPDATE plans p SET features = (
++    SELECT COALESCE(jsonb_agg(DISTINCT f ORDER BY f), '[]'::jsonb)
++    FROM (
++        SELECT jsonb_array_elements_text(p.features) AS f
++        UNION SELECT 'invoices' WHERE p.features ? 'quotes_invoices'
++        UNION SELECT 'quotes'   WHERE p.features ? 'quotes_invoices'
++        UNION SELECT 'sales'    WHERE p.features ? 'reports'
++        UNION SELECT 'finance'  WHERE p.features ? 'reports'
++        UNION SELECT 'payroll'  WHERE p.features ? 'reports'
++        -- pages every plan had before
++        UNION SELECT unnest(ARRAY['messages', 'reviews', 'contact_requests', 'promos'])
++    ) x
++    WHERE f NOT IN ('quotes_invoices', 'online_payments')
++), updated_at = now()
++WHERE id NOT IN ('starter', 'basic', 'pro', 'business', 'enterprise');
++
++-- 2. The default plans, each adding pages to the one before.
++INSERT INTO plans (id, name_ar, name_en, price_monthly_halalas, price_yearly_halalas, max_technicians, features,
++                   active, sort_order)
++VALUES ('starter', 'البداية', 'Starter', 7900, 79000, 1, '[]', TRUE, 1),
++       ('enterprise', 'المؤسسات', 'Enterprise', 99900, 999000, 100, '[]', TRUE, 5)
++ON CONFLICT (id) DO NOTHING;
++
++UPDATE plans SET sort_order = CASE id WHEN 'starter' THEN 1 WHEN 'basic' THEN 2 WHEN 'pro' THEN 3
++                                      WHEN 'business' THEN 4 WHEN 'enterprise' THEN 5 ELSE sort_order END,
++                 updated_at = now()
++WHERE id IN ('starter', 'basic', 'pro', 'business', 'enterprise');
++
++UPDATE plans SET features = '["scheduling","customers","booking_page","whatsapp_limited"]', updated_at = now()
++WHERE id = 'starter';
++
++UPDATE plans SET features = '["scheduling","customers","booking_page","whatsapp_limited",
++                              "messages","reviews","contact_requests","promos"]', updated_at = now()
++WHERE id = 'basic';
++
++UPDATE plans SET features = '["scheduling","customers","booking_page","whatsapp",
++                              "messages","reviews","contact_requests","promos",
++                              "invoices","quotes","photos","reports"]', updated_at = now()
++WHERE id = 'pro';
++
++UPDATE plans SET features = '["scheduling","customers","booking_page","whatsapp",
++                              "messages","reviews","contact_requests","promos",
++                              "invoices","quotes","photos","reports","sales","finance","payroll","branding"]',
++                 updated_at = now()
++WHERE id = 'business';
++
++UPDATE plans SET features = '["scheduling","customers","booking_page","whatsapp",
++                              "messages","reviews","contact_requests","promos",
++                              "invoices","quotes","photos","reports","sales","finance","payroll","branding",
++                              "priority_support"]', updated_at = now()
++WHERE id = 'enterprise';
+diff --git a/backend/core/src/main/java/com/fieldops/app/booking/BookingService.java b/backend/core/src/main/java/com/fieldops/app/booking/BookingService.java
+index 62104eb..82cac40 100644
+--- a/backend/core/src/main/java/com/fieldops/app/booking/BookingService.java
++++ b/backend/core/src/main/java/com/fieldops/app/booking/BookingService.java
+@@ -232,7 +232,7 @@ public class BookingService {
+             b.setCancelReason(trim(reason));
+         }
+         if (target == BookingStatus.COMPLETED && tenants.current().isAutoInvoice()
+-                && tenants.hasFeature(tenants.current(), PlanFeature.QUOTES_INVOICES)) {
++                && tenants.hasFeature(tenants.current(), PlanFeature.INVOICES)) {
+             b.requestInvoice(Instant.now(clock));
+         }
+         log(b.getId(), VisitEvent.Type.STATUS_CHANGED, from, target, trim(reason));
+diff --git a/backend/core/src/main/java/com/fieldops/app/promo/PromoService.java b/backend/core/src/main/java/com/fieldops/app/promo/PromoService.java
+index 038fb73..97fda10 100644
+--- a/backend/core/src/main/java/com/fieldops/app/promo/PromoService.java
++++ b/backend/core/src/main/java/com/fieldops/app/promo/PromoService.java
+@@ -15,6 +15,9 @@ import com.fieldops.app.booking.BookingStatus;
+ import com.fieldops.app.common.web.ApiException;
+ import org.springframework.dao.DataIntegrityViolationException;
+ import org.springframework.stereotype.Service;
++
++import com.fieldops.app.tenant.PlanFeature;
++import com.fieldops.app.tenant.PlanFeatureService;
+ import org.springframework.transaction.annotation.Transactional;
+ 
+ /**
+@@ -29,10 +32,12 @@ public class PromoService {
+     private static final Set<BookingStatus> NOT_COUNTED = Set.of(BookingStatus.CANCELLED);
+ 
+     private final PromoRepository promos;
++    private final PlanFeatureService features;
+     private final Clock clock;
+ 
+-    public PromoService(PromoRepository promos, Clock clock) {
++    public PromoService(PromoRepository promos, PlanFeatureService features, Clock clock) {
+         this.promos = promos;
++        this.features = features;
+         this.clock = clock;
+     }
+ 
+@@ -109,6 +114,9 @@ public class PromoService {
+     /** The newest announced promo that a customer could use right now, if any. */
+     @Transactional(readOnly = true)
+     public Optional<Promo> announced() {
++        if (!features.has(PlanFeature.PROMOS)) {
++            return Optional.empty();
++        }
+         Instant now = Instant.now(clock);
+         return promos.findByAnnounceTrueAndActiveTrueOrderByCreatedAtDesc().stream()
+                 .filter(p -> p.liveAt(now))
+@@ -127,7 +135,7 @@ public class PromoService {
+     @Transactional
+     public Applied check(String rawCode, UUID customerId, long subtotal, boolean forBooking) {
+         String code = normalize(rawCode);
+-        if (code.isEmpty()) {
++        if (code.isEmpty() || !features.has(PlanFeature.PROMOS)) { // plan without promos: codes don't exist
+             throw ApiException.notFound("promo");
+         }
+         Promo p = (forBooking ? promos.findByCodeForUpdate(code) : promos.findByCode(code))
+diff --git a/backend/core/src/main/java/com/fieldops/app/tenant/PlanFeature.java b/backend/core/src/main/java/com/fieldops/app/tenant/PlanFeature.java
+index 1a0d8c7..08f1c9e 100644
+--- a/backend/core/src/main/java/com/fieldops/app/tenant/PlanFeature.java
++++ b/backend/core/src/main/java/com/fieldops/app/tenant/PlanFeature.java
+@@ -1,26 +1,73 @@
+ package com.fieldops.app.tenant;
+ 
++import java.util.Collection;
++import java.util.LinkedHashSet;
++import java.util.List;
++import java.util.Set;
++
+ /**
+- * Feature keys stored in {@code plans.features} (see V1 migration). The frontend uses the same strings.
++ * Feature keys stored in {@code plans.features}; the frontend uses the same strings. Most keys are one admin page
++ * (locked in the sidebar with the upgrade dialog when the plan lacks it, and refused by the server).
++ * Always included, whatever the plan: dashboard, calendar, bookings, customers, services, technicians, team, settings.
++ *
++ * <p>Default plans (V36): Starter, Basic, Pro, Business, Enterprise; each adds pages to the one before.
++ * The platform admin edits them in Platform → Plans.
+  *
+- * <p>Basic: scheduling, customers, booking_page, whatsapp_limited.
+- * Pro: + whatsapp (unlimited), quotes_invoices, photos, reports.
+- * Business: + online_payments, branding, priority_support.
++ * <p>During the free trial a company gets every feature ({@link #DURING_TRIAL}), whatever its trial plan, so it
++ * sees the full product before choosing a plan.
+  */
+ public final class PlanFeature {
+ 
++    // ---- base
+     public static final String SCHEDULING = "scheduling";
+     public static final String CUSTOMERS = "customers";
++    /** Public booking page and customer portal booking. */
+     public static final String BOOKING_PAGE = "booking_page";
+-    public static final String WHATSAPP = "whatsapp";
++    /** WhatsApp messages with a monthly cap (app.plans.limited-whatsapp-monthly); {@link #WHATSAPP} lifts it. */
+     public static final String WHATSAPP_LIMITED = "whatsapp_limited";
+-    public static final String QUOTES_INVOICES = "quotes_invoices";
++    public static final String WHATSAPP = "whatsapp";
++
++    // ---- pages
++    public static final String MESSAGES = "messages";
++    public static final String REVIEWS = "reviews";
++    public static final String CONTACT_REQUESTS = "contact_requests";
++    /** Promos page, and promo codes in the portal / booking page. */
++    public static final String PROMOS = "promos";
++    /** Invoices page, invoicing from a booking, auto-invoice. */
++    public static final String INVOICES = "invoices";
++    public static final String QUOTES = "quotes";
++    /** Before/after visit photos. */
+     public static final String PHOTOS = "photos";
++    /** Analytics & reports page. */
+     public static final String REPORTS = "reports";
+-    public static final String ONLINE_PAYMENTS = "online_payments";
++    public static final String SALES = "sales";
++    /** Finance page: P&L and expenses. */
++    public static final String FINANCE = "finance";
++    public static final String PAYROLL = "payroll";
++
++    // ---- extras
++    /** Company logo on invoices, quotes and public pages. */
+     public static final String BRANDING = "branding";
+     public static final String PRIORITY_SUPPORT = "priority_support";
+ 
++    /** Every feature, in the order the plans editor shows them. */
++    public static final List<String> ALL = List.of(SCHEDULING, CUSTOMERS, BOOKING_PAGE, WHATSAPP_LIMITED, WHATSAPP,
++            MESSAGES, REVIEWS, CONTACT_REQUESTS, PROMOS, INVOICES, QUOTES, PHOTOS, REPORTS, SALES, FINANCE, PAYROLL,
++            BRANDING, PRIORITY_SUPPORT);
++
++    /** What every company gets while its status is TRIAL: everything (unlimited WhatsApp, so no cap). */
++    public static final Set<String> DURING_TRIAL = Set.copyOf(ALL.stream()
++            .filter(f -> !f.equals(WHATSAPP_LIMITED)).toList());
++
+     private PlanFeature() {
+     }
++
++    /** The plan's features plus the trial extras when the company is on trial. */
++    public static Set<String> effective(Collection<String> planFeatures, TenantStatus status) {
++        Set<String> out = new LinkedHashSet<>(planFeatures == null ? Set.of() : planFeatures);
++        if (status == TenantStatus.TRIAL) {
++            out.addAll(DURING_TRIAL);
++        }
++        return out;
++    }
+ }
+diff --git a/backend/core/src/main/java/com/fieldops/app/tenant/PlanFeatureInterceptor.java b/backend/core/src/main/java/com/fieldops/app/tenant/PlanFeatureInterceptor.java
+index d441df9..19902f1 100644
+--- a/backend/core/src/main/java/com/fieldops/app/tenant/PlanFeatureInterceptor.java
++++ b/backend/core/src/main/java/com/fieldops/app/tenant/PlanFeatureInterceptor.java
+@@ -29,8 +29,8 @@ public class PlanFeatureInterceptor implements HandlerInterceptor {
+         if (rule == null) {
+             rule = AnnotatedElementUtils.findMergedAnnotation(hm.getBeanType(), RequiresFeature.class);
+         }
+-        if (rule != null) {
+-            features.require(rule.value());
++        if (rule != null && rule.value().length > 0) {
++            features.requireAny(rule.value());
+         }
+         return true;
+     }
+diff --git a/backend/core/src/main/java/com/fieldops/app/tenant/PlanFeatureService.java b/backend/core/src/main/java/com/fieldops/app/tenant/PlanFeatureService.java
+index 8ec94d7..fbad6d1 100644
+--- a/backend/core/src/main/java/com/fieldops/app/tenant/PlanFeatureService.java
++++ b/backend/core/src/main/java/com/fieldops/app/tenant/PlanFeatureService.java
+@@ -14,7 +14,8 @@ import com.fieldops.app.common.tenant.TenantContext;
+ import com.fieldops.app.common.web.ApiException;
+ 
+ /**
+- * Answers "does this company's plan include feature X?". Decided from the database only (tenant row and
++ * Answers "does this company's plan include feature X?" (everything while on trial, see
++ * {@link PlanFeature#DURING_TRIAL}). Decided from the database only (tenant row and
+  * its plan), cached briefly like {@link TenantAccessService}. Call {@link #evict} after a plan change.
+  */
+ @Service
+@@ -52,6 +53,16 @@ public class PlanFeatureService {
+         }
+     }
+ 
++    /** Like {@link #require} with several features: one of them is enough. */
++    public void requireAny(String... any) {
++        for (String f : any) {
++            if (has(f)) {
++                return;
++            }
++        }
++        throw ApiException.forbidden("feature_not_in_plan", "Your plan does not include " + String.join(" / ", any));
++    }
++
+     public void evict(UUID tenantId) {
+         cache.remove(tenantId);
+     }
+@@ -61,8 +72,8 @@ public class PlanFeatureService {
+         Entry e = cache.get(tenantId);
+         if (e == null || !now.isBefore(e.validUntil())) {
+             Set<String> loaded = tenants.findById(tenantId)
+-                    .flatMap(t -> plans.findById(t.getPlanId()))
+-                    .map(p -> Set.copyOf(p.getFeatures()))
++                    .flatMap(t -> plans.findById(t.getPlanId())
++                            .map(p -> Set.copyOf(PlanFeature.effective(p.getFeatures(), t.getStatus()))))
+                     .orElse(Set.of());
+             e = new Entry(loaded, now.plus(TTL));
+             cache.put(tenantId, e);
+diff --git a/backend/core/src/main/java/com/fieldops/app/tenant/RequiresFeature.java b/backend/core/src/main/java/com/fieldops/app/tenant/RequiresFeature.java
+index ccfccd9..2035440 100644
+--- a/backend/core/src/main/java/com/fieldops/app/tenant/RequiresFeature.java
++++ b/backend/core/src/main/java/com/fieldops/app/tenant/RequiresFeature.java
+@@ -7,10 +7,11 @@ import java.lang.annotation.Target;
+ 
+ /**
+  * Put on a controller class or method: the request is refused with 403 {@code feature_not_in_plan}
+- * unless the company's plan includes the feature (a {@link PlanFeature} key). Method wins over class.
++ * unless the company's plan includes one of the features ({@link PlanFeature} keys). Method wins over class;
++ * an empty list on a method lifts the class rule for it.
+  */
+ @Target({ElementType.TYPE, ElementType.METHOD})
+ @Retention(RetentionPolicy.RUNTIME)
+ public @interface RequiresFeature {
+-    String value();
++    String[] value();
+ }
+diff --git a/backend/core/src/main/java/com/fieldops/app/tenant/TenantService.java b/backend/core/src/main/java/com/fieldops/app/tenant/TenantService.java
+index b853306..70112d1 100644
+--- a/backend/core/src/main/java/com/fieldops/app/tenant/TenantService.java
++++ b/backend/core/src/main/java/com/fieldops/app/tenant/TenantService.java
+@@ -221,7 +221,7 @@ public class TenantService {
+ 
+     @Transactional(readOnly = true)
+     public boolean hasFeature(Tenant tenant, String feature) {
+-        return planOf(tenant).getFeatures().contains(feature);
++        return PlanFeature.effective(planOf(tenant).getFeatures(), tenant.getStatus()).contains(feature);
+     }
+ 
+     public Plan planOf(Tenant tenant) {
+diff --git a/frontend/admin/public/i18n/ar.json b/frontend/admin/public/i18n/ar.json
+index cee80d6..22239c9 100644
+--- a/frontend/admin/public/i18n/ar.json
++++ b/frontend/admin/public/i18n/ar.json
+@@ -1090,15 +1090,22 @@
+     "howItWorks": "سيتواصل معك فريقنا لتفعيل الباقة خلال يوم عمل.",
+     "message": "مرحباً، أرغب بالاشتراك في باقة {{plan}} لشركة {{company}}.",
+     "features": {
+-      "scheduling": "الجدولة والتقويم",
+-      "customers": "إدارة العملاء والعناوين",
+-      "booking_page": "صفحة حجز إلكترونية",
+-      "whatsapp_limited": "رسائل واتساب (محدودة)",
+-      "whatsapp": "رسائل واتساب تلقائية",
+-      "quotes_invoices": "عروض الأسعار والفواتير الضريبية",
++      "scheduling": "الحجوزات والتقويم والجدولة",
++      "customers": "العملاء والخدمات والفنيون",
++      "booking_page": "صفحة حجز إلكترونية وبوابة العملاء",
++      "whatsapp_limited": "رسائل واتساب (حد شهري)",
++      "whatsapp": "رسائل واتساب تلقائية بلا حدود",
++      "messages": "سجل الرسائل",
++      "reviews": "تقييمات العملاء",
++      "contact_requests": "طلبات التواصل",
++      "promos": "أكواد الخصم والعروض",
++      "invoices": "الفواتير الضريبية (رمز QR زاتكا)",
++      "quotes": "عروض الأسعار",
+       "photos": "صور قبل وبعد التنفيذ",
+-      "reports": "التقارير",
+-      "online_payments": "الدفع الإلكتروني",
++      "reports": "التحليلات والتقارير",
++      "sales": "تحليل المبيعات",
++      "finance": "المالية: الأرباح والمصروفات",
++      "payroll": "الرواتب",
+       "branding": "شعار وهوية شركتك",
+       "priority_support": "دعم فني بأولوية"
+     },
+diff --git a/frontend/admin/public/i18n/en.json b/frontend/admin/public/i18n/en.json
+index c1ecf82..cff0341 100644
+--- a/frontend/admin/public/i18n/en.json
++++ b/frontend/admin/public/i18n/en.json
+@@ -1090,15 +1090,22 @@
+     "howItWorks": "Our team will contact you to activate the plan within one business day.",
+     "message": "Hello, I would like to subscribe to the {{plan}} plan for {{company}}.",
+     "features": {
+-      "scheduling": "Scheduling & calendar",
+-      "customers": "Customers & addresses",
+-      "booking_page": "Online booking page",
+-      "whatsapp_limited": "WhatsApp messages (limited)",
+-      "whatsapp": "Automatic WhatsApp messages",
+-      "quotes_invoices": "Quotes & VAT invoices",
++      "scheduling": "Bookings, calendar & scheduling",
++      "customers": "Customers, services & technicians",
++      "booking_page": "Online booking page & customer portal",
++      "whatsapp_limited": "WhatsApp messages (monthly limit)",
++      "whatsapp": "Unlimited automatic WhatsApp messages",
++      "messages": "Messages log",
++      "reviews": "Customer reviews",
++      "contact_requests": "Contact requests",
++      "promos": "Promo codes & offers",
++      "invoices": "VAT invoices (ZATCA QR)",
++      "quotes": "Quotes",
+       "photos": "Before/after photos",
+-      "reports": "Reports",
+-      "online_payments": "Online payments",
++      "reports": "Analytics & reports",
++      "sales": "Sales analysis",
++      "finance": "Finance: profit & expenses",
++      "payroll": "Payroll",
+       "branding": "Your logo & branding",
+       "priority_support": "Priority support"
+     },
+diff --git a/frontend/admin/src/app/app.routes.ts b/frontend/admin/src/app/app.routes.ts
+index b6a8217..0f2213d 100644
+--- a/frontend/admin/src/app/app.routes.ts
++++ b/frontend/admin/src/app/app.routes.ts
+@@ -113,7 +113,7 @@ export const routes: Routes = [
+       {
+         // Discount codes; managing them is part of managing prices, so the Services screen opens it.
+         path: 'promos',
+-        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('SERVICES')],
++        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('SERVICES'), featureGuard('promos')],
+         loadComponent: () => import('./features/promos/promos.page').then((m) => m.PromosPage),
+       },
+       {
+@@ -123,55 +123,55 @@ export const routes: Routes = [
+       },
+       {
+         path: 'invoices',
+-        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('INVOICES'), featureGuard('quotes_invoices')],
++        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('INVOICES'), featureGuard('invoices')],
+         loadComponent: () => import('./features/billing/invoices/invoices.page').then((m) => m.InvoicesPage),
+       },
+       {
+         path: 'invoices/new',
+-        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('INVOICES'), featureGuard('quotes_invoices')],
++        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('INVOICES'), featureGuard('invoices')],
+         data: { kind: 'invoice' },
+         loadComponent: () => import('./features/billing/document-editor/document-editor.page').then((m) => m.DocumentEditorPage),
+       },
+       {
+         path: 'invoices/:id',
+-        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('INVOICES'), featureGuard('quotes_invoices')],
++        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('INVOICES'), featureGuard('invoices')],
+         loadComponent: () => import('./features/billing/invoice-detail/invoice-detail.page').then((m) => m.InvoiceDetailPage),
+       },
+       {
+         path: 'quotes',
+-        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('QUOTES'), featureGuard('quotes_invoices')],
++        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('QUOTES'), featureGuard('quotes')],
+         loadComponent: () => import('./features/billing/quotes/quotes.page').then((m) => m.QuotesPage),
+       },
+       {
+         path: 'quotes/new',
+-        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('QUOTES'), featureGuard('quotes_invoices')],
++        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('QUOTES'), featureGuard('quotes')],
+         data: { kind: 'quote' },
+         loadComponent: () => import('./features/billing/document-editor/document-editor.page').then((m) => m.DocumentEditorPage),
+       },
+       {
+         path: 'quotes/:id/edit',
+-        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('QUOTES'), featureGuard('quotes_invoices')],
++        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('QUOTES'), featureGuard('quotes')],
+         data: { kind: 'quote' },
+         loadComponent: () => import('./features/billing/document-editor/document-editor.page').then((m) => m.DocumentEditorPage),
+       },
+       {
+         path: 'quotes/:id',
+-        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('QUOTES'), featureGuard('quotes_invoices')],
++        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('QUOTES'), featureGuard('quotes')],
+         loadComponent: () => import('./features/billing/quote-detail/quote-detail.page').then((m) => m.QuoteDetailPage),
+       },
+       {
+         path: 'messages',
+-        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('MESSAGES')],
++        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('MESSAGES'), featureGuard('messages')],
+         loadComponent: () => import('./features/messages/messages.page').then((m) => m.MessagesPage),
+       },
+       {
+         path: 'contact-requests',
+-        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('CONTACT_REQUESTS')],
++        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('CONTACT_REQUESTS'), featureGuard('contact_requests')],
+         loadComponent: () => import('./features/contact/contact-requests/contact-requests.page').then((m) => m.ContactRequestsPage),
+       },
+       {
+         path: 'reviews',
+-        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('REVIEWS')],
++        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('REVIEWS'), featureGuard('reviews')],
+         loadComponent: () => import('./features/reviews/reviews.page').then((m) => m.ReviewsPage),
+       },
+       {
+@@ -181,17 +181,17 @@ export const routes: Routes = [
+       },
+       {
+         path: 'sales',
+-        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('SALES'), featureGuard('reports')],
++        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('SALES'), featureGuard('sales')],
+         loadComponent: () => import('./features/sales/sales.page').then((m) => m.SalesPage),
+       },
+       {
+         path: 'finance',
+-        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('EXPENSES'), featureGuard('reports')],
++        canActivate: [roleGuard('OWNER', 'COORDINATOR'), screenGuard('EXPENSES'), featureGuard('finance')],
+         loadComponent: () => import('./features/finance/finance.page').then((m) => m.FinancePage),
+       },
+       {
+         path: 'payroll',
+-        canActivate: [roleGuard('OWNER'), featureGuard('reports')],
++        canActivate: [roleGuard('OWNER'), featureGuard('payroll')],
+         loadComponent: () => import('./features/payroll/payroll.page').then((m) => m.PayrollPage),
+       },
+       // FieldOps owner's console.
+diff --git a/frontend/admin/src/app/core/plan-features.ts b/frontend/admin/src/app/core/plan-features.ts
+index 6e372f0..0164446 100644
+--- a/frontend/admin/src/app/core/plan-features.ts
++++ b/frontend/admin/src/app/core/plan-features.ts
+@@ -1,13 +1,23 @@
+-/** Same keys as the backend's PlanFeature / plans.features. */
++/**
++ * Same keys as the backend's PlanFeature / plans.features. Most are one page (locked in the sidebar with the
++ * upgrade dialog when the plan lacks it). Trial companies get every feature.
++ */
+ export type PlanFeatureKey =
+   | 'scheduling'
+   | 'customers'
+   | 'booking_page'
+-  | 'whatsapp'
+   | 'whatsapp_limited'
+-  | 'quotes_invoices'
++  | 'whatsapp'
++  | 'messages'
++  | 'reviews'
++  | 'contact_requests'
++  | 'promos'
++  | 'invoices'
++  | 'quotes'
+   | 'photos'
+   | 'reports'
+-  | 'online_payments'
++  | 'sales'
++  | 'finance'
++  | 'payroll'
+   | 'branding'
+   | 'priority_support';
+diff --git a/frontend/admin/src/app/features/bookings/booking-detail/booking-detail.page.html b/frontend/admin/src/app/features/bookings/booking-detail/booking-detail.page.html
+index 91e484b..40600f8 100644
+--- a/frontend/admin/src/app/features/bookings/booking-detail/booking-detail.page.html
++++ b/frontend/admin/src/app/features/bookings/booking-detail/booking-detail.page.html
+@@ -229,8 +229,8 @@
+ 
+         <section class="card">
+           <div class="card-h"><i class="pi pi-receipt"></i><h2>{{ 'invoices.billing' | translate }}</h2></div>
+-          @if (tenants.locked('quotes_invoices')) {
+-            <app-locked-feature feature="quotes_invoices" />
++          @if (tenants.locked('invoices')) {
++            <app-locked-feature feature="invoices" />
+           } @else {
+           @for (inv of invoices(); track inv.id) {
+             <div class="inv">
+diff --git a/frontend/admin/src/app/features/bookings/booking-detail/booking-detail.page.ts b/frontend/admin/src/app/features/bookings/booking-detail/booking-detail.page.ts
+index 39a393a..23fa07e 100644
+--- a/frontend/admin/src/app/features/bookings/booking-detail/booking-detail.page.ts
++++ b/frontend/admin/src/app/features/bookings/booking-detail/booking-detail.page.ts
+@@ -339,7 +339,7 @@ export class BookingDetailPage implements OnInit {
+       // Only when the plan has invoicing (otherwise the API answers feature_not_in_plan).
+       this.tenants.ensureLoaded().subscribe({
+         next: () => {
+-          if (this.tenants.has('quotes_invoices')) {
++          if (this.tenants.has('invoices')) {
+             this.billing.bookingInvoices(this.id()).subscribe({ next: (i) => this.invoices.set(i), error: () => {} });
+           }
+         },
+diff --git a/frontend/admin/src/app/features/settings/settings.page.html b/frontend/admin/src/app/features/settings/settings.page.html
+index 45f0707..7fa7b0c 100644
+--- a/frontend/admin/src/app/features/settings/settings.page.html
++++ b/frontend/admin/src/app/features/settings/settings.page.html
+@@ -40,7 +40,7 @@
+         <label class="check"><p-checkbox formControlName="pricesIncludeVat" [binary]="true" /> {{ 'settings.pricesIncludeVat' | translate }}</label>
+         <small class="hint">{{ 'settings.pricesIncludeVatHint' | translate }}</small>
+       </div>
+-      <div class="field full" [hidden]="tenants.locked('quotes_invoices')">
++      <div class="field full" [hidden]="tenants.locked('invoices')">
+         <label class="check"><p-checkbox formControlName="autoInvoice" [binary]="true" /> {{ 'settings.autoInvoice' | translate }}</label>
+         <small class="hint">{{ 'settings.autoInvoiceHint' | translate }}</small>
+       </div>
+diff --git a/frontend/admin/src/app/features/technicians/technicians.page.ts b/frontend/admin/src/app/features/technicians/technicians.page.ts
+index 0a99ab4..b457512 100644
+--- a/frontend/admin/src/app/features/technicians/technicians.page.ts
++++ b/frontend/admin/src/app/features/technicians/technicians.page.ts
+@@ -123,7 +123,7 @@ export class TechniciansPage implements OnInit {
+   });
+ 
+   /** Owners on a plan with payroll can enter the monthly salary while adding the person. */
+-  protected readonly canSetSalary = this.isOwner && !inject(TenantService).locked('reports');
++  protected readonly canSetSalary = this.isOwner && !inject(TenantService).locked('payroll');
+ 
+   /** Creates the payroll entry for a new account; the account itself is already saved, so failures only warn. */
+   private setUpSalary(userId: string, salarySar: number | null): void {
+diff --git a/frontend/admin/src/app/features/users/users.page.ts b/frontend/admin/src/app/features/users/users.page.ts
+index e07e326..7332470 100644
+--- a/frontend/admin/src/app/features/users/users.page.ts
++++ b/frontend/admin/src/app/features/users/users.page.ts
+@@ -99,7 +99,7 @@ export class UsersPage implements OnInit {
+   });
+ 
+   /** Owners on a plan with payroll can enter the monthly salary while adding the person. */
+-  protected readonly canSetSalary = this.auth.hasRole('OWNER') && !inject(TenantService).locked('reports');
++  protected readonly canSetSalary = this.auth.hasRole('OWNER') && !inject(TenantService).locked('payroll');
+ 
+   /** Creates the payroll entry for a new account; the account itself is already saved, so failures only warn. */
+   private setUpSalary(userId: string, salarySar: number | null): void {
+diff --git a/frontend/admin/src/app/layout/shell/shell.ts b/frontend/admin/src/app/layout/shell/shell.ts
+index c8e2829..da2d3d9 100644
+--- a/frontend/admin/src/app/layout/shell/shell.ts
++++ b/frontend/admin/src/app/layout/shell/shell.ts
+@@ -44,18 +44,18 @@ const NAV: NavItem[] = [
+   { path: '/today', icon: 'pi pi-briefcase', label: 'nav.today', roles: ['TECHNICIAN'], section: 'work' },
+   { path: '/calendar', icon: 'pi pi-calendar', label: 'nav.calendar', roles: ['OWNER', 'COORDINATOR'], section: 'work', screen: 'CALENDAR' },
+   { path: '/bookings', icon: 'pi pi-inbox', label: 'nav.bookings', roles: ['OWNER', 'COORDINATOR'], section: 'work', screen: 'BOOKINGS' },
+-  { path: '/messages', icon: 'pi pi-comments', label: 'nav.messages', roles: ['OWNER', 'COORDINATOR'], section: 'work', screen: 'MESSAGES' },
+-  { path: '/contact-requests', icon: 'pi pi-envelope', label: 'nav.contactRequests', roles: ['OWNER', 'COORDINATOR'], section: 'work', badge: 'contact', screen: 'CONTACT_REQUESTS' },
+-  { path: '/reviews', icon: 'pi pi-star', label: 'nav.reviews', roles: ['OWNER', 'COORDINATOR'], section: 'work', screen: 'REVIEWS' },
+-  { path: '/invoices', icon: 'pi pi-file', label: 'nav.invoices', roles: ['OWNER', 'COORDINATOR'], section: 'finance', feature: 'quotes_invoices', screen: 'INVOICES' },
+-  { path: '/quotes', icon: 'pi pi-file-edit', label: 'nav.quotes', roles: ['OWNER', 'COORDINATOR'], section: 'finance', feature: 'quotes_invoices', screen: 'QUOTES' },
++  { path: '/messages', icon: 'pi pi-comments', label: 'nav.messages', roles: ['OWNER', 'COORDINATOR'], feature: 'messages', section: 'work', screen: 'MESSAGES' },
++  { path: '/contact-requests', icon: 'pi pi-envelope', label: 'nav.contactRequests', roles: ['OWNER', 'COORDINATOR'], feature: 'contact_requests', section: 'work', badge: 'contact', screen: 'CONTACT_REQUESTS' },
++  { path: '/reviews', icon: 'pi pi-star', label: 'nav.reviews', roles: ['OWNER', 'COORDINATOR'], feature: 'reviews', section: 'work', screen: 'REVIEWS' },
++  { path: '/invoices', icon: 'pi pi-file', label: 'nav.invoices', roles: ['OWNER', 'COORDINATOR'], section: 'finance', feature: 'invoices', screen: 'INVOICES' },
++  { path: '/quotes', icon: 'pi pi-file-edit', label: 'nav.quotes', roles: ['OWNER', 'COORDINATOR'], section: 'finance', feature: 'quotes', screen: 'QUOTES' },
+   { path: '/reports', icon: 'pi pi-chart-bar', label: 'nav.reports', roles: ['OWNER', 'COORDINATOR'], section: 'finance', feature: 'reports', screen: 'REPORTS' },
+-  { path: '/sales', icon: 'pi pi-shopping-cart', label: 'nav.sales', roles: ['OWNER', 'COORDINATOR'], section: 'finance', feature: 'reports', screen: 'SALES' },
+-  { path: '/finance', icon: 'pi pi-wallet', label: 'nav.finance', roles: ['OWNER', 'COORDINATOR'], section: 'finance', feature: 'reports', screen: 'EXPENSES' },
+-  { path: '/payroll', icon: 'pi pi-money-bill', label: 'nav.payroll', roles: ['OWNER'], section: 'finance', feature: 'reports' },
++  { path: '/sales', icon: 'pi pi-shopping-cart', label: 'nav.sales', roles: ['OWNER', 'COORDINATOR'], section: 'finance', feature: 'sales', screen: 'SALES' },
++  { path: '/finance', icon: 'pi pi-wallet', label: 'nav.finance', roles: ['OWNER', 'COORDINATOR'], section: 'finance', feature: 'finance', screen: 'EXPENSES' },
++  { path: '/payroll', icon: 'pi pi-money-bill', label: 'nav.payroll', roles: ['OWNER'], section: 'finance', feature: 'payroll' },
+   { path: '/customers', icon: 'pi pi-users', label: 'nav.customers', roles: ['OWNER', 'COORDINATOR'], section: 'manage', screen: 'CUSTOMERS' },
+   { path: '/services', icon: 'pi pi-list-check', label: 'nav.services', roles: ['OWNER', 'COORDINATOR'], section: 'manage', screen: 'SERVICES' },
+-  { path: '/promos', icon: 'pi pi-ticket', label: 'nav.promos', roles: ['OWNER', 'COORDINATOR'], section: 'manage', screen: 'SERVICES' },
++  { path: '/promos', icon: 'pi pi-ticket', label: 'nav.promos', roles: ['OWNER', 'COORDINATOR'], feature: 'promos', section: 'manage', screen: 'SERVICES' },
+   { path: '/technicians', icon: 'pi pi-wrench', label: 'nav.technicians', roles: ['OWNER', 'COORDINATOR'], section: 'manage', screen: 'TECHNICIANS' },
+   { path: '/users', icon: 'pi pi-id-card', label: 'nav.users', roles: ['OWNER'], section: 'system' },
+   { path: '/settings', icon: 'pi pi-cog', label: 'nav.settings', roles: ['OWNER'], section: 'system' },

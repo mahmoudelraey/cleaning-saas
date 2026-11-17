@@ -209,9 +209,11 @@ public class TenantController {
 
     public record PlanDto(String id, String nameAr, String nameEn, long priceMonthlyHalalas,
                           Long priceYearlyHalalas, int maxTechnicians, List<String> features) {
-        static PlanDto of(Plan p) {
+        /** {@code features} = what the company can use now: the plan's, plus the trial extras while on trial. */
+        static PlanDto of(Plan p, TenantStatus status) {
             return new PlanDto(p.getId(), p.getNameAr(), p.getNameEn(), p.getPriceMonthlyHalalas(),
-                    p.getPriceYearlyHalalas(), p.getMaxTechnicians(), p.getFeatures());
+                    p.getPriceYearlyHalalas(), p.getMaxTechnicians(),
+                    List.copyOf(PlanFeature.effective(p.getFeatures(), status)));
         }
     }
 
@@ -224,7 +226,7 @@ public class TenantController {
             return new TenantDto(t.getId(), t.getName(), t.getNameEn(), t.getSlug(), t.getLogoUrl(), t.getPhone(),
                     t.getVatNumber(), t.getAddress(), t.getAddressEn(), t.getCommercialRegistration(), t.isPricesIncludeVat(),
                     t.isAutoInvoice(), t.isBookingPageEnabled(), t.getBookingPageNote(),
-                    t.getTimezone(), t.getStatus().name(), t.getTrialEndsAt(), PlanDto.of(plan), t.getPublicPage(),
+                    t.getTimezone(), t.getStatus().name(), t.getTrialEndsAt(), PlanDto.of(plan, t.getStatus()), t.getPublicPage(),
                     new GoogleDto(googleAvailable, t.getGooglePlaceId(), t.getGooglePlaceName()));
         }
     }

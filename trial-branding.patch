@@ -1,0 +1,95 @@
+diff --git a/backend/admin/src/main/java/com/fieldops/app/tenant/TenantController.java b/backend/admin/src/main/java/com/fieldops/app/tenant/TenantController.java
+index 1754151..e12fe5c 100644
+--- a/backend/admin/src/main/java/com/fieldops/app/tenant/TenantController.java
++++ b/backend/admin/src/main/java/com/fieldops/app/tenant/TenantController.java
+@@ -209,9 +209,11 @@ public class TenantController {
+ 
+     public record PlanDto(String id, String nameAr, String nameEn, long priceMonthlyHalalas,
+                           Long priceYearlyHalalas, int maxTechnicians, List<String> features) {
+-        static PlanDto of(Plan p) {
++        /** {@code features} = what the company can use now: the plan's, plus the trial extras while on trial. */
++        static PlanDto of(Plan p, TenantStatus status) {
+             return new PlanDto(p.getId(), p.getNameAr(), p.getNameEn(), p.getPriceMonthlyHalalas(),
+-                    p.getPriceYearlyHalalas(), p.getMaxTechnicians(), p.getFeatures());
++                    p.getPriceYearlyHalalas(), p.getMaxTechnicians(),
++                    List.copyOf(PlanFeature.effective(p.getFeatures(), status)));
+         }
+     }
+ 
+@@ -224,7 +226,7 @@ public class TenantController {
+             return new TenantDto(t.getId(), t.getName(), t.getNameEn(), t.getSlug(), t.getLogoUrl(), t.getPhone(),
+                     t.getVatNumber(), t.getAddress(), t.getAddressEn(), t.getCommercialRegistration(), t.isPricesIncludeVat(),
+                     t.isAutoInvoice(), t.isBookingPageEnabled(), t.getBookingPageNote(),
+-                    t.getTimezone(), t.getStatus().name(), t.getTrialEndsAt(), PlanDto.of(plan), t.getPublicPage(),
++                    t.getTimezone(), t.getStatus().name(), t.getTrialEndsAt(), PlanDto.of(plan, t.getStatus()), t.getPublicPage(),
+                     new GoogleDto(googleAvailable, t.getGooglePlaceId(), t.getGooglePlaceName()));
+         }
+     }
+diff --git a/backend/core/src/main/java/com/fieldops/app/tenant/PlanFeature.java b/backend/core/src/main/java/com/fieldops/app/tenant/PlanFeature.java
+index 1a0d8c7..6f760e4 100644
+--- a/backend/core/src/main/java/com/fieldops/app/tenant/PlanFeature.java
++++ b/backend/core/src/main/java/com/fieldops/app/tenant/PlanFeature.java
+@@ -1,11 +1,18 @@
+ package com.fieldops.app.tenant;
+ 
++import java.util.Collection;
++import java.util.LinkedHashSet;
++import java.util.Set;
++
+ /**
+  * Feature keys stored in {@code plans.features} (see V1 migration). The frontend uses the same strings.
+  *
+  * <p>Basic: scheduling, customers, booking_page, whatsapp_limited.
+  * Pro: + whatsapp (unlimited), quotes_invoices, photos, reports.
+  * Business: + online_payments, branding, priority_support.
++ *
++ * <p>During the free trial a company also gets {@link #DURING_TRIAL} on top of its trial plan, so it can set
++ * itself up (e.g. upload its logo) before choosing a plan.
+  */
+ public final class PlanFeature {
+ 
+@@ -21,6 +28,18 @@ public final class PlanFeature {
+     public static final String BRANDING = "branding";
+     public static final String PRIORITY_SUPPORT = "priority_support";
+ 
++    /** Extra features every company gets while its status is TRIAL, whatever the trial plan. */
++    public static final Set<String> DURING_TRIAL = Set.of(BRANDING);
++
+     private PlanFeature() {
+     }
++
++    /** The plan's features plus the trial extras when the company is on trial. */
++    public static Set<String> effective(Collection<String> planFeatures, TenantStatus status) {
++        Set<String> out = new LinkedHashSet<>(planFeatures == null ? Set.of() : planFeatures);
++        if (status == TenantStatus.TRIAL) {
++            out.addAll(DURING_TRIAL);
++        }
++        return out;
++    }
+ }
+diff --git a/backend/core/src/main/java/com/fieldops/app/tenant/PlanFeatureService.java b/backend/core/src/main/java/com/fieldops/app/tenant/PlanFeatureService.java
+index 8ec94d7..14cec12 100644
+--- a/backend/core/src/main/java/com/fieldops/app/tenant/PlanFeatureService.java
++++ b/backend/core/src/main/java/com/fieldops/app/tenant/PlanFeatureService.java
+@@ -14,8 +14,8 @@ import com.fieldops.app.common.tenant.TenantContext;
+ import com.fieldops.app.common.web.ApiException;
+ 
+ /**
+- * Answers "does this company's plan include feature X?". Decided from the database only (tenant row and
+- * its plan), cached briefly like {@link TenantAccessService}. Call {@link #evict} after a plan change.
++ * Answers "does this company's plan include feature X?" (plus the trial extras while on trial, see
++ * {@link PlanFeature#DURING_TRIAL}). Decided from the database only (tenant row and its plan), cached briefly like {@link TenantAccessService}. Call {@link #evict} after a plan change.
+  */
+ @Service
+ public class PlanFeatureService {
+@@ -61,8 +61,8 @@ public class PlanFeatureService {
+         Entry e = cache.get(tenantId);
+         if (e == null || !now.isBefore(e.validUntil())) {
+             Set<String> loaded = tenants.findById(tenantId)
+-                    .flatMap(t -> plans.findById(t.getPlanId()))
+-                    .map(p -> Set.copyOf(p.getFeatures()))
++                    .flatMap(t -> plans.findById(t.getPlanId())
++                            .map(p -> Set.copyOf(PlanFeature.effective(p.getFeatures(), t.getStatus()))))
+                     .orElse(Set.of());
+             e = new Entry(loaded, now.plus(TTL));
+             cache.put(tenantId, e);
