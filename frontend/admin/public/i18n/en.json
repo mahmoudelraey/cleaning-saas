@@ -130,7 +130,8 @@
       "services": "Add your services and prices",
       "technicians": "Add technicians and their working hours",
       "customers": "Add your first customer",
-      "share": "Review company details and share your booking link"
+      "share": "Review company details and share your booking link",
+      "company": "Complete your company details (name and phone)"
     },
     "bookingLink": "Booking link",
     "bookingLinkHint": "Put it on Instagram, WhatsApp and Google Maps. Customers sign in with their mobile to book, follow their visits and download invoices.",

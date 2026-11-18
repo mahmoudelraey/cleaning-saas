@@ -36,14 +36,27 @@ export class DashboardPage implements OnInit {
   protected readonly technicians = signal(0);
   protected readonly month = signal<ReportSummary | null>(null);
 
-  protected readonly steps = computed<Step[]>(() => [
-    { key: 'services', done: this.services() > 0, link: '/services' },
-    { key: 'technicians', done: this.technicians() > 0, link: '/technicians' },
-    { key: 'customers', done: this.customers() > 0, link: '/customers' },
-    { key: 'share', done: false, link: '/settings' },
-  ]);
+  /** Company details are done once the name and contact phone are saved (both shown to customers and on invoices). */
+  private readonly companyReady = computed(() => {
+    const t = this.tenants.tenant();
+    return !!t?.name?.trim() && !!t?.phone?.trim();
+  });
+
+  protected readonly steps = computed<Step[]>(() => {
+    // Plans without the customer portal have no booking link to share.
+    const portal = !this.tenants.locked('booking_page');
+    return [
+      { key: 'services', done: this.services() > 0, link: '/services' },
+      { key: 'technicians', done: this.technicians() > 0, link: '/technicians' },
+      { key: 'customers', done: this.customers() > 0, link: '/customers' },
+      portal
+        ? { key: 'share', done: this.companyReady() && !!this.tenants.tenant()?.bookingPageEnabled, link: '/settings' }
+        : { key: 'company', done: this.companyReady(), link: '/settings' },
+    ];
+  });
 
   ngOnInit(): void {
+    this.tenants.ensureLoaded().subscribe({ error: () => {} });
     if (this.auth.hasRole('TECHNICIAN')) {
       void this.router.navigate(['/today']);
       return;

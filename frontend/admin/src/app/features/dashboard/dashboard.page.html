@@ -61,6 +61,7 @@
       </ul>
     </div>
 
+    @if (!tenants.locked('booking_page')) {
     <div class="panel">
       <h2>{{ 'dashboard.bookingLink' | translate }}</h2>
       <p class="muted">{{ 'dashboard.bookingLinkHint' | translate }}</p>
@@ -70,5 +71,6 @@
         <a [href]="tenants.portalUrl()" target="_blank" rel="noopener"><p-button icon="pi pi-external-link" [text]="true" [ariaLabel]="'common.open' | translate" /></a>
       </div>
     </div>
+    }
   </div>
 }
