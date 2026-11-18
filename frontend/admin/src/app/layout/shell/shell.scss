@@ -15,10 +15,25 @@
 }
 
 .shell {
+  position: relative;
   display: grid;
   grid-template-columns: var(--sb-width) minmax(0, 1fr);
   min-height: 100vh;
   transition: grid-template-columns 0.2s ease;
+
+  // The sidebar is sticky and one screen tall. This strip carries its colour down the whole page, so a
+  // full-page screenshot (or a very long page) never shows the sidebar ending halfway.
+  &::before {
+    content: '';
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    width: var(--sb-width);
+    background: var(--brand-16); // the sidebar gradient's last colour
+    border-inline-end: 1px solid var(--sb-line);
+    transition: width 0.2s ease;
+    pointer-events: none;
+  }
 }
 
 // ======================= sidebar =======================
@@ -35,6 +50,7 @@
   padding: 1.1rem 0.85rem 0.85rem;
   position: sticky;
   top: 0;
+  z-index: 1; // above the full-height strip
   height: 100vh;
   overflow: hidden;
   border-inline-end: 1px solid var(--sb-line);
@@ -352,6 +368,11 @@ button.nav-link {
   .shell.collapsed {
     grid-template-columns: var(--sb-rail) minmax(0, 1fr);
 
+    &::before {
+      width: var(--sb-rail);
+    }
+
+
     .sidebar {
       padding-inline: 0.7rem;
     }
@@ -595,6 +616,10 @@ button.nav-link {
 @media (max-width: 900px) {
   .shell {
     grid-template-columns: 1fr;
+
+    &::before {
+      display: none; // off-canvas sidebar: no column to fill
+    }
   }
 
   .sidebar {
