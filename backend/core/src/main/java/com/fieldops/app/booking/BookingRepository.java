@@ -16,6 +16,9 @@ import org.springframework.data.repository.query.Param;
 
 public interface BookingRepository extends JpaRepository<Booking, UUID>, JpaSpecificationExecutor<Booking> {
 
+    /** Bookings created since a moment (monthly plan limit). */
+    long countByCreatedAtGreaterThanEqual(java.time.Instant since);
+
     /*
      * LOAD, not the default FETCH: with FETCH every attribute missing from the graph becomes lazy, so the customer,
      * the address and each item's service would come back as proxies and fail once the transaction is over

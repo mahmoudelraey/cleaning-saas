@@ -51,11 +51,12 @@ public class BookingService {
     private final ApplicationEventPublisher publisher;
     private final Clock clock;
     private final PromoRepository promos;
+    private final com.fieldops.app.tenant.PlanLimitService limits;
 
     public BookingService(BookingRepository bookings, VisitEventRepository events, BookingPricing pricing,
                           CustomerService customers, SchedulingService scheduling, TechnicianRepository technicians,
                           TenantService tenants, TenantCounterService counters, ApplicationEventPublisher publisher,
-                          Clock clock, PromoRepository promos) {
+                          Clock clock, PromoRepository promos, com.fieldops.app.tenant.PlanLimitService limits) {
         this.bookings = bookings;
         this.events = events;
         this.pricing = pricing;
@@ -67,6 +68,7 @@ public class BookingService {
         this.publisher = publisher;
         this.clock = clock;
         this.promos = promos;
+        this.limits = limits;
     }
 
     /** What the office (or the public page) asks for. Prices are never accepted from the client. */
@@ -158,6 +160,7 @@ public class BookingService {
 
     @Transactional
     public Booking create(BookingCommand cmd, BookingSource source, List<UUID> technicianIds, boolean force) {
+        limits.checkBookingAllowed(); // monthly bookings of the plan (or the company's override)
         Customer customer = customers.get(cmd.customerId());
         BookingPricing.Priced priced = pricing.price(cmd.lines());
 

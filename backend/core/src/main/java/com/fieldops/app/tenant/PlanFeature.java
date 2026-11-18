@@ -27,8 +27,7 @@ public final class PlanFeature {
      * admin app's public booking page. Without it every {@code /api/portal/{slug}/**} call answers 404.
      */
     public static final String BOOKING_PAGE = "booking_page";
-    /** WhatsApp messages with a monthly cap (app.plans.limited-whatsapp-monthly); {@link #WHATSAPP} lifts it. */
-    public static final String WHATSAPP_LIMITED = "whatsapp_limited";
+    /** Automatic WhatsApp messages to customers; how many per month is the plan's {@code monthly_messages}. */
     public static final String WHATSAPP = "whatsapp";
 
     // ---- pages
@@ -55,13 +54,12 @@ public final class PlanFeature {
     public static final String PRIORITY_SUPPORT = "priority_support";
 
     /** Every feature, in the order the plans editor shows them. */
-    public static final List<String> ALL = List.of(SCHEDULING, CUSTOMERS, BOOKING_PAGE, WHATSAPP_LIMITED, WHATSAPP,
+    public static final List<String> ALL = List.of(SCHEDULING, CUSTOMERS, BOOKING_PAGE, WHATSAPP,
             MESSAGES, REVIEWS, CONTACT_REQUESTS, PROMOS, INVOICES, QUOTES, PHOTOS, REPORTS, SALES, FINANCE, PAYROLL,
             BRANDING, PRIORITY_SUPPORT);
 
-    /** What every company gets while its status is TRIAL: everything (unlimited WhatsApp, so no cap). */
-    public static final Set<String> DURING_TRIAL = Set.copyOf(ALL.stream()
-            .filter(f -> !f.equals(WHATSAPP_LIMITED)).toList());
+    /** What every company gets while its status is TRIAL: every feature (limits stay the trial plan's). */
+    public static final Set<String> DURING_TRIAL = Set.copyOf(ALL);
 
     private PlanFeature() {
     }

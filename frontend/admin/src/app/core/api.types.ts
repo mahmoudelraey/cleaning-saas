@@ -51,6 +51,10 @@ export interface Plan {
   /** Optional price for a year paid up front. */
   priceYearlyHalalas?: number | null;
   maxTechnicians: number;
+  /** Automatic customer messages per month; null = unlimited. */
+  monthlyMessages?: number | null;
+  /** Bookings per month; null = unlimited. */
+  monthlyBookings?: number | null;
   features: string[];
 }
 

@@ -60,7 +60,7 @@ const NAV: NavItem[] = [
   { path: '/users', icon: 'pi pi-id-card', label: 'nav.users', roles: ['OWNER'], section: 'system' },
   { path: '/settings', icon: 'pi pi-cog', label: 'nav.settings', roles: ['OWNER'], section: 'system' },
 ];
-const SECTION_ORDER: NavSection[] = ['platform', 'work', 'finance', 'manage', 'system'];
+const SECTION_ORDER: NavSection[] = ['platform', 'work', 'manage', 'finance', 'system'];
 
 /** Length of the free trial given at signup (see the backend signup flow). */
 const TRIAL_DAYS = 14;

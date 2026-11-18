@@ -249,7 +249,8 @@
     "promo_used_up": "This promo has been fully used",
     "promo_customer_limit": "You've already used this promo",
     "promo_first_booking": "This promo is for a first booking only",
-    "promo_min_subtotal": "Your order is below this promo's minimum"
+    "promo_min_subtotal": "Your order is below this promo's minimum",
+    "plan_booking_limit": "This company isn't taking more online bookings this month. Please call or WhatsApp them directly."
   },
   "company": {
     "signIn": "Sign in",

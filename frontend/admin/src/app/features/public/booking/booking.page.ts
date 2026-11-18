@@ -316,7 +316,12 @@ export class BookingPage implements OnInit, OnDestroy {
   }
 
   private toast(err: unknown): void {
-    this.messages.add({ severity: 'error', summary: errorMessage(err, this.translate) });
+    // The company's monthly bookings are used up: tell the customer to contact it (not the owner's plan wording).
+    const code = (err as { error?: { code?: string } })?.error?.code;
+    const summary = code === 'plan_booking_limit'
+      ? this.translate.instant('publicBooking.limitReached')
+      : errorMessage(err, this.translate);
+    this.messages.add({ severity: 'error', summary });
   }
 }
 

@@ -27,8 +27,11 @@ public class TechnicianService {
     private final TechnicianRepository technicians;
     private final UserService users;
     private final TenantService tenants;
+    private final com.fieldops.app.tenant.PlanLimitService limits;
 
-    public TechnicianService(TechnicianRepository technicians, UserService users, TenantService tenants) {
+    public TechnicianService(TechnicianRepository technicians, UserService users, TenantService tenants,
+                             com.fieldops.app.tenant.PlanLimitService limits) {
+        this.limits = limits;
         this.technicians = technicians;
         this.users = users;
         this.tenants = tenants;
@@ -84,14 +87,9 @@ public class TechnicianService {
         return t;
     }
 
-    /** Pricing is per technician (plan section 8), so the plan caps active technicians. */
+    /** Pricing is per technician, so the plan (or the company's override) caps active technicians. */
     private void assertWithinPlanLimit() {
-        Tenant tenant = tenants.current();
-        Plan plan = tenants.planOf(tenant);
-        if (technicians.countByActiveTrue() >= plan.getMaxTechnicians()) {
-            throw ApiException.conflict("plan_technician_limit",
-                    "Your plan allows up to " + plan.getMaxTechnicians() + " active technicians");
-        }
+        limits.checkTechnicianAllowed();
     }
 
     static List<WorkShift> validateWorkHours(List<WorkShift> input) {

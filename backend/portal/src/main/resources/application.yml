@@ -54,8 +54,6 @@ app:
     # Returns the sign-in code in the API response, so local dev works without SMS/WhatsApp.
     # Must be false in production: set OTP_EXPOSE_CODE=false (DevDefaultsGuard enforces it off localhost).
     expose-code: ${OTP_EXPOSE_CODE:true}
-  plans:
-    limited-whatsapp-monthly: ${LIMITED_WHATSAPP_MONTHLY:100}
   storage:
     type: ${STORAGE_TYPE:local}
     local-dir: ${STORAGE_LOCAL_DIR:./data/uploads}

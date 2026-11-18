@@ -1,4 +1,4 @@
-<app-dialog [(visible)]="visible" [title]="'upgrade.title' | translate" icon="pi pi-star" width="920px">
+<app-dialog [(visible)]="visible" [title]="'upgrade.title' | translate" icon="pi pi-star" width="1120px">
 <div class="fo-dlg-body">
   @if (featurePlan(); as fp) {
     <p class="intro feature-intro">
@@ -27,6 +27,8 @@
             <div class="yearly">{{ 'upgrade.orYearly' | translate }} <span class="ltr">{{ p.priceYearlyHalalas | sar }}</span> / {{ 'upgrade.year' | translate }}</div>
           }
           <div class="techs"><i class="pi pi-users"></i>{{ 'upgrade.upTo' | translate: { n: p.maxTechnicians } }}</div>
+          <div class="techs"><i class="pi pi-calendar"></i>{{ (p.monthlyBookings == null ? 'upgrade.bookingsUnlimited' : 'upgrade.bookingsMonth') | translate: { n: p.monthlyBookings } }}</div>
+          <div class="techs"><i class="pi pi-whatsapp"></i>{{ (p.monthlyMessages == null ? 'upgrade.messagesUnlimited' : 'upgrade.messagesMonth') | translate: { n: p.monthlyMessages } }}</div>
           <ul>
             @for (f of p.features; track f) {
               <li [class.hl]="f === upgrade.feature()"><i class="pi pi-check"></i>{{ 'upgrade.features.' + f | translate }}</li>

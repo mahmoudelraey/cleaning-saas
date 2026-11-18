@@ -38,15 +38,18 @@ public class TenantController {
     private final TenantService service;
     private final TenantLogoService logos;
     private final GooglePlacesClient google;
+    private final PlanLimitService limits;
 
-    public TenantController(TenantService service, TenantLogoService logos, GooglePlacesClient google) {
+    public TenantController(TenantService service, TenantLogoService logos, GooglePlacesClient google,
+                            PlanLimitService limits) {
+        this.limits = limits;
         this.service = service;
         this.logos = logos;
         this.google = google;
     }
 
     private TenantDto dto(Tenant t) {
-        return TenantDto.of(t, service.planOf(t), google.configured());
+        return TenantDto.of(t, service.planOf(t), limits.limits(t), google.configured());
     }
 
     /** Public: used by the pricing page. */
@@ -212,19 +215,25 @@ public class TenantController {
     public record GoogleDto(boolean available, String placeId, String name) {
     }
 
+    /** {@code monthlyMessages} / {@code monthlyBookings}: null = unlimited. */
     public record PlanDto(String id, String nameAr, String nameEn, long priceMonthlyHalalas,
-                          Long priceYearlyHalalas, int maxTechnicians, List<String> features) {
-        /** The plan as sold (pricing page, upgrade dialog): its own features only. */
+                          Long priceYearlyHalalas, int maxTechnicians, Integer monthlyMessages,
+                          Integer monthlyBookings, List<String> features) {
+        /** The plan as sold (pricing page, upgrade dialog): its own features and limits. */
         static PlanDto sold(Plan p) {
             return new PlanDto(p.getId(), p.getNameAr(), p.getNameEn(), p.getPriceMonthlyHalalas(),
-                    p.getPriceYearlyHalalas(), p.getMaxTechnicians(), p.getFeatures());
+                    p.getPriceYearlyHalalas(), p.getMaxTechnicians(), p.getMonthlyMessages(),
+                    p.getMonthlyBookings(), p.getFeatures());
         }
 
-        /** {@code features} = what the company can use now: the plan's, or everything while on trial. */
-        static PlanDto of(Plan p, TenantStatus status) {
+        /**
+         * The company's plan: features it can use now (everything while on trial) and its limits in effect
+         * (the platform admin may have set this company's own).
+         */
+        static PlanDto of(Plan p, TenantStatus status, PlanLimitService.Limits limits) {
             return new PlanDto(p.getId(), p.getNameAr(), p.getNameEn(), p.getPriceMonthlyHalalas(),
-                    p.getPriceYearlyHalalas(), p.getMaxTechnicians(),
-                    List.copyOf(PlanFeature.effective(p.getFeatures(), status)));
+                    p.getPriceYearlyHalalas(), limits.maxTechnicians(), limits.monthlyMessages(),
+                    limits.monthlyBookings(), List.copyOf(PlanFeature.effective(p.getFeatures(), status)));
         }
     }
 
@@ -233,11 +242,11 @@ public class TenantController {
                             boolean autoInvoice, boolean bookingPageEnabled, String bookingPageNote,
                             String timezone, String status, Instant trialEndsAt, PlanDto plan,
                             PublicPage publicPage, GoogleDto google) {
-        static TenantDto of(Tenant t, Plan plan, boolean googleAvailable) {
+        static TenantDto of(Tenant t, Plan plan, PlanLimitService.Limits limits, boolean googleAvailable) {
             return new TenantDto(t.getId(), t.getName(), t.getNameEn(), t.getSlug(), t.getLogoUrl(), t.getPhone(),
                     t.getVatNumber(), t.getAddress(), t.getAddressEn(), t.getCommercialRegistration(), t.isPricesIncludeVat(),
                     t.isAutoInvoice(), t.isBookingPageEnabled(), t.getBookingPageNote(),
-                    t.getTimezone(), t.getStatus().name(), t.getTrialEndsAt(), PlanDto.of(plan, t.getStatus()), t.getPublicPage(),
+                    t.getTimezone(), t.getStatus().name(), t.getTrialEndsAt(), PlanDto.of(plan, t.getStatus(), limits), t.getPublicPage(),
                     new GoogleDto(googleAvailable, t.getGooglePlaceId(), t.getGooglePlaceName()));
         }
     }

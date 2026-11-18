@@ -30,8 +30,11 @@
         }
       </div>
       <div class="muted">
-        <code>{{ p.id }}</code> · {{ 'upgrade.upTo' | translate: { n: p.maxTechnicians } }} ·
-        {{ 'platform.plans.companies' | translate: { n: p.companies } }}
+        <code>{{ p.id }}</code> · {{ 'upgrade.upTo' | translate: { n: p.maxTechnicians } }}
+      </div>
+      <div class="muted">
+        {{ (p.monthlyBookings === null ? 'upgrade.bookingsUnlimited' : 'upgrade.bookingsMonth') | translate: { n: p.monthlyBookings } }} ·
+        {{ (p.monthlyMessages === null ? 'upgrade.messagesUnlimited' : 'upgrade.messagesMonth') | translate: { n: p.monthlyMessages } }}
       </div>
       <ul>
         @for (f of p.features; track f) {
@@ -125,6 +128,21 @@
         <div class="field">
           <label for="pl-t">{{ 'platform.plans.maxTechnicians' | translate }}</label>
           <p-inputnumber inputId="pl-t" [(ngModel)]="d.maxTechnicians" [min]="1" [max]="1000" />
+        </div>
+        <div class="field">
+          <label for="pl-b">{{ 'platform.plans.monthlyBookings' | translate }}</label>
+          <p-inputnumber inputId="pl-b" [(ngModel)]="d.monthlyBookings" [min]="0" [max]="1000000" [disabled]="d.unlimitedBookings" />
+          <label class="check-inline">
+            <p-checkbox [(ngModel)]="d.unlimitedBookings" [binary]="true" /> {{ 'platform.plans.unlimited' | translate }}
+          </label>
+        </div>
+        <div class="field">
+          <label for="pl-m">{{ 'platform.plans.monthlyMessages' | translate }}</label>
+          <p-inputnumber inputId="pl-m" [(ngModel)]="d.monthlyMessages" [min]="0" [max]="1000000" [disabled]="d.unlimitedMessages" />
+          <label class="check-inline">
+            <p-checkbox [(ngModel)]="d.unlimitedMessages" [binary]="true" /> {{ 'platform.plans.unlimited' | translate }}
+          </label>
+          <small class="hint">{{ 'platform.plans.messagesHint' | translate }}</small>
         </div>
         <div class="field">
           <label for="pl-o">{{ 'platform.plans.order' | translate }}</label>

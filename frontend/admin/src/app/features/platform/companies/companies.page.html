@@ -70,6 +70,33 @@
     </section>
 
     <section class="box">
+      <h3>{{ 'platform.limits.title' | translate }}</h3>
+      <p class="hint">{{ 'platform.limits.hint' | translate }}</p>
+      <div class="limits">
+        <div class="limit">
+          <label for="lim-t">{{ 'platform.limits.technicians' | translate }}</label>
+          <p-inputnumber inputId="lim-t" [(ngModel)]="limTech" [min]="1" [max]="1000" [placeholder]="'' + d.limits.planMaxTechnicians" />
+          <small>{{ 'platform.limits.used' | translate: { used: d.limits.activeTechnicians, max: d.limits.maxTechnicians } }}</small>
+        </div>
+        <div class="limit">
+          <label for="lim-b">{{ 'platform.limits.bookings' | translate }}</label>
+          <p-inputnumber inputId="lim-b" [(ngModel)]="limBookings" [min]="0" [max]="1000000" [placeholder]="planValue(d.limits.planMonthlyBookings)" />
+          <small>{{ 'platform.limits.used' | translate: { used: d.limits.bookingsThisMonth, max: shown(d.limits.monthlyBookings) } }}</small>
+        </div>
+        <div class="limit">
+          <label for="lim-m">{{ 'platform.limits.messages' | translate }}</label>
+          <p-inputnumber inputId="lim-m" [(ngModel)]="limMessages" [min]="0" [max]="1000000" [placeholder]="planValue(d.limits.planMonthlyMessages)" />
+          <small>{{ 'platform.limits.used' | translate: { used: d.limits.messagesThisMonth, max: shown(d.limits.monthlyMessages) } }}</small>
+        </div>
+      </div>
+      <div class="row-f">
+        <p-button [label]="'common.save' | translate" [loading]="busy()" (onClick)="run(api.setLimits(c.id, { maxTechnicians: limTech, monthlyMessages: limMessages, monthlyBookings: limBookings }))" />
+        <p-button [text]="true" severity="secondary" [label]="'platform.limits.reset' | translate" [disabled]="limTech === null && limMessages === null && limBookings === null"
+                  (onClick)="limTech = null; limMessages = null; limBookings = null" />
+      </div>
+    </section>
+
+    <section class="box">
       <h3>{{ 'platform.actions.trial' | translate }}</h3>
       <div class="row-f">
         @for (n of [7, 14, 30]; track n) {

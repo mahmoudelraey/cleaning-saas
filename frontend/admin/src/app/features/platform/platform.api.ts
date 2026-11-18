@@ -34,6 +34,29 @@ export interface CompanyDetail {
   company: CompanyRow;
   staff: { id: string; name: string; phone: string; email: string | null; role: Role; active: boolean; lastLoginAt: string | null }[];
   history: { action: string; details: string | null; actorName: string | null; at: string }[];
+  limits: CompanyLimits;
+}
+
+/** Plan values, this company's overrides (null = none), what applies now (null = unlimited) and this month's use. */
+export interface CompanyLimits {
+  planMaxTechnicians: number;
+  planMonthlyMessages: number | null;
+  planMonthlyBookings: number | null;
+  maxTechniciansOverride: number | null;
+  monthlyMessagesOverride: number | null;
+  monthlyBookingsOverride: number | null;
+  maxTechnicians: number;
+  monthlyMessages: number | null;
+  monthlyBookings: number | null;
+  activeTechnicians: number;
+  messagesThisMonth: number;
+  bookingsThisMonth: number;
+}
+
+export interface LimitsInput {
+  maxTechnicians: number | null;
+  monthlyMessages: number | null;
+  monthlyBookings: number | null;
 }
 
 export interface PlatformOverview {
@@ -58,6 +81,10 @@ export interface PlanRow {
   priceMonthlyHalalas: number;
   priceYearlyHalalas: number | null;
   maxTechnicians: number;
+  /** Automatic customer messages per month (OTP codes not counted); null = unlimited. */
+  monthlyMessages: number | null;
+  /** Bookings per month; null = unlimited. */
+  monthlyBookings: number | null;
   features: string[];
   /** Offered to companies (shown in the plan picker). */
   active: boolean;
@@ -154,6 +181,11 @@ export class PlatformApi {
 
   company(id: string): Observable<CompanyDetail> {
     return this.http.get<CompanyDetail>(`${BASE}/companies/${id}`);
+  }
+
+  /** This company's own limits; null = the plan's value. */
+  setLimits(id: string, body: LimitsInput): Observable<CompanyDetail> {
+    return this.http.put<CompanyDetail>(`${BASE}/companies/${id}/limits`, body);
   }
 
   changePlan(id: string, planId: string): Observable<CompanyDetail> {

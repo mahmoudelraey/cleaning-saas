@@ -174,10 +174,39 @@ public class Tenant extends BaseEntity {
     @Column(name = "status_note")
     private String statusNote;
 
+    /** Set by the platform admin for this company only; null = the plan's value. */
+    @Column(name = "max_technicians_override")
+    private Integer maxTechniciansOverride;
+
+    @Column(name = "monthly_messages_override")
+    private Integer monthlyMessagesOverride;
+
+    @Column(name = "monthly_bookings_override")
+    private Integer monthlyBookingsOverride;
+
     protected Tenant() {
     }
 
     // ---- subscription changes made by the platform owner -----------------------------------------
+
+    /** Platform admin: this company's own limits (null = the plan's). */
+    public void setLimitOverrides(Integer maxTechnicians, Integer monthlyMessages, Integer monthlyBookings) {
+        this.maxTechniciansOverride = maxTechnicians;
+        this.monthlyMessagesOverride = monthlyMessages;
+        this.monthlyBookingsOverride = monthlyBookings;
+    }
+
+    public Integer getMaxTechniciansOverride() {
+        return maxTechniciansOverride;
+    }
+
+    public Integer getMonthlyMessagesOverride() {
+        return monthlyMessagesOverride;
+    }
+
+    public Integer getMonthlyBookingsOverride() {
+        return monthlyBookingsOverride;
+    }
 
     public void changePlan(String planId) {
         this.planId = planId;

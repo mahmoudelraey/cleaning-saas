@@ -6,7 +6,6 @@ export type PlanFeatureKey =
   | 'scheduling'
   | 'customers'
   | 'booking_page'
-  | 'whatsapp_limited'
   | 'whatsapp'
   | 'messages'
   | 'reviews'

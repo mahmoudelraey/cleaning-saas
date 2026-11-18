@@ -2,8 +2,6 @@ package com.fieldops.app.notification;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -14,13 +12,10 @@ import com.fieldops.app.notification.provider.NotificationProviders;
 import com.fieldops.app.notification.provider.OutgoingMessage;
 import com.fieldops.app.notification.provider.ProviderException;
 import com.fieldops.app.notification.provider.ProviderType;
-import com.fieldops.app.tenant.PlanFeature;
-import com.fieldops.app.tenant.PlanFeatureService;
 import com.fieldops.app.tenant.Tenant;
 import com.fieldops.app.tenant.TenantRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -44,21 +39,18 @@ public class NotificationDispatcher {
     private final NotificationProviders providers;
     private final TransactionTemplate tx;
     private final Clock clock;
-    private final PlanFeatureService features;
-    private final int limitedMonthlyCap;
+    private final com.fieldops.app.tenant.PlanLimitService limits;
 
     public NotificationDispatcher(NotificationRepository notifications, NotificationRefRepository refs,
                                   TenantRepository tenants, NotificationProviders providers, TransactionTemplate tx,
-                                  Clock clock, PlanFeatureService features,
-                                  @Value("${app.plans.limited-whatsapp-monthly:100}") int limitedMonthlyCap) {
+                                  Clock clock, com.fieldops.app.tenant.PlanLimitService limits) {
         this.notifications = notifications;
         this.refs = refs;
         this.tenants = tenants;
         this.providers = providers;
         this.tx = tx;
         this.clock = clock;
-        this.features = features;
-        this.limitedMonthlyCap = limitedMonthlyCap;
+        this.limits = limits;
     }
 
     /** One pass over all companies. Called by {@link NotificationJobs}; public for tests. */
@@ -74,14 +66,15 @@ public class NotificationDispatcher {
     }
 
     public int dispatchTenant(UUID tenantId) {
-        Instant monthStart = limitedPlan(tenantId) ? monthStart(tenantId) : null;
+        Integer cap = limits.limits(tenantId).monthlyMessages(); // null = unlimited
+        Instant monthStart = cap != null ? limits.monthStart(tenantId) : null;
         return TenantContext.runAs(tenantId, () -> {
             List<UUID> due = tx.execute(s -> notifications
                     .findDue(Notification.Status.PENDING, Instant.now(clock), PageRequest.of(0, BATCH))
                     .stream().map(Notification::getId).toList());
             int sent = 0;
             for (UUID id : due == null ? List.<UUID>of() : due) {
-                Boolean ok = tx.execute(s -> sendOne(id, tenantId, monthStart));
+                Boolean ok = tx.execute(s -> sendOne(id, tenantId, monthStart, cap));
                 if (Boolean.TRUE.equals(ok)) {
                     sent++;
                 }
@@ -90,16 +83,19 @@ public class NotificationDispatcher {
         });
     }
 
-    /** @param capFrom start of the month when the plan has a monthly message cap, else null */
-    private boolean sendOne(UUID notificationId, UUID tenantId, Instant capFrom) {
+    /**
+     * @param capFrom start of the month when the company has a monthly message cap, else null
+     * @param cap     messages allowed per month (plan or company override)
+     */
+    private boolean sendOne(UUID notificationId, UUID tenantId, Instant capFrom, Integer cap) {
         Notification n = notifications.findById(notificationId).orElse(null);
         if (n == null || n.getStatus() != Notification.Status.PENDING) {
             return false;
         }
-        // Basic plan: automatic customer messages are capped per month. OTP codes are never capped,
+        // Automatic customer messages are capped per month by the plan. OTP codes are never capped,
         // otherwise customers could not verify their phone on the booking page.
         if (capFrom != null && n.getTemplate() != NotificationTemplate.OTP
-                && notifications.countSentSince(capFrom, NotificationTemplate.OTP) >= limitedMonthlyCap) {
+                && notifications.countSentSince(capFrom, NotificationTemplate.OTP) >= cap) {
             n.markSkipped("monthly_limit");
             return false;
         }
@@ -137,16 +133,6 @@ public class NotificationDispatcher {
             n.markFailed(last.channel(), last.active().provider().type(), String.join(" | ", errors), allPermanent, now);
         }
         return false;
-    }
-
-    private boolean limitedPlan(UUID tenantId) {
-        return features.has(tenantId, PlanFeature.WHATSAPP_LIMITED) && !features.has(tenantId, PlanFeature.WHATSAPP);
-    }
-
-    /** First instant of the current calendar month in the company's time zone. */
-    private Instant monthStart(UUID tenantId) {
-        ZoneId zone = tenants.findById(tenantId).map(t -> ZoneId.of(t.getTimezone())).orElse(ZoneId.of("Asia/Riyadh"));
-        return LocalDate.now(clock.withZone(zone)).withDayOfMonth(1).atStartOfDay(zone).toInstant();
     }
 
     /** One attempt: a provider on a channel (Twilio can appear twice, once for WhatsApp and once for SMS). */

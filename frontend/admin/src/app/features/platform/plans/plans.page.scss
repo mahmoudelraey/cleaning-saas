@@ -9,3 +9,5 @@ ul { margin: 0; padding-inline-start: 1.1rem; font-size: .88rem; display: grid; 
 .feats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
 @media (max-width: 560px) { .feats { grid-template-columns: 1fr; } }
 .feats label { display: flex; gap: .45rem; align-items: center; font-size: .9rem; }
+
+.check-inline { display: inline-flex; gap: .4rem; align-items: center; font-size: .85rem; color: var(--fo-muted); }

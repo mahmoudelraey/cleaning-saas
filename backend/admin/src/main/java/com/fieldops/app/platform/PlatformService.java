@@ -31,6 +31,7 @@ import com.fieldops.app.notification.provider.ProviderType;
 import com.fieldops.app.tenant.Plan;
 import com.fieldops.app.tenant.PlanFeature;
 import com.fieldops.app.tenant.PlanFeatureService;
+import com.fieldops.app.tenant.PlanLimitService;
 import com.fieldops.app.tenant.PlanRepository;
 import com.fieldops.app.tenant.Tenant;
 import com.fieldops.app.tenant.TenantAccessService;
@@ -62,13 +63,16 @@ public class PlatformService {
     private final PlanFeatureService planFeatures;
     private final NotificationProviders providers;
     private final MessagingProviderService providerSettings;
+    private final com.fieldops.app.tenant.PlanLimitService limits;
     private final JdbcTemplate jdbc;
     private final Clock clock;
 
     public PlatformService(TenantRepository tenants, PlanRepository plans, UserRepository users,
                            PlatformSettingsService settings, TenantAccessService access,
                            PlanFeatureService planFeatures, NotificationProviders providers,
-                           MessagingProviderService providerSettings, JdbcTemplate jdbc, Clock clock) {
+                           MessagingProviderService providerSettings,
+                           com.fieldops.app.tenant.PlanLimitService limits, JdbcTemplate jdbc, Clock clock) {
+        this.limits = limits;
         this.tenants = tenants;
         this.plans = plans;
         this.users = users;
@@ -98,7 +102,23 @@ public class PlatformService {
     public record AuditRow(String action, String details, String actorName, Instant at) {
     }
 
-    public record CompanyDetail(CompanyRow company, List<StaffRow> staff, List<AuditRow> history) {
+    /**
+     * One company's limits: the plan's value, the company override (null = none) and what applies now
+     * (null monthly = unlimited), plus this month's usage.
+     */
+    public record CompanyLimits(int planMaxTechnicians, Integer planMonthlyMessages, Integer planMonthlyBookings,
+                                Integer maxTechniciansOverride, Integer monthlyMessagesOverride,
+                                Integer monthlyBookingsOverride, int maxTechnicians, Integer monthlyMessages,
+                                Integer monthlyBookings, long activeTechnicians, long messagesThisMonth,
+                                long bookingsThisMonth) {
+    }
+
+    /** Overrides for one company; null = use the plan's value. */
+    public record LimitsData(Integer maxTechnicians, Integer monthlyMessages, Integer monthlyBookings) {
+    }
+
+    public record CompanyDetail(CompanyRow company, List<StaffRow> staff, List<AuditRow> history,
+                                CompanyLimits limits) {
     }
 
     public record PlanCount(String planId, long companies) {
@@ -109,14 +129,16 @@ public class PlatformService {
                            long monthlyRecurringHalalas, List<PlanCount> byPlan, List<CompanyRow> endingSoon) {
     }
 
+    /** {@code monthlyMessages} / {@code monthlyBookings}: null = unlimited. */
     public record PlanRow(String id, String nameAr, String nameEn, long priceMonthlyHalalas,
-                          Long priceYearlyHalalas, int maxTechnicians, List<String> features, boolean active,
-                          int sortOrder, long companies) {
+                          Long priceYearlyHalalas, int maxTechnicians, Integer monthlyMessages,
+                          Integer monthlyBookings, List<String> features, boolean active, int sortOrder,
+                          long companies) {
     }
 
     public record PlanData(String id, String nameAr, String nameEn, long priceMonthlyHalalas,
-                           Long priceYearlyHalalas, int maxTechnicians, List<String> features, boolean active,
-                           int sortOrder) {
+                           Long priceYearlyHalalas, int maxTechnicians, Integer monthlyMessages,
+                           Integer monthlyBookings, List<String> features, boolean active, int sortOrder) {
     }
 
     public record General(int trialDays, String trialPlanId, int graceDays, String supportWhatsapp,
@@ -227,7 +249,42 @@ public class PlatformService {
                         where tenant_id = ? order by created_at desc limit 50""",
                 (rs, i) -> new AuditRow(rs.getString(1), rs.getString(2), rs.getString(3), instant(rs.getTimestamp(4))),
                 id);
-        return new CompanyDetail(rows.get(0), staff, history);
+        return new CompanyDetail(rows.get(0), staff, history, companyLimits(id));
+    }
+
+    private CompanyLimits companyLimits(UUID id) {
+        Tenant t = tenant(id);
+        Plan p = plan(t.getPlanId());
+        PlanLimitService.Limits now = limits.limits(t);
+        PlanLimitService.Usage used = limits.usage(id);
+        return new CompanyLimits(p.getMaxTechnicians(), p.getMonthlyMessages(), p.getMonthlyBookings(),
+                t.getMaxTechniciansOverride(), t.getMonthlyMessagesOverride(), t.getMonthlyBookingsOverride(),
+                now.maxTechnicians(), now.monthlyMessages(), now.monthlyBookings(),
+                used.activeTechnicians(), used.messagesThisMonth(), used.bookingsThisMonth());
+    }
+
+    /** This company's own limits (technicians, messages and bookings per month); null = the plan's. */
+    @Transactional
+    public CompanyDetail setLimits(UUID id, LimitsData d) {
+        Tenant t = tenant(id);
+        if (d.maxTechnicians() != null && (d.maxTechnicians() < 1 || d.maxTechnicians() > 1000)) {
+            throw ApiException.badRequest("invalid_max_technicians", "Technicians must be 1 to 1000");
+        }
+        checkMonthly(d.monthlyMessages(), "messages");
+        checkMonthly(d.monthlyBookings(), "bookings");
+        t.setLimitOverrides(d.maxTechnicians(), d.monthlyMessages(), d.monthlyBookings());
+        return done(t, "LIMITS_CHANGED", "technicians " + show(d.maxTechnicians()) + ", messages/month "
+                + show(d.monthlyMessages()) + ", bookings/month " + show(d.monthlyBookings()));
+    }
+
+    private static void checkMonthly(Integer v, String what) {
+        if (v != null && (v < 0 || v > 1_000_000)) {
+            throw ApiException.badRequest("invalid_limit", "Monthly " + what + " must be 0 to 1,000,000");
+        }
+    }
+
+    private static String show(Integer v) {
+        return v == null ? "plan" : String.valueOf(v);
     }
 
     @Transactional
@@ -371,8 +428,9 @@ public class PlatformService {
                 });
         return plans.findAllByOrderBySortOrderAscPriceMonthlyHalalasAsc().stream()
                 .map(p -> new PlanRow(p.getId(), p.getNameAr(), p.getNameEn(), p.getPriceMonthlyHalalas(),
-                        p.getPriceYearlyHalalas(), p.getMaxTechnicians(), p.getFeatures(), p.isActive(),
-                        p.getSortOrder(), counts.getOrDefault(p.getId(), 0L)))
+                        p.getPriceYearlyHalalas(), p.getMaxTechnicians(), p.getMonthlyMessages(),
+                        p.getMonthlyBookings(), p.getFeatures(), p.isActive(), p.getSortOrder(),
+                        counts.getOrDefault(p.getId(), 0L)))
                 .toList();
     }
 
@@ -387,6 +445,8 @@ public class PlatformService {
         if (d.maxTechnicians() < 1 || d.maxTechnicians() > 1000) {
             throw ApiException.badRequest("invalid_max_technicians", "Technicians must be 1 to 1000");
         }
+        checkMonthly(d.monthlyMessages(), "messages");
+        checkMonthly(d.monthlyBookings(), "bookings");
         List<String> features = d.features() == null ? List.of() : d.features().stream().distinct().toList();
         for (String f : features) {
             if (!FEATURES.contains(f)) {
@@ -410,7 +470,7 @@ public class PlatformService {
             }
         }
         p.update(d.nameAr().trim(), d.nameEn().trim(), d.priceMonthlyHalalas(), d.priceYearlyHalalas(),
-                d.maxTechnicians(), features, d.active(), d.sortOrder());
+                d.maxTechnicians(), d.monthlyMessages(), d.monthlyBookings(), features, d.active(), d.sortOrder());
         plans.save(p);
         audit(null, create ? "PLAN_CREATED" : "PLAN_UPDATED", p.getId());
         return plans().stream().filter(r -> r.id().equals(p.getId())).findFirst().orElseThrow();

@@ -59,9 +59,6 @@ app:
       phone: ${PLATFORM_ADMIN_PHONE:0551234567}
       email: ${PLATFORM_ADMIN_EMAIL:}
       password: ${PLATFORM_ADMIN_PASSWORD:Field@Ops2026}
-  plans:
-    # Automatic customer messages per month on plans with "whatsapp_limited" (Basic). OTP codes don't count.
-    limited-whatsapp-monthly: ${LIMITED_WHATSAPP_MONTHLY:100}
   # Where customers open shared links (invoice/quote pages, booking page). The Angular app's origin.
   public-base-url: ${PUBLIC_BASE_URL:http://localhost:4200}
   security:

@@ -44,6 +44,14 @@ public class Plan {
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;
 
+    /** Automatic customer messages per month (OTP codes not counted); null = unlimited. */
+    @Column(name = "monthly_messages")
+    private Integer monthlyMessages;
+
+    /** Bookings created per month; null = unlimited. */
+    @Column(name = "monthly_bookings")
+    private Integer monthlyBookings;
+
     @Column(name = "updated_at", nullable = false)
     private java.time.Instant updatedAt = java.time.Instant.now();
 
@@ -57,7 +65,10 @@ public class Plan {
 
     /** Edited by the platform owner. {@code active} = offered to companies (shown in the plan picker). */
     public void update(String nameAr, String nameEn, long priceMonthlyHalalas, Long priceYearlyHalalas,
-                       int maxTechnicians, List<String> features, boolean active, int sortOrder) {
+                       int maxTechnicians, Integer monthlyMessages, Integer monthlyBookings, List<String> features,
+                       boolean active, int sortOrder) {
+        this.monthlyMessages = monthlyMessages;
+        this.monthlyBookings = monthlyBookings;
         this.nameAr = nameAr;
         this.nameEn = nameEn;
         this.priceMonthlyHalalas = priceMonthlyHalalas;
@@ -95,6 +106,14 @@ public class Plan {
 
     public int getMaxTechnicians() {
         return maxTechnicians;
+    }
+
+    public Integer getMonthlyMessages() {
+        return monthlyMessages;
+    }
+
+    public Integer getMonthlyBookings() {
+        return monthlyBookings;
     }
 
     public List<String> getFeatures() {

@@ -7,6 +7,7 @@ import java.util.UUID;
 import com.fieldops.app.platform.PlatformService.CompanyDetail;
 import com.fieldops.app.platform.PlatformService.CompanyRow;
 import com.fieldops.app.platform.PlatformService.General;
+import com.fieldops.app.platform.PlatformService.LimitsData;
 import com.fieldops.app.platform.PlatformService.MessagingView;
 import com.fieldops.app.platform.PlatformService.Overview;
 import com.fieldops.app.platform.PlatformService.PlanData;
@@ -57,6 +58,12 @@ public class PlatformController {
     @GetMapping("/companies/{id}")
     public CompanyDetail company(@PathVariable UUID id) {
         return platform.company(id);
+    }
+
+    /** This company's own technician / monthly message / monthly booking limits (null = the plan's). */
+    @PutMapping("/companies/{id}/limits")
+    public CompanyDetail setLimits(@PathVariable UUID id, @RequestBody LimitsData req) {
+        return platform.setLimits(id, req);
     }
 
     @PutMapping("/companies/{id}/plan")

@@ -21,6 +21,11 @@ interface Draft {
   monthly: number | null;
   yearly: number | null;
   maxTechnicians: number | null;
+  /** null with the "unlimited" box ticked. */
+  monthlyMessages: number | null;
+  monthlyBookings: number | null;
+  unlimitedMessages: boolean;
+  unlimitedBookings: boolean;
   features: string[];
   active: boolean;
   sortOrder: number;
@@ -79,6 +84,10 @@ export class PlatformPlansPage {
       monthly: p ? toSar(p.priceMonthlyHalalas) : null,
       yearly: p?.priceYearlyHalalas != null ? toSar(p.priceYearlyHalalas) : null,
       maxTechnicians: p?.maxTechnicians ?? 3,
+      monthlyMessages: p ? p.monthlyMessages : 300,
+      monthlyBookings: p ? p.monthlyBookings : 300,
+      unlimitedMessages: !!p && p.monthlyMessages === null,
+      unlimitedBookings: !!p && p.monthlyBookings === null,
       features: [...(p?.features ?? ['scheduling', 'customers', 'booking_page'])],
       active: p?.active ?? true,
       sortOrder: p?.sortOrder ?? this.plans().length + 1,
@@ -98,6 +107,8 @@ export class PlatformPlansPage {
       priceMonthlyHalalas: toHalalas(d.monthly),
       priceYearlyHalalas: d.yearly === null ? null : toHalalas(d.yearly),
       maxTechnicians: d.maxTechnicians ?? 1,
+      monthlyMessages: d.unlimitedMessages ? null : (d.monthlyMessages ?? 0),
+      monthlyBookings: d.unlimitedBookings ? null : (d.monthlyBookings ?? 0),
       // Keep the order the features are listed in.
       features: this.features().filter((f) => d.features.includes(f)),
       active: d.active,

@@ -107,9 +107,25 @@ export class PlatformCompaniesPage {
     });
   }
 
+  /** This company's own limits being edited; null = use the plan's (shown as placeholder). */
+  protected limTech: number | null = null;
+  protected limMessages: number | null = null;
+  protected limBookings: number | null = null;
+
+  protected planValue(v: number | null): string {
+    return v === null ? this.translate.instant('platform.limits.unlimited') : String(v);
+  }
+
+  protected shown(v: number | null): string {
+    return v === null ? '∞' : String(v);
+  }
+
   private show(d: CompanyDetail): void {
     const c = d.company;
     this.detail.set(d);
+    this.limTech = d.limits.maxTechniciansOverride;
+    this.limMessages = d.limits.monthlyMessagesOverride;
+    this.limBookings = d.limits.monthlyBookingsOverride;
     this.planDraft = c.planId;
     this.activatePlan = c.planId;
     this.note = '';
