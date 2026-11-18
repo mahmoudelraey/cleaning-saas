@@ -217,7 +217,9 @@
         <section class="card">
           <div class="card-h">
             <i class="pi pi-comments"></i><h2>{{ 'messages.title' | translate }}</h2>
-            <a class="link" routerLink="/messages">{{ 'bookingDetail.viewAllShort' | translate }}</a>
+            @if (!tenants.locked('messages')) {
+              <a class="link" routerLink="/messages">{{ 'bookingDetail.viewAllShort' | translate }}</a>
+            }
           </div>
           <app-messages #bookingMessages [bookingId]="b.id" [compact]="true" />
           <div class="msg-actions">

@@ -74,6 +74,7 @@ public class TenantController {
     }
 
     /** Changes the company link used by the customer portal and the booking page. */
+    @RequiresFeature(PlanFeature.BOOKING_PAGE) // customer portal only
     @PutMapping("/tenant/slug")
     @PreAuthorize("hasRole('OWNER')")
     public TenantDto changeSlug(@Valid @RequestBody ChangeSlugRequest req) {
@@ -85,6 +86,7 @@ public class TenantController {
     }
 
     /** Content of the company's public page in the customer portal. Empty fields hide their section. */
+    @RequiresFeature(PlanFeature.BOOKING_PAGE) // customer portal only
     @PutMapping("/tenant/public-page")
     @PreAuthorize("hasRole('OWNER')")
     public TenantDto updatePublicPage(@Valid @RequestBody PublicPageRequest req) {
@@ -114,6 +116,7 @@ public class TenantController {
     }
 
     /** Find the company's Google Maps listing by name (and city) to connect it. */
+    @RequiresFeature(PlanFeature.BOOKING_PAGE) // customer portal only
     @GetMapping("/tenant/google/search")
     @PreAuthorize("hasRole('OWNER')")
     public List<GooglePlacesClient.Candidate> searchGoogle(@RequestParam @NotBlank @Size(max = 200) String q,
@@ -122,6 +125,7 @@ public class TenantController {
     }
 
     /** Connect (placeId set) or disconnect (placeId empty) the Google Maps listing shown on the public page. */
+    @RequiresFeature(PlanFeature.BOOKING_PAGE) // customer portal only
     @PutMapping("/tenant/google")
     @PreAuthorize("hasRole('OWNER')")
     public TenantDto connectGoogle(@Valid @RequestBody GooglePlaceRequest req) {
@@ -149,6 +153,7 @@ public class TenantController {
                                     @Size(max = 120) String heroTitle, @Size(max = 120) String heroTitleEn) {
     }
 
+    @RequiresFeature(PlanFeature.BOOKING_PAGE) // customer portal only
     @PutMapping("/tenant/booking-page")
     @PreAuthorize("hasRole('OWNER')")
     public TenantDto updateBookingPage(@Valid @RequestBody BookingPageRequest req) {

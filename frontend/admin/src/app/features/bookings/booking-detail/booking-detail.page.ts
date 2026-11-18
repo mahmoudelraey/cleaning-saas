@@ -395,7 +395,7 @@ export class BookingDetailPage implements OnInit {
     this.logOpen.set(true);
     if (this.isOffice) {
       this.http
-        .get<Page<NotificationLog>>('/api/v1/notifications', { params: { bookingId: this.id(), page: 0, size: 100 } })
+        .get<Page<NotificationLog>>(`/api/v1/bookings/${this.id()}/messages`, { params: { page: 0, size: 100 } })
         .subscribe({ next: (p) => this.customerMessages.set(p.items), error: () => {} });
     }
   }

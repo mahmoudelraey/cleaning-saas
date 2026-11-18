@@ -77,6 +77,12 @@ public class NotificationService {
     }
 
     @Transactional(readOnly = true)
+    /** Messages that failed in the last 7 days (at most 50), for the bell on every plan. */
+    public java.util.List<Notification> recentFailures() {
+        return notifications.findByStatusAndCreatedAtAfterOrderByCreatedAtDesc(Notification.Status.FAILED,
+                clock.instant().minus(java.time.Duration.ofDays(7)), Pageable.ofSize(50));
+    }
+
     public Page<Notification> list(UUID bookingId, Pageable pageable) {
         return bookingId == null
                 ? notifications.findAllByOrderByCreatedAtDesc(pageable)

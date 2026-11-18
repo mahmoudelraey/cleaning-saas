@@ -23,6 +23,10 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
 
     Page<Notification> findByBookingIdOrderByCreatedAtDesc(UUID bookingId, Pageable pageable);
 
+    /** Failed messages since a moment, newest first (the bell's "needs attention" list). */
+    List<Notification> findByStatusAndCreatedAtAfterOrderByCreatedAtDesc(Notification.Status status, Instant after,
+                                                                          Pageable limit);
+
     /** Messages actually handed to a channel since {@code since} (skipped/pending ones have no sent_at). */
     @Query("select count(n) from Notification n where n.sentAt >= :since and n.template <> :excluded")
     long countSentSince(@Param("since") Instant since, @Param("excluded") NotificationTemplate excluded);

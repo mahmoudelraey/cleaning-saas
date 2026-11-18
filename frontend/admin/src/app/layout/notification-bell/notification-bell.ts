@@ -104,8 +104,9 @@ export class NotificationBell implements OnInit {
           params: { status: 'CONFIRMED', from: now.toISOString(), to: in48h.toISOString(), size: 20, page: 0, order: 'asc' },
         })
         .pipe(catchError(() => of(null))),
+      // Failed messages of the last 7 days (its own endpoint: the full log is a plan feature).
       messages: this.http
-        .get<Page<NotificationLog>>('/api/v1/notifications', { params: { size: 50, page: 0 } })
+        .get<NotificationLog[]>('/api/v1/notifications/failed')
         .pipe(catchError(() => of(null))),
     })
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -123,7 +124,7 @@ export class NotificationBell implements OnInit {
             .map((b): Alert => ({
               key: 'unassigned-' + b.id, kind: 'unassigned', at: b.scheduledStart, bookingId: b.id, number: b.number, customer: b.customerName,
             })),
-          ...(messages?.items ?? [])
+          ...(messages ?? [])
             .filter((m) => m.status === 'FAILED' && new Date(m.createdAt).getTime() > weekAgo)
             .map((m): Alert => ({
               key: 'failed-' + m.id, kind: 'failed', at: m.createdAt, bookingId: m.bookingId, customer: m.toPhone, template: m.template,

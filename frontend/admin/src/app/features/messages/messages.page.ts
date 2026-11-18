@@ -64,11 +64,10 @@ export class MessagesPage implements OnInit {
   load(e: TableLazyLoadEvent): void {
     const page = Math.floor((e.first ?? 0) / (e.rows ?? 30));
     const params: Record<string, string | number> = { page, size: 30 };
-    if (this.bookingId()) {
-      params['bookingId'] = this.bookingId()!;
-    }
+    // One booking's messages: every plan. The whole log: only plans with the Messages page.
+    const url = this.bookingId() ? `/api/v1/bookings/${this.bookingId()}/messages` : '/api/v1/notifications';
     this.loading.set(true);
-    this.http.get<Page<NotificationLog>>('/api/v1/notifications', { params }).subscribe({
+    this.http.get<Page<NotificationLog>>(url, { params }).subscribe({
       next: (p) => {
         this.rows.set(p.items);
         this.total.set(p.total);

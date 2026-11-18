@@ -16,6 +16,8 @@ import com.fieldops.app.notification.channel.ChannelType;
 import com.fieldops.app.notification.provider.NotificationProviders;
 import com.fieldops.app.notification.provider.ProviderType;
 import com.fieldops.app.common.web.ApiException;
+import com.fieldops.app.tenant.PlanFeature;
+import com.fieldops.app.tenant.RequiresFeature;
 import com.fieldops.app.tenant.Tenant;
 import com.fieldops.app.tenant.TenantRepository;
 import com.fieldops.app.tenant.TenantService;
@@ -50,13 +52,29 @@ public class NotificationController {
         this.tenantRepo = tenantRepo;
     }
 
-    /** Send log (whole company or one booking). */
+    /** The whole company's send log: the Messages page, only on plans with {@code messages}. */
     @GetMapping("/api/v1/notifications")
     @PreAuthorize("hasAnyRole('OWNER','COORDINATOR')")
-    public PageResponse<Audited<NotificationDto>> list(@RequestParam(required = false) UUID bookingId,
+    @RequiresFeature(PlanFeature.MESSAGES)
+    public PageResponse<Audited<NotificationDto>> list(@RequestParam(defaultValue = "0") @Min(0) int page,
+                                              @RequestParam(defaultValue = "30") @Min(1) @Max(100) int size) {
+        return audits.page(notifications.list(null, PageRequest.of(page, size)), NotificationDto::of);
+    }
+
+    /** Messages of one booking (booking page), on every plan. */
+    @GetMapping("/api/v1/bookings/{bookingId}/messages")
+    @PreAuthorize("hasAnyRole('OWNER','COORDINATOR')")
+    public PageResponse<Audited<NotificationDto>> forBooking(@PathVariable UUID bookingId,
                                               @RequestParam(defaultValue = "0") @Min(0) int page,
                                               @RequestParam(defaultValue = "30") @Min(1) @Max(100) int size) {
         return audits.page(notifications.list(bookingId, PageRequest.of(page, size)), NotificationDto::of);
+    }
+
+    /** Failed messages of the last 7 days, for the bell's "needs attention" list, on every plan. */
+    @GetMapping("/api/v1/notifications/failed")
+    @PreAuthorize("hasAnyRole('OWNER','COORDINATOR')")
+    public java.util.List<NotificationDto> recentFailures() {
+        return notifications.recentFailures().stream().map(NotificationDto::of).toList();
     }
 
     /** The office writes to the booking's customer (WhatsApp, SMS fallback). */
