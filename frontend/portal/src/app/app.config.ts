@@ -15,7 +15,8 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes, withComponentInputBinding(), withInMemoryScrolling({ scrollPositionRestoration: 'top', anchorScrolling: 'enabled' })),
     provideHttpClient(withInterceptors([authInterceptor])),
     provideTranslateService({
-      loader: provideTranslateHttpLoader({ prefix: '/i18n/', suffix: '.json', useHttpBackend: true }),
+      // "?v=" makes browsers drop translation files they cached before nginx sent no-cache; raise it if that ever recurs.
+      loader: provideTranslateHttpLoader({ prefix: '/i18n/', suffix: '.json?v=2', useHttpBackend: true }),
       fallbackLang: 'ar',
     }),
     provideAppInitializer(() => firstValueFrom(inject(LanguageService).init())),
