@@ -12,21 +12,65 @@
       <button class="btn btn-primary" [disabled]="busy() || !name.trim()">{{ 'profile.save' | translate }}</button>
     </form>
 
-    <h2 class="section-title">{{ 'profile.addresses' | translate }}</h2>
+    <div class="addr-head">
+      <h2 class="section-title">{{ 'profile.addresses' | translate }}</h2>
+      @if (editing() === null) {
+        <button type="button" class="btn btn-quiet add-btn" (click)="startAdd()"><i class="pi pi-plus"></i>{{ 'profile.addAddress' | translate }}</button>
+      }
+    </div>
     @if (p.addresses.length) {
       <div class="rows">
         @for (a of p.addresses; track a.id) {
-          <div class="row">
-            <i class="pi pi-map-marker"></i>
-            <span class="txt">{{ a.label || a.district || a.city }}<small>{{ line(a) }}</small></span>
-            @if (a.mapUrl) { <a [href]="a.mapUrl" target="_blank" rel="noopener" [attr.aria-label]="'detail.map' | translate"><i class="pi pi-external-link"></i></a> }
-          </div>
+          @if (editing() === a.id) {
+            <ng-container [ngTemplateOutlet]="addrForm" />
+          } @else {
+            <div class="row">
+              <i class="pi pi-map-marker"></i>
+              <span class="txt">{{ a.label || a.district || a.city }}<small>{{ line(a) }}</small></span>
+              @if (a.mapUrl) { <a [href]="a.mapUrl" target="_blank" rel="noopener" [attr.aria-label]="'detail.map' | translate"><i class="pi pi-external-link"></i></a> }
+              <button type="button" class="icon-btn" [disabled]="editing() !== null" (click)="startEdit(a)" [attr.aria-label]="'profile.editAddress' | translate">
+                <i class="pi pi-pencil"></i>
+              </button>
+            </div>
+          }
         }
       </div>
-      <p class="muted" style="font-size:.85rem">{{ 'profile.addressHint' | translate }}</p>
-    } @else {
+    } @else if (editing() === null) {
       <div class="sheet empty" style="padding:24px"><p style="margin:0">{{ 'profile.noAddresses' | translate }}</p></div>
     }
+    @if (editing() === 'new') {
+      <ng-container [ngTemplateOutlet]="addrForm" />
+    }
+
+    <!-- One form for adding and editing (the same fields as a new address when booking, plus a name). -->
+    <ng-template #addrForm>
+      <form class="sheet addr-form" (ngSubmit)="saveAddress()">
+        <h3>{{ (editing() === 'new' ? 'profile.newAddressTitle' : 'profile.editAddress') | translate }}</h3>
+        <div class="field">
+          <label for="al">{{ 'profile.addressLabel' | translate }}</label>
+          <input id="al" name="al" class="input" [(ngModel)]="form.label" maxlength="80" [placeholder]="'profile.addressLabelHint' | translate" />
+        </div>
+        <div class="two">
+          <div class="field"><label for="ac">{{ 'book.city' | translate }}</label><input id="ac" name="ac" class="input" [(ngModel)]="form.city" maxlength="80" /></div>
+          <div class="field"><label for="ad">{{ 'book.district' | translate }}</label><input id="ad" name="ad" class="input" [(ngModel)]="form.district" maxlength="80" /></div>
+        </div>
+        <div class="field">
+          <label for="at">{{ 'book.details' | translate }}</label>
+          <input id="at" name="at" class="input" [(ngModel)]="form.details" maxlength="300" [placeholder]="'book.detailsHint' | translate" />
+        </div>
+        <div class="field">
+          <label for="am">{{ 'book.mapLink' | translate }}</label>
+          <input id="am" name="am" class="input ltr" style="display:block" [(ngModel)]="form.mapUrl" maxlength="500" placeholder="https://maps.app.goo.gl/…" />
+          <small>{{ 'book.mapHint' | translate }}</small>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-quiet" (click)="cancelEdit()">{{ 'profile.cancel' | translate }}</button>
+          <button class="btn btn-primary" [disabled]="savingAddress() || !formFilled()">
+            @if (savingAddress()) { <i class="pi pi-spin pi-spinner"></i> } {{ 'profile.saveAddress' | translate }}
+          </button>
+        </div>
+      </form>
+    </ng-template>
 
     <div class="out">
       <button type="button" class="btn btn-quiet btn-block" (click)="signOut()"><i class="pi pi-sign-out"></i>{{ 'profile.signOut' | translate }}</button>

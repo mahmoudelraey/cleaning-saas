@@ -9,167 +9,372 @@
   } @else if (!store.company()?.bookingOpen && store.company()) {
     <div class="sheet empty"><i class="pi pi-calendar-times"></i><p>{{ 'book.closed' | translate }}</p></div>
   } @else {
-    <!-- The close button, the steps, the step label and the summary bar are for signed-in customers;
-         a visitor only looks at the service. -->
-    @if (signedIn()) {
-      <div class="top">
+    <!-- The steps (everyone); the close button and the step label only for signed-in customers. -->
+    <div class="top">
+      @if (signedIn()) {
         <a class="close" [routerLink]="['/', store.slug(), 'bookings']" [attr.aria-label]="'book.close' | translate"><i class="pi pi-times"></i></a>
-        <ol class="stepper" [attr.aria-label]="'book.steps' | translate">
-          @for (st of stepNames; track st; let i = $index) {
-            <li [class.past]="i + 1 < step()" [class.now]="i + 1 === step()" [attr.aria-current]="i + 1 === step() ? 'step' : null">
-              <span class="dot">@if (i + 1 < step()) { <i class="pi pi-check" aria-hidden="true"></i> } @else { {{ i + 1 }} }</span>
-              {{ st | translate }}
-            </li>
-          }
-        </ol>
-      </div>
+      }
+      <ol class="stepper" [attr.aria-label]="'book.steps' | translate">
+        @for (st of stepNames; track st; let i = $index) {
+          <li [class.past]="i + 1 < step()" [class.now]="i + 1 === step()" [attr.aria-current]="i + 1 === step() ? 'step' : null">
+            <span class="dot">@if (i + 1 < step()) { <i class="pi pi-check" aria-hidden="true"></i> } @else { {{ i + 1 }} }</span>
+            <span class="st-label">{{ st | translate }}</span>
+          </li>
+          @if (!$last) { <li class="st-line" aria-hidden="true"></li> }
+        }
+      </ol>
+    </div>
 
-      <span class="kicker"><i class="pi pi-sparkles" aria-hidden="true"></i>{{ 'book.k' + step() | translate }}</span>
-    }
     @switch (step()) {
       @case (1) {
-        @if (focused(); as f) {
-          <!-- Came from a service card: only that service, its photo, description and options. -->
-          <h1>{{ 'book.s1Focus' | translate }}</h1>
-          <p class="lead">{{ 'book.s1FocusLead' | translate }}</p>
-          <article class="panel focus">
-            <div class="focus-media">
-              <img [src]="f.imageUrl || defaultImage(f)" [alt]="f | svc" (error)="imageFailed($event, f)" />
-            </div>
-            <div class="focus-info">
-              <div class="focus-head">
-                <span class="focus-ico"><i class="pi" [class]="icon(f)" aria-hidden="true"></i></span>
-                <div class="focus-text">
-                  <h2>{{ f | svc }}</h2>
-                  @if (f | svc: 'description'; as d) { <p>{{ d }}</p> }
-                </div>
-                <span class="price-chip">@if (f.options?.length) { <small>{{ 'book.from' | translate }} </small> }<span class="ltr">{{ fromPrice(f) | sar }}</span>@if (f.pricingType !== 'FIXED') { <small> / {{ 'book.unit.' + f.pricingType | translate }}</small> }</span>
-              </div>
-              @if (pickOf(f); as p) {
-                <ng-container *ngTemplateOutlet="extras; context: { $implicit: f, p: p }" />
-              }
-            </div>
-            <div class="focus-foot">
-              <!-- What every booking through the portal gets (true for every company). -->
-              <ul class="feats">
-                <li><i class="pi pi-bolt" aria-hidden="true"></i>{{ 'company.ts1' | translate }}</li>
-                <li><i class="pi pi-tag" aria-hidden="true"></i>{{ 'company.ts2' | translate }}</li>
-                <li><i class="pi pi-receipt" aria-hidden="true"></i>{{ 'company.ts3' | translate }}</li>
-              </ul>
-              <!-- Adding more services is part of booking, so only for signed-in customers. -->
-              @if (signedIn() && services().length > 1) {
-                <button type="button" class="btn-soft" (click)="focused.set(null)">
-                  <i class="pi pi-plus" aria-hidden="true"></i>{{ 'book.addAnother' | translate }}
+        <div class="title-row">
+          <div>
+            <h1>{{ (focused() ? 'book.s1Focus' : 'book.s1') | translate }}</h1>
+            <p class="lead">{{ (focused() ? 'book.s1FocusLead' : 'book.s1Lead') | translate }}</p>
+          </div>
+          @if (focused() && services().length > 1) {
+            <div class="switcher" role="tablist" [attr.aria-label]="'company.services' | translate">
+              @for (s of services(); track s.id) {
+                <button type="button" class="srv-pill" role="tab" [class.active]="focused()?.id === s.id" [attr.aria-selected]="focused()?.id === s.id"
+                        (click)="switchService(s)">
+                  <i class="pi" [class]="icon(s)" aria-hidden="true"></i>{{ s | svc }}
                 </button>
               }
             </div>
-          </article>
-        } @else {
-          <h1>{{ 'book.s1' | translate }}</h1>
-          <p class="lead">{{ 'book.s1Lead' | translate }}</p>
-          <div class="svc-grid">
-            @for (s of services(); track s.id) {
-              <div class="svc" [class.on]="picked(s)" (click)="toggle(s)" role="checkbox" [attr.aria-checked]="picked(s)" tabindex="0"
-                   (keydown.enter)="toggle(s)" (keydown.space)="$event.preventDefault(); toggle(s)">
-                <div class="line">
-                  <img class="thumb" [src]="s.imageUrl || defaultImage(s)" alt="" loading="lazy" (error)="imageFailed($event, s)" />
-                  <span class="name">{{ s | svc }}@if (s | svc: 'description'; as d) { <small>{{ d }}</small> }</span>
-                  <span class="side">
-                    <span class="tick">@if (picked(s)) { <i class="pi pi-check" style="font-size:.7rem"></i> }</span>
-                    <span class="price">@if (s.options?.length) { <small>{{ 'book.from' | translate }} </small> }<span class="ltr">{{ fromPrice(s) | sar }}</span>@if (s.pricingType !== 'FIXED') { <small> / {{ 'book.unit.' + s.pricingType | translate }}</small> }</span>
-                  </span>
+          }
+        </div>
+
+        <div class="checkout-grid">
+          <div class="card">
+            @if (focused(); as f) {
+              <!-- The chosen service: banner with its picture, then its sizes, quantity and add-ons. -->
+              <div class="banner">
+                <div>
+                  <div class="badge-row">
+                    <span class="duration-pill"><i class="pi pi-clock" aria-hidden="true"></i>{{ duration(f.durationMin) }}</span>
+                    @if (reviews(); as r) {
+                      @if (r.count > 0) { <span class="rating-chip ltr">★ {{ r.average }} ({{ r.count }})</span> }
+                    }
+                  </div>
+                  <h2 class="banner-title">{{ f | svc }}</h2>
+                  @if (f | svc: 'description'; as d) { <p class="banner-desc">{{ d }}</p> }
+                  <span class="from-chip">{{ 'book.from' | translate }} <b class="ltr">{{ fromPrice(f) | sar }}</b>@if (f.pricingType !== 'FIXED') { <small> / {{ 'book.unit.' + f.pricingType | translate }}</small> }</span>
                 </div>
-                @if (pickOf(s); as p) {
-                  <ng-container *ngTemplateOutlet="extras; context: { $implicit: s, p: p }" />
+                <img class="banner-art" [src]="f.imageUrl || defaultImage(f)" [alt]="f | svc" (error)="imageFailed($event, f)" />
+              </div>
+              <div class="config">
+                @if (pickOf(f); as p) {
+                  <ng-container *ngTemplateOutlet="extras; context: { $implicit: f, p: p }" />
+                }
+                <!-- Adding more services is part of booking, so only for signed-in customers. -->
+                @if (signedIn() && services().length > 1) {
+                  <button type="button" class="btn-soft add-another" (click)="focused.set(null)">
+                    <i class="pi pi-plus" aria-hidden="true"></i>{{ 'book.addAnother' | translate }}
+                  </button>
                 }
               </div>
-            } @empty {
-              <div class="spinner"><i class="pi pi-spin pi-spinner"></i></div>
+            } @else {
+              <div class="config">
+                <div class="svc-grid">
+                  @for (s of services(); track s.id) {
+                    <div class="svc" [class.on]="picked(s)" (click)="toggle(s)" role="checkbox" [attr.aria-checked]="picked(s)" tabindex="0"
+                         (keydown.enter)="toggle(s)" (keydown.space)="$event.preventDefault(); toggle(s)">
+                      <div class="line">
+                        <img class="thumb" [src]="s.imageUrl || defaultImage(s)" alt="" loading="lazy" (error)="imageFailed($event, s)" />
+                        <span class="name">{{ s | svc }}@if (s | svc: 'description'; as d) { <small>{{ d }}</small> }</span>
+                        <span class="side">
+                          <span class="tick">@if (picked(s)) { <i class="pi pi-check" style="font-size:.7rem"></i> }</span>
+                          <span class="price">@if (s.options.length) { <small>{{ 'book.from' | translate }} </small> }<span class="ltr">{{ fromPrice(s) | sar }}</span></span>
+                        </span>
+                      </div>
+                      @if (pickOf(s); as p) {
+                        <ng-container *ngTemplateOutlet="extras; context: { $implicit: s, p: p }" />
+                      }
+                    </div>
+                  } @empty {
+                    <div class="spinner"><i class="pi pi-spin pi-spinner"></i></div>
+                  }
+                </div>
+              </div>
             }
+            <!-- What every booking through the portal gets (true for every company). -->
+            <ul class="trust-strip">
+              <li><span class="t-ico"><i class="pi pi-bolt" aria-hidden="true"></i></span>{{ 'company.ts1' | translate }}</li>
+              <li><span class="t-ico"><i class="pi pi-tag" aria-hidden="true"></i></span>{{ 'company.ts2' | translate }}</li>
+              <li><span class="t-ico"><i class="pi pi-file" aria-hidden="true"></i></span>{{ 'company.ts3' | translate }}</li>
+            </ul>
           </div>
-        }
 
-        @if (!signedIn()) {
-          <section class="panel signin">
-            <span class="signin-ico"><i class="pi pi-user" aria-hidden="true"></i></span>
-            <div class="signin-text">
-              <b>{{ 'book.signInTitle' | translate }}</b>
-              <p>{{ 'book.signInHint' | translate }}</p>
+          <!-- Order summary: priced by the server, promo code, total, then sign in (visitors) or continue. -->
+          <aside class="card summary" aria-live="polite">
+            <div class="sum-head">
+              <h2>{{ 'book.summary' | translate }}</h2>
+              @if (store.company()?.vatRegistered) {
+                <span class="vat-badge">{{ (store.company()?.pricesIncludeVat ? 'company.vatIncl' : 'company.vatExcl') | translate }}</span>
+              }
             </div>
-            <button type="button" class="btn-main" [disabled]="!canNext()" (click)="forward()">
-              {{ 'book.signInToContinue' | translate }}<i class="pi pi-arrow-right rtl-flip" aria-hidden="true"></i>
-            </button>
-          </section>
-        }
+            <div class="sum-lines">
+              @for (it of quote()?.items ?? []; track $index) {
+                <div class="sum-row"><span>{{ line(it) }}</span><strong class="ltr">{{ it.totalHalalas | sar }}</strong></div>
+              } @empty {
+                <div class="sum-row muted">{{ 'book.summaryEmpty' | translate }}</div>
+              }
+              @if (quote()?.discountHalalas; as d) {
+                <div class="sum-row discount"><span>{{ 'promo.discount' | translate: { code: quote()?.promo?.code ?? '' } }}</span><strong class="ltr">−{{ d | sar }}</strong></div>
+              }
+              @if (vat(); as v) {
+                <div class="sum-row vat-row"><span>{{ (v.included ? 'company.vatIncludedLine' : 'company.vatAddedLine') | translate }}</span><span class="ltr">{{ v.amount | sar }}</span></div>
+              }
+            </div>
 
-        <!-- Quantity and add-ons of a picked service (in the list and in the single-service card). -->
+            <div class="promo-box">
+              @if (quote()?.promo; as pr) {
+                <div class="promo-ok" role="status">
+                  <i class="pi pi-ticket" aria-hidden="true"></i>
+                  <span><b class="ltr">{{ pr.code }}</b> · {{ 'promo.saved' | translate: { v: ((quote()?.discountHalalas ?? 0) | sar) } }}</span>
+                  <button type="button" (click)="removePromo()">{{ 'promo.remove' | translate }}</button>
+                </div>
+              } @else {
+                <form class="promo" (ngSubmit)="applyPromo()">
+                  <input class="promo-input ltr" name="promo1" [(ngModel)]="promoInput" maxlength="30" autocomplete="off" autocapitalize="characters"
+                         [placeholder]="'promo.placeholder' | translate" [attr.aria-label]="'promo.fieldTitle' | translate" />
+                  <button type="submit" class="btn-apply" [disabled]="!promoInput.trim() || checkingPromo()">
+                    @if (checkingPromo()) { <i class="pi pi-spin pi-spinner"></i> } @else { {{ 'promo.apply' | translate }} }
+                  </button>
+                </form>
+                @if (promoError()) { <p class="promo-err" role="alert">{{ promoError() }}</p> }
+              }
+            </div>
+
+            <div class="total-box">
+              <div>
+                <div class="total-label">{{ 'detail.total' | translate }}</div>
+                @if (vat(); as v) { <div class="total-sub">{{ (v.included ? 'company.vatIncl' : 'book.vatAddedSub') | translate }}</div> }
+              </div>
+              <div class="total-amount ltr">{{ grandTotal() | sar }}</div>
+            </div>
+
+            <div class="gate">
+              @if (signedIn()) {
+                @if (signedPhone()) {
+                  <span class="verified-pill"><i class="pi pi-check" aria-hidden="true"></i>{{ 'book.signedAs' | translate }} <span class="ltr">{{ signedPhone() }}</span></span>
+                }
+                <button type="button" class="btn-cta" [disabled]="!canNext()" (click)="forward()">
+                  {{ 'book.continueSchedule' | translate }}<i class="pi pi-arrow-left rtl-flip" aria-hidden="true"></i>
+                </button>
+              } @else {
+                @switch (gStep()) {
+                  @case ('phone') {
+                    <div class="gate-head"><i class="pi pi-mobile" aria-hidden="true"></i>{{ 'book.signInTitle' | translate }}</div>
+                    <p class="gate-sub">{{ 'book.gateSub' | translate }}</p>
+                    <form (ngSubmit)="sendGateCode()">
+                      <div class="phone-wrap">
+                        <span class="prefix">+966</span>
+                        <input class="phone-field" name="gphone" [(ngModel)]="gPhone" inputmode="tel" autocomplete="tel-national" maxlength="14"
+                               placeholder="05XXXXXXXX" [attr.aria-label]="'login.phone' | translate" />
+                      </div>
+                      @if (gError()) { <p class="gate-err" role="alert">{{ gError() }}</p> }
+                      <button type="submit" class="btn-cta" [disabled]="gBusy() || !canNext()">
+                        {{ 'book.sendCodeContinue' | translate }}<i class="pi pi-arrow-left rtl-flip" aria-hidden="true"></i>
+                      </button>
+                    </form>
+                  }
+                  @case ('code') {
+                    <div class="gate-head"><i class="pi pi-shield" aria-hidden="true"></i>{{ 'login.codeTitle' | translate }}</div>
+                    <p class="gate-sub">{{ 'login.sentTo' | translate }} <b class="ltr">{{ gPhone }}</b></p>
+                    @if (gDevCode()) { <p class="gate-sub">{{ 'login.devCode' | translate }} <b class="ltr">{{ gDevCode() }}</b></p> }
+                    <form (ngSubmit)="verifyGateCode()">
+                      <input class="code-field tnum" name="gcode" [(ngModel)]="gCode" (ngModelChange)="onGateCode()" inputmode="numeric"
+                             autocomplete="one-time-code" maxlength="6" placeholder="••••••" [attr.aria-label]="'login.code' | translate" />
+                      @if (gError()) { <p class="gate-err" role="alert">{{ gError() }}</p> }
+                      <button type="submit" class="btn-cta" [disabled]="gBusy() || gCode.length !== 6">{{ 'login.verify' | translate }}</button>
+                    </form>
+                    <div class="gate-meta">
+                      <button type="button" class="link-btn" (click)="gStep.set('phone'); gError.set(null)">{{ 'login.changePhone' | translate }}</button>
+                      @if (gResendIn() > 0) {
+                        <span>{{ 'login.resendIn' | translate: { s: gResendIn() } }}</span>
+                      } @else {
+                        <button type="button" class="link-btn" (click)="sendGateCode()">{{ 'login.resend' | translate }}</button>
+                      }
+                    </div>
+                  }
+                  @case ('name') {
+                    <div class="gate-head"><i class="pi pi-user" aria-hidden="true"></i>{{ 'login.nameTitle' | translate }}</div>
+                    <p class="gate-sub">{{ 'login.nameLead' | translate: { company: store.name() } }}</p>
+                    <form (ngSubmit)="saveGateName()">
+                      <input class="code-field name-field" name="gname" [(ngModel)]="gName" autocomplete="name" maxlength="150"
+                             [placeholder]="'login.name' | translate" [attr.aria-label]="'login.name' | translate" />
+                      @if (gError()) { <p class="gate-err" role="alert">{{ gError() }}</p> }
+                      <button type="submit" class="btn-cta" [disabled]="gBusy() || !gName.trim()">{{ 'login.continue' | translate }}</button>
+                    </form>
+                  }
+                }
+              }
+            </div>
+          </aside>
+        </div>
+
+        <!-- Size, quantity and add-ons of a picked service (in the banner card and in the list). -->
         <ng-template #extras let-s let-p="p">
           <div class="extra" (click)="$event.stopPropagation()">
             @if (s.options?.length) {
-              <span class="qty-label">{{ 'book.chooseOption' | translate }}</span>
-              <div class="addons" role="radiogroup">
-                @for (o of s.options; track o.id) {
-                  <label class="addon" [class.on]="p.optionId === o.id">
-                    <input type="radio" [name]="'opt-' + s.id" [checked]="p.optionId === o.id" (change)="pickOption(p, o.id)" />
-                    <span>{{ o | svc }}</span><span class="ltr">{{ o.priceHalalas | sar }}</span>
-                  </label>
-                }
+              <div class="group">
+                <div class="group-title"><span class="group-num">{{ groupNo(s, 'size') }}</span>{{ 'book.chooseOption' | translate }}</div>
+                <div class="size-grid" role="radiogroup">
+                  @for (o of s.options; track o.id) {
+                    <button type="button" class="size-btn" role="radio" [class.active]="p.optionId === o.id" [attr.aria-checked]="p.optionId === o.id"
+                            (click)="pickOption(p, o.id)">
+                      <span class="size-name">{{ o | svc }}</span>
+                      <span class="size-price ltr">{{ o.priceHalalas | sar }}</span>
+                    </button>
+                  }
+                </div>
               </div>
             }
             @if (s.pricingType !== 'FIXED') {
-              <span class="qty-label">{{ 'book.qty.' + s.pricingType | translate }}</span>
-              <div class="qty">
-                <button type="button" (click)="setQty(p, p.quantity - step1(s))" [attr.aria-label]="'book.less' | translate">−</button>
-                <b class="tnum">{{ p.quantity }}</b>
-                <button type="button" (click)="setQty(p, p.quantity + step1(s))" [attr.aria-label]="'book.more' | translate">+</button>
+              <div class="group">
+                <div class="group-title"><span class="group-num">{{ groupNo(s, 'qty') }}</span>{{ 'book.qty.' + s.pricingType | translate }}</div>
+                <div class="qty">
+                  <button type="button" (click)="setQty(p, p.quantity - step1(s))" [attr.aria-label]="'book.less' | translate">−</button>
+                  <b class="tnum">{{ p.quantity }} <small>{{ 'book.unit.' + s.pricingType | translate }}</small></b>
+                  <button type="button" (click)="setQty(p, p.quantity + step1(s))" [attr.aria-label]="'book.more' | translate">+</button>
+                </div>
               </div>
             }
             @if (s.addons.length) {
-              @if (signedIn()) {
-                <div class="addons">
+              <div class="group">
+                <div class="group-title"><span class="group-num">{{ groupNo(s, 'addons') }}</span>{{ 'book.addonsTitle' | translate }}</div>
+                <div class="chips">
                   @for (a of s.addons; track a.id) {
-                    <label class="addon" [class.on]="p.addonIds.includes(a.id)">
-                      <input type="checkbox" [checked]="p.addonIds.includes(a.id)" (change)="toggleAddon(p, a.id)" />
-                      <span>{{ a | svc }}</span><span class="ltr">+{{ a.priceHalalas | sar }}</span>
-                    </label>
+                    <button type="button" class="addon-chip" [class.active]="p.addonIds.includes(a.id)" [attr.aria-pressed]="p.addonIds.includes(a.id)"
+                            (click)="toggleAddon(p, a.id)">
+                      <span><i class="pi" [class]="p.addonIds.includes(a.id) ? 'pi-check' : 'pi-plus'" aria-hidden="true"></i> {{ a | svc }}</span>
+                      <span class="chip-price ltr">+{{ a.priceHalalas | sar }}</span>
+                    </button>
                   }
                 </div>
-              } @else {
-                <!-- A visitor sees what can be added, but picks add-ons only after signing in. -->
-                <span class="qty-label">{{ 'company.estAddons' | translate }}</span>
-                <ul class="addons addons-view">
-                  @for (a of s.addons; track a.id) {
-                    <li class="addon"><i class="pi pi-plus-circle" aria-hidden="true"></i><span>{{ a | svc }}</span><span class="ltr">+{{ a.priceHalalas | sar }}</span></li>
-                  }
-                </ul>
-              }
+              </div>
             }
           </div>
         </ng-template>
       }
       @case (2) {
-        <h1>{{ 'book.s2' | translate }}</h1>
-        <p class="lead">{{ 'book.s2Lead' | translate: { h: store.company()?.leadTimeHours ?? 2 } }}</p>
-        <section class="panel">
-        <div class="days">
-          @for (d of days(); track d.iso) {
-            <button type="button" [class.on]="date() === d.iso" (click)="pickDate(d.iso)">
-              <small>{{ d.weekday }}</small><b class="tnum">{{ d.day }}</b><small>{{ d.month }}</small>
-            </button>
-          }
-        </div>
-        @if (loadingSlots()) {
-          <div class="spinner"><i class="pi pi-spin pi-spinner"></i></div>
-        } @else if (date() && !slots().length) {
-          <div class="sheet empty"><i class="pi pi-clock"></i><p>{{ 'book.noSlots' | translate }}</p></div>
-        } @else {
-          <div class="slots">
-            @for (s of slots(); track s.start) {
-              <button type="button" class="tnum" [class.on]="slot()?.start === s.start" (click)="slot.set(s)">{{ s.start | ldate: 'time' }}</button>
+        <div class="checkout-grid">
+          <!-- Date and time: a strip of days with open/limited/full status, then the open times by part of the day. -->
+          <section class="card sched-card">
+            <div class="sched-head">
+              <div>
+                <h1>{{ 'book.s2' | translate }}</h1>
+                <p class="lead">{{ 'book.s2Lead' | translate: { h: store.company()?.leadTimeHours ?? 2 } }}</p>
+              </div>
+              <button type="button" class="btn-earliest" (click)="earliest()">
+                <i class="pi pi-bolt" aria-hidden="true"></i>{{ 'book.earliest' | translate }}
+              </button>
+            </div>
+
+            <div class="strip-head">
+              <span class="section-label"><i class="pi pi-calendar" aria-hidden="true"></i>{{ 'book.chooseDay' | translate }}</span>
+              <div class="strip-arrows">
+                <button type="button" class="arrow-btn" [attr.aria-label]="'book.prevDays' | translate" (click)="scrollDays(strip, -1)">
+                  <i class="pi pi-chevron-right rtl-flip" aria-hidden="true"></i>
+                </button>
+                <button type="button" class="arrow-btn" [attr.aria-label]="'book.nextDays' | translate" (click)="scrollDays(strip, 1)">
+                  <i class="pi pi-chevron-left rtl-flip" aria-hidden="true"></i>
+                </button>
+              </div>
+            </div>
+            <div class="date-strip" #strip role="listbox">
+              @for (d of days(); track d.iso) {
+                @let st = dayStatus(d.iso);
+                <button type="button" role="option" class="date-card" [class.active]="date() === d.iso" [class.full]="st === 'full'"
+                        [attr.aria-selected]="date() === d.iso" (click)="pickDate(d.iso)">
+                  <span class="d-name">{{ d.weekday }}</span>
+                  <span class="d-num tnum">{{ d.day }}</span>
+                  <span class="d-month">{{ d.month }}</span>
+                  <span class="d-status">
+                    @if (st === 'loading') { <i class="pi pi-spin pi-spinner" aria-hidden="true"></i> }
+                    @else { <span class="dot" [class]="'dot ' + st"></span>{{ 'book.day.' + st | translate }} }
+                  </span>
+                </button>
+              }
+            </div>
+
+            @if (loadingSlots()) {
+              <div class="spinner"><i class="pi pi-spin pi-spinner"></i></div>
+            } @else if (date() && !slots().length) {
+              <div class="empty-box">
+                <div class="empty-ico"><i class="pi pi-clock" aria-hidden="true"></i></div>
+                <h3>{{ 'book.noSlotsTitle' | translate }}</h3>
+                <p>{{ 'book.noSlotsDesc' | translate: { day: (date() + 'T12:00:00' | ldate: 'day') } }}</p>
+                @if (nextOpenDay(); as nd) {
+                  <button type="button" class="btn-main" (click)="pickDate(nd.iso, true)">
+                    {{ 'book.jumpTo' | translate: { day: (nd.iso + 'T12:00:00' | ldate: 'day') } }}<i class="pi pi-arrow-left rtl-flip" aria-hidden="true"></i>
+                  </button>
+                }
+              </div>
+            } @else {
+              @for (g of periods(); track g.key) {
+                <div class="period">
+                  <div class="period-head">
+                    <i class="pi" [class]="'pi ' + (g.key === 'morning' ? 'pi-sun' : g.key === 'afternoon' ? 'pi-cloud' : 'pi-moon') + ' ' + g.key" aria-hidden="true"></i>
+                    {{ 'book.period.' + g.key | translate }}
+                  </div>
+                  <div class="slot-grid">
+                    @for (s of g.slots; track s.start) {
+                      <button type="button" class="slot-btn tnum" [class.active]="slot()?.start === s.start" (click)="slot.set(s)">{{ s.start | ldate: 'time' }}</button>
+                    }
+                  </div>
+                </div>
+              }
             }
-          </div>
-        }
-        </section>
+          </section>
+
+          <!-- Booking summary: the service, the chosen time, the price, back / next. -->
+          <aside class="card summary" aria-live="polite">
+            <div class="sum-head">
+              <h2>{{ 'book.bookingSummary' | translate }}</h2>
+              <button type="button" class="edit-link" (click)="back()">{{ 'book.edit' | translate }}</button>
+            </div>
+            <div class="srv-box">
+              <span class="srv-ico"><i class="pi" [class]="'pi ' + icon(picks()[0]?.service)" aria-hidden="true"></i></span>
+              <div>
+                <small>{{ 'book.selectedService' | translate }}</small>
+                <b>
+                  @switch (picks().length) {
+                    @case (0) { — }
+                    @case (1) { {{ pickName(picks()[0]) }} }
+                    @default { {{ 'book.servicesN' | translate: { n: picks().length } }} }
+                  }
+                </b>
+              </div>
+            </div>
+            <div class="appt-badge" [class.unset]="!slot()">
+              <i class="pi pi-calendar" aria-hidden="true"></i>
+              <span>{{ slot() ? slotLabel() : ('book.pickTime' | translate) }}</span>
+            </div>
+            <div class="sum-lines">
+              @for (it of quote()?.items ?? []; track $index) {
+                <div class="sum-row"><span>{{ line(it) }}</span><strong class="ltr">{{ it.totalHalalas | sar }}</strong></div>
+              }
+              @if (quote()?.discountHalalas; as d) {
+                <div class="sum-row discount"><span>{{ 'promo.discount' | translate: { code: quote()?.promo?.code ?? '' } }}</span><strong class="ltr">−{{ d | sar }}</strong></div>
+              }
+              @if (vat(); as v) {
+                <div class="sum-row vat-row"><span>{{ (v.included ? 'company.vatIncludedLine' : 'company.vatAddedLine') | translate }}</span><span class="ltr">{{ v.amount | sar }}</span></div>
+              }
+            </div>
+            <div class="grand-row">
+              <span>{{ 'detail.total' | translate }}</span>
+              <b class="ltr">{{ grandTotal() | sar }}</b>
+            </div>
+            <div class="sum-actions">
+              <button type="button" class="btn-soft" (click)="back()">{{ 'book.back' | translate }}</button>
+              <button type="button" class="btn-main" [disabled]="!canNext()" (click)="forward()">
+                {{ 'book.next' | translate }}<i class="pi pi-arrow-left rtl-flip" aria-hidden="true"></i>
+              </button>
+            </div>
+          </aside>
+        </div>
       }
       @case (3) {
         <h1>{{ 'book.s3' | translate }}</h1>
@@ -265,7 +470,7 @@
   }
 </div>
 
-@if (!booked() && store.company()?.bookingOpen && signedIn()) {
+@if (!booked() && store.company()?.bookingOpen && signedIn() && step() > 2) {
   <div class="footer">
     <div class="in">
       <div class="cell svc-cell">
@@ -297,7 +502,7 @@
         @if (step() > 1) { <button type="button" class="btn-soft" (click)="back()">{{ 'book.back' | translate }}</button> }
         @if (step() < 4) {
           <button type="button" class="btn-main" [disabled]="!canNext()" (click)="forward()">
-            {{ 'book.next' | translate }}<i class="pi pi-arrow-right rtl-flip" aria-hidden="true"></i>
+            {{ 'book.next' | translate }}<i class="pi pi-arrow-left rtl-flip" aria-hidden="true"></i>
           </button>
         } @else {
           <button type="button" class="btn-main" [disabled]="busy()" (click)="submit()">

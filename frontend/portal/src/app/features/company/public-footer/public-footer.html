@@ -1,11 +1,8 @@
-<svg class="wave" viewBox="0 0 1440 56" preserveAspectRatio="none" aria-hidden="true">
-  <path d="M0,30 C240,6 460,0 720,22 C980,44 1200,50 1440,26 L1440,56 L0,56 Z" />
-</svg>
 <footer class="band">
   <div class="cols">
     <div>
       <a class="brand" [routerLink]="['/', slug()]">
-        <span class="mark"><img [src]="company()?.logoUrl || 'brand/logo.svg'" alt="" /></span>
+        <span class="mark"><img [src]="company()?.logoUrl || 'brand/logo-mark.svg'" alt="" /></span>
         <strong>{{ companyName() }}</strong>
       </a>
       <p class="about">{{ store.headline() || ('company.defaultHeadline' | translate) }}</p>
@@ -24,6 +21,7 @@
       <h3>{{ 'footer.pages' | translate }}</h3>
       <ul>
         <li><a [routerLink]="['/', slug()]" fragment="services">{{ 'company.services' | translate }}</a></li>
+        <li><a [routerLink]="['/', slug()]" fragment="how">{{ 'company.instructions' | translate }}</a></li>
         <li><a [routerLink]="['/', slug()]" fragment="reviews">{{ 'company.reviews' | translate }}</a></li>
         <li><a [routerLink]="['/', slug()]" fragment="contact">{{ 'company.contact' | translate }}</a></li>
         <li><a [routerLink]="['/', slug()]" fragment="about">{{ 'company.aboutUs' | translate }}</a></li>

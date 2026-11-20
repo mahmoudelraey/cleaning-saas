@@ -1,21 +1,20 @@
+// The promo strip above the header: a soft teal band, a small badge, the code as a white button you tap to copy.
 :host { display: block; }
-.bar { position: relative; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px 12px;
-       padding: 9px 44px; text-align: center; color: var(--white); font-size: .85rem; font-weight: 500;
-       background: linear-gradient(90deg, var(--brand-21), var(--brand-34)); box-shadow: 0 1px 2px rgba(var(--slate-11-rgb), .1); }
-.tag { background: rgba(var(--white-rgb), .2); padding: 2px 10px; border-radius: 999px; font-size: .72rem; font-weight: 800;
-       animation: soft 2s ease-in-out infinite; }
-@keyframes soft { 50% { opacity: .65; } }
-@media (prefers-reduced-motion: reduce) { .tag { animation: none; } }
-strong { color: var(--warning-51); }
-.code { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-weight: 800; letter-spacing: .05em; color: var(--white);
-        background: rgba(var(--black-rgb), .2); border: 1px solid rgba(var(--white-rgb), .25); border-radius: 6px; padding: 2px 10px;
-        cursor: pointer; }
-.code:hover { background: rgba(var(--black-rgb), .3); }
-.code i { font-size: .75rem; opacity: .8; }
-.ends { opacity: .8; font-size: .78rem; }
-.go { color: var(--white); font-weight: 800; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
-.go:hover { color: var(--warning-51); }
-.x { position: absolute; inset-inline-end: 10px; top: 50%; transform: translateY(-50%); width: 28px; height: 28px; border-radius: 50%;
-     border: 0; background: transparent; color: var(--white); cursor: pointer; opacity: .75; }
-.x:hover { opacity: 1; background: rgba(var(--white-rgb), .15); }
-@media (max-width: 640px) { .bar { font-size: .8rem; padding: 8px 40px; } .ends { display: none; } }
+.bar { position: relative; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px 10px;
+       padding: 10px 48px; text-align: center; color: var(--slate-15); font-size: .82rem;
+       background: var(--brand-97-3); border-bottom: 1px solid rgba(var(--brand-31-rgb), .14); }
+.tag { background: var(--brand-31); color: var(--white); padding: 3px 10px; border-radius: var(--r-pill); font-size: .7rem;
+       font-weight: 700; letter-spacing: .03em; }
+strong { color: var(--brand-31); font-weight: 800; }
+.code { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: .75rem; font-weight: 700; letter-spacing: .04em;
+        color: var(--brand-31); background: var(--white); border: 1px solid rgba(var(--brand-31-rgb), .35); border-radius: 8px;
+        padding: 3px 10px; cursor: pointer; transition: background .25s var(--ease), color .25s var(--ease); }
+.code:hover { background: var(--brand-31); color: var(--white); }
+.code i { font-size: .75rem; }
+.ends { color: var(--slate-38); font-size: .76rem; }
+.go { color: var(--brand-31); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
+.go:hover { color: var(--brand-25); }
+.x { position: absolute; inset-inline-end: 12px; top: 50%; transform: translateY(-50%); width: 28px; height: 28px; border-radius: 8px;
+     border: 0; background: transparent; color: var(--slate-38); cursor: pointer; display: grid; place-items: center; }
+.x:hover { background: rgba(var(--black-rgb), .05); color: var(--slate-15); }
+@media (max-width: 640px) { .bar { font-size: .78rem; padding: 8px 40px; } .ends { display: none; } }

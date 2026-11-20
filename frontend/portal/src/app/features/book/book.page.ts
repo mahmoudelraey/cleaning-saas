@@ -3,12 +3,12 @@ import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
-import { Subject, debounceTime, of, switchMap, catchError } from 'rxjs';
+import { Subject, Subscription, debounceTime, from, of, switchMap, catchError, map, mergeMap } from 'rxjs';
 
-import { Address, Booked, Item, PaymentMethod, Quote, Service, Slot } from '../../core/api.types';
+import { Address, Booked, Item, PaymentMethod, PublicReviews, Quote, Service, Slot } from '../../core/api.types';
 import { CompanyStore } from '../../core/company.store';
 import { errorMessage } from '../../core/errors';
-import { LocalDatePipe, SarPipe, formatDate } from '../../core/format';
+import { LocalDatePipe, SAUDI_MOBILE, SarPipe, formatDate } from '../../core/format';
 import { LanguageService } from '../../core/language.service';
 import { PortalApi } from '../../core/portal.api';
 import { defaultServiceImage, serviceIcon } from '../../core/service-image';
@@ -28,7 +28,11 @@ interface Pick {
 
 const PAYMENTS: PaymentMethod[] = ['CASH', 'MADA', 'BANK_TRANSFER', 'APPLE_PAY', 'CARD'];
 
-/** Four real steps: what, when, where, confirm. Prices and open times come from the company's own rules. */
+/**
+ * Four real steps: what, when, where, confirm. Prices and open times come from the company's own rules.
+ * Step 1 ("Selected service") shows one service at a time (pills switch it) next to a sticky order summary with
+ * the promo code and, for visitors, signing in with a mobile code right there, then on to the time and address.
+ */
 @Component({
   selector: 'pt-book',
   imports: [FormsModule, NgTemplateOutlet, RouterLink, TranslatePipe, LocalDatePipe, SarPipe, ServiceTextPipe],
@@ -62,6 +66,8 @@ export class BookPage implements OnInit, OnDestroy {
   protected readonly slot = signal<Slot | null>(null);
   protected readonly loadingSlots = signal(false);
   protected readonly addresses = signal<Address[]>([]);
+  /** For the rating chip on the service banner. */
+  protected readonly reviews = signal<PublicReviews | null>(null);
   protected readonly addressId = signal<string | null>(null);
   protected readonly payment = signal<PaymentMethod | null>(null);
   protected readonly busy = signal(false);
@@ -86,7 +92,7 @@ export class BookPage implements OnInit, OnDestroy {
     const lang = this.lang.current();
     const out: { iso: string; weekday: string; day: string; month: string }[] = [];
     const today = new Date();
-    for (let i = 0; i < Math.min(c?.maxDaysAhead ?? 30, 21); i++) {
+    for (let i = 0; i < Math.min(c?.maxDaysAhead ?? 30, 14); i++) {
       const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i, 12);
       const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       out.push({ iso, weekday: formatDate(d, 'weekday', lang), day: formatDate(d, 'dayNum', lang), month: formatDate(d, 'month', lang) });
@@ -143,10 +149,12 @@ export class BookPage implements OnInit, OnDestroy {
       this.promoInput = promo;
       this.promoCode.set(promo);
     }
+    this.api.reviews(slug).subscribe({ next: (r) => this.reviews.set(r), error: () => {} });
     this.api.services(slug).subscribe({
       next: (s) => {
         this.services.set(s);
-        const chosen = preselect ? s.find((x) => x.id === preselect) : undefined;
+        // Without ?service= the first service is shown; the pills switch it.
+        const chosen = preselect ? s.find((x) => x.id === preselect) : s[0];
         if (chosen && !this.picked(chosen)) {
           this.toggle(chosen);
           this.focused.set(chosen);
@@ -169,14 +177,7 @@ export class BookPage implements OnInit, OnDestroy {
       },
       error: (e) => this.fail(e),
     });
-    if (this.signedIn()) {
-      this.api.me(slug).subscribe({
-        next: (p) => {
-          this.addresses.set(p.addresses);
-          this.addressId.set(p.addresses.at(-1)?.id ?? null);
-        },
-      });
-    }
+    if (this.signedIn()) this.loadAddresses();
     this.quote$
       .pipe(
         debounceTime(200),
@@ -189,11 +190,148 @@ export class BookPage implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.quote$.complete();
+    this.countsSub?.unsubscribe();
+    if (this.gTimer) clearInterval(this.gTimer);
+  }
+
+  private loadAddresses(): void {
+    this.api.me(this.store.slug()).subscribe({
+      next: (p) => {
+        this.addresses.set(p.addresses);
+        this.addressId.set(p.addresses.at(-1)?.id ?? null);
+      },
+    });
+  }
+
+  /** The service pills: show another service instead of the current one. */
+  protected switchService(s: Service): void {
+    if (this.focused()?.id === s.id) return;
+    this.picks.set([]);
+    this.focused.set(s);
+    this.toggle(s);
+  }
+
+  /** Number of each settings group of a service (size, quantity, add-ons), so they count only what it has. */
+  protected groupNo(s: Service, kind: 'size' | 'qty' | 'addons'): number {
+    const order = [s.options?.length ? 'size' : null, s.pricingType !== 'FIXED' ? 'qty' : null, s.addons.length ? 'addons' : null]
+      .filter(Boolean);
+    return order.indexOf(kind) + 1;
+  }
+
+  protected duration(min: number): string {
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    if (!h) return this.translate.instant('company.minutes', { m });
+    return m ? this.translate.instant('company.hoursMinutes', { h, m }) : this.translate.instant('company.hours', { h });
+  }
+
+  /** What is left to pay before VAT (subtotal − promo). */
+  protected readonly net = computed(() => {
+    const q = this.quote();
+    return q ? q.totalHalalas ?? q.subtotalHalalas : 0;
+  });
+  /** VAT: included in the prices, added on top, or none (company not registered). */
+  protected readonly vat = computed(() => {
+    const c = this.store.company();
+    const net = this.net();
+    if (!c?.vatRegistered || !net) return null;
+    return c.pricesIncludeVat
+      ? { included: true, amount: Math.round(net - net / 1.15) }
+      : { included: false, amount: Math.round(net * 0.15) };
+  });
+  protected readonly grandTotal = computed(() => {
+    const v = this.vat();
+    return this.net() + (v && !v.included ? v.amount : 0);
+  });
+
+  // --- signing in from the summary (visitors) -------------------------------------------------------
+  protected readonly gStep = signal<'phone' | 'code' | 'name'>('phone');
+  protected readonly gBusy = signal(false);
+  protected readonly gError = signal<string | null>(null);
+  protected readonly gDevCode = signal<string | null>(null);
+  protected readonly gResendIn = signal(0);
+  protected gPhone = '';
+  protected gCode = '';
+  protected gName = '';
+  private gTimer: ReturnType<typeof setInterval> | null = null;
+  /** The signed-in customer's mobile, for the "verified" chip. */
+  protected readonly signedPhone = computed(() => this.sessions.get(this.store.slug())?.phone ?? '');
+
+  protected sendGateCode(): void {
+    const raw = this.gPhone.replace(/[\s-]/g, '');
+    if (!SAUDI_MOBILE.test(raw)) {
+      this.gError.set(this.translate.instant('errors.invalid_phone'));
+      return;
+    }
+    this.gBusy.set(true);
+    this.gError.set(null);
+    this.api.sendCode(this.store.slug(), raw).subscribe({
+      next: (r) => {
+        this.gBusy.set(false);
+        this.gDevCode.set(r.devCode ?? null);
+        this.gCode = '';
+        this.gStep.set('code');
+        this.gCountdown(r.resendAfterSeconds);
+      },
+      error: (e) => this.gFail(e),
+    });
+  }
+
+  protected onGateCode(): void {
+    this.gCode = this.gCode.replace(/\D/g, '').slice(0, 6);
+    if (this.gCode.length === 6 && !this.gBusy()) this.verifyGateCode();
+  }
+
+  protected verifyGateCode(): void {
+    this.gBusy.set(true);
+    this.gError.set(null);
+    this.api.verify(this.store.slug(), this.gPhone.replace(/[\s-]/g, ''), this.gCode).subscribe({
+      next: (s) => {
+        this.gBusy.set(false);
+        this.sessions.set(this.store.slug(), s);
+        if (s.needsName) this.gStep.set('name');
+        else this.afterSignIn();
+      },
+      error: (e) => this.gFail(e),
+    });
+  }
+
+  protected saveGateName(): void {
+    this.gBusy.set(true);
+    this.gError.set(null);
+    this.api.register(this.store.slug(), this.gName.trim()).subscribe({
+      next: (s) => {
+        this.gBusy.set(false);
+        this.sessions.set(this.store.slug(), s);
+        this.afterSignIn();
+      },
+      error: (e) => this.gFail(e),
+    });
+  }
+
+  /** Signed in from the summary: load the saved addresses and go on to the time. */
+  private afterSignIn(): void {
+    this.loadAddresses();
+    if (this.canNext()) this.forward();
+  }
+
+  private gFail(e: unknown): void {
+    this.gBusy.set(false);
+    this.gError.set(errorMessage(e, this.translate));
+  }
+
+  private gCountdown(seconds: number): void {
+    if (this.gTimer) clearInterval(this.gTimer);
+    this.gResendIn.set(seconds);
+    this.gTimer = setInterval(() => {
+      this.gResendIn.update((v) => Math.max(0, v - 1));
+      if (this.gResendIn() === 0 && this.gTimer) clearInterval(this.gTimer);
+    }, 1000);
   }
 
   // --- step 1 ---
-  protected icon(s: Service): string {
-    return serviceIcon(s.name, s.nameEn);
+  protected icon(s: Service | undefined): string {
+    return s ? serviceIcon(s.name, s.nameEn) : 'pi-sparkles';
   }
 
   protected defaultImage(s: Service): string {
@@ -263,7 +401,78 @@ export class BookPage implements OnInit, OnDestroy {
   }
 
   // --- step 2 ---
-  pickDate(iso: string): void {
+  /** Open times per day for the date strip (undefined while still loading); refreshed when the order changes. */
+  protected readonly dayCounts = signal<Record<string, number>>({});
+  private countsFor = '';
+  private countsSub: Subscription | null = null;
+
+  /** The selected day's times, grouped as morning (before 12), afternoon (12–5 pm) and evening. */
+  protected readonly periods = computed(() => {
+    const groups: { key: 'morning' | 'afternoon' | 'evening'; slots: Slot[] }[] = [
+      { key: 'morning', slots: [] },
+      { key: 'afternoon', slots: [] },
+      { key: 'evening', slots: [] },
+    ];
+    for (const s of this.slots()) {
+      const h = new Date(s.start).getHours();
+      groups[h < 12 ? 0 : h < 17 ? 1 : 2].slots.push(s);
+    }
+    return groups.filter((g) => g.slots.length);
+  });
+
+  /** The first day with open times after the selected one (for the empty state). */
+  protected readonly nextOpenDay = computed(() => {
+    const counts = this.dayCounts();
+    const days = this.days();
+    const from = days.findIndex((d) => d.iso === this.date());
+    return days.slice(from + 1).find((d) => (counts[d.iso] ?? 0) > 0) ?? null;
+  });
+
+  protected dayStatus(iso: string): 'loading' | 'open' | 'limited' | 'full' {
+    const n = this.dayCounts()[iso];
+    return n === undefined ? 'loading' : n === 0 ? 'full' : n <= 3 ? 'limited' : 'open';
+  }
+
+  /** Asks for every day's open times, four at a time, so the strip can show which days are open or full. */
+  private loadDayCounts(): void {
+    const key = JSON.stringify(this.items());
+    if (key === this.countsFor) return;
+    this.countsFor = key;
+    this.countsSub?.unsubscribe();
+    this.dayCounts.set({});
+    const slug = this.store.slug();
+    const items = this.items();
+    this.countsSub = from(this.days().map((d) => d.iso))
+      .pipe(
+        mergeMap(
+          (iso) => this.api.availability(slug, iso, items).pipe(map((l) => [iso, l.length] as const), catchError(() => of([iso, 0] as const))),
+          4,
+        ),
+      )
+      .subscribe(([iso, n]) => this.dayCounts.update((c) => ({ ...c, [iso]: n })));
+  }
+
+  /** Picks the earliest open day and its first time. */
+  protected earliest(): void {
+    const counts = this.dayCounts();
+    const day = this.days().find((d) => (counts[d.iso] ?? 0) > 0);
+    if (day) this.pickDate(day.iso, true);
+    else this.toasts.show(this.translate.instant('book.noneOpen'), 'error');
+  }
+
+  protected scrollDays(strip: HTMLElement, dir: 1 | -1): void {
+    const rtl = getComputedStyle(strip).direction === 'rtl';
+    strip.scrollBy({ left: dir * (rtl ? -240 : 240), behavior: 'smooth' });
+  }
+
+  protected slotLabel(): string {
+    const s = this.slot();
+    if (!s) return '';
+    const lang = this.lang.current();
+    return `${formatDate(s.start, 'day', lang)} • ${formatDate(s.start, 'time', lang)}`;
+  }
+
+  pickDate(iso: string, firstSlot = false): void {
     this.date.set(iso);
     this.slot.set(null);
     this.loadingSlots.set(true);
@@ -271,6 +480,8 @@ export class BookPage implements OnInit, OnDestroy {
       next: (s) => {
         this.slots.set(s);
         this.loadingSlots.set(false);
+        this.dayCounts.update((c) => ({ ...c, [iso]: s.length }));
+        if (firstSlot && s.length) this.slot.set(s[0]);
       },
       error: (e) => {
         this.loadingSlots.set(false);
@@ -304,8 +515,9 @@ export class BookPage implements OnInit, OnDestroy {
       this.signInToContinue();
       return;
     }
-    if (this.step() === 1 && !this.date()) {
-      this.pickDate(this.days()[0].iso);
+    if (this.step() === 1) {
+      this.loadDayCounts();
+      if (!this.date()) this.pickDate(this.days()[0].iso);
     }
     this.step.update((s) => Math.min(4, s + 1) as Step);
     window.scrollTo({ top: 0 });

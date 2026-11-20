@@ -14,6 +14,7 @@ import {
   InvoiceRow,
   Item,
   MyReview,
+  AddressForm,
   NewAddress,
   OtpSent,
   PaymentMethod,
@@ -89,6 +90,13 @@ export class PortalApi {
 
   updateMe(slug: string, name: string, email: string | null): Observable<Profile> {
     return this.http.put<Profile>(`${this.base(slug)}/me`, { name, email });
+  }
+
+  /** Adds an address (no id) or edits one of the customer's own; returns the profile with the new list. */
+  saveAddress(slug: string, id: string | null, a: AddressForm): Observable<Profile> {
+    return id
+      ? this.http.put<Profile>(`${this.base(slug)}/me/addresses/${id}`, a)
+      : this.http.post<Profile>(`${this.base(slug)}/me/addresses`, a);
   }
 
   bookings(slug: string, scope: 'upcoming' | 'past'): Observable<BookingSummary[]> {

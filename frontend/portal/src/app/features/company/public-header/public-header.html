@@ -1,17 +1,16 @@
-<div class="bar">
+<header class="bar">
   <div class="row">
-    <div class="nav-card">
     <a class="brand" [routerLink]="['/', slug()]">
       <span class="mark"><img [src]="store.company()?.logoUrl || 'brand/logo-mark.svg'" alt="" /></span>
       <span class="name">{{ store.name() }}</span>
     </a>
 
     <nav class="links" [attr.aria-label]="'company.menu' | translate">
-      <!-- Every link is a section of the company page; the one in view is underlined. -->
+      <!-- Every link is a section of the company page; the one in view is marked. A signed-in customer also gets
+           "My visits" and "Invoices" right after "Services". -->
       @for (l of links; track l.id) {
         <a [routerLink]="['/', slug()]" [fragment]="l.id" [class.on]="active() === l.id" (click)="jump(l.id)">{{ l.label | translate }}</a>
-        <!-- The customer's own pages sit right after "Services" (visitors are asked to sign in first). -->
-        @if (l.id === 'services') {
+        @if (l.id === 'services' && signedIn()) {
           @for (m of myPages; track m.path) {
             <a [routerLink]="['/', slug(), m.path]" routerLinkActive="on">{{ m.label | translate }}</a>
           }
@@ -19,17 +18,10 @@
       }
     </nav>
 
-    <!-- When the links don't fit they move into the drawer; its toggle sits in this card, at the far end. -->
-    <button type="button" class="pill icon-btn burger" [attr.aria-expanded]="drawerOpen()" aria-controls="site-drawer"
-            [attr.aria-label]="'company.menu' | translate" (click)="drawerOpen.set(!drawerOpen()); menuOpen.set(false)">
-      <i class="pi" [class]="drawerOpen() ? 'pi-times' : 'pi-bars'" aria-hidden="true"></i>
-    </button>
-    </div>
-
     <div class="actions">
       <!-- A signed-in customer switches the language from the avatar menu. -->
       @if (!signedIn()) {
-        <button type="button" class="pill lang hide-sm" (click)="lang.toggle()" [attr.aria-label]="'company.switchLang' | translate">
+        <button type="button" class="btn-ghost btn-lang hide-sm" (click)="lang.toggle()" [attr.aria-label]="'company.switchLang' | translate">
           <i class="pi pi-globe" aria-hidden="true"></i>{{ lang.current() === 'ar' ? 'English' : 'العربية' }}
         </button>
       }
@@ -53,44 +45,46 @@
           }
         </div>
       } @else {
-        <a class="pill soft" [routerLink]="['/', slug(), 'login']" [attr.aria-label]="'company.myAccount' | translate">
+        <a class="btn-ghost account-link" [routerLink]="['/', slug(), 'login']" [attr.aria-label]="'company.myAccount' | translate">
           <i class="pi pi-user" aria-hidden="true"></i><span class="label">{{ 'company.myAccount' | translate }}</span>
         </a>
       }
 
       @if (store.company()?.bookingOpen) {
-        <a class="pill book-cta hide-sm" [routerLink]="['/', slug(), 'book']">
-          <i class="pi pi-calendar-plus" aria-hidden="true"></i>{{ 'company.bookNow' | translate }}
+        <a class="btn-pill hide-sm" [routerLink]="['/', slug(), 'book']">
+          <i class="pi pi-calendar" aria-hidden="true"></i>{{ 'company.bookShort' | translate }}
         </a>
       }
+
+      <!-- Below 1180px the sections move into a menu under the bar. -->
+      <button type="button" class="burger" [attr.aria-expanded]="drawerOpen()" aria-controls="site-drawer"
+              [attr.aria-label]="'company.menu' | translate" (click)="drawerOpen.set(!drawerOpen()); menuOpen.set(false)">
+        <i class="pi" [class]="drawerOpen() ? 'pi-times' : 'pi-bars'" aria-hidden="true"></i>
+      </button>
     </div>
   </div>
 
   @if (drawerOpen()) {
-    <div class="drawer" id="site-drawer">
-      <nav class="drawer-in" [attr.aria-label]="'company.menu' | translate" (click)="drawerOpen.set(false)">
-        @for (l of links; track l.id) {
-          <a class="item" [routerLink]="['/', slug()]" [fragment]="l.id" [class.on]="active() === l.id" (click)="jump(l.id)">
-            <i class="pi" [class]="l.icon" aria-hidden="true"></i>{{ l.label | translate }}
-          </a>
-          @if (l.id === 'services') {
-            @for (m of myPages; track m.path) {
-              <a class="item" [routerLink]="['/', slug(), m.path]" routerLinkActive="on"><i class="pi" [class]="m.icon"></i>{{ m.label | translate }}</a>
-            }
+    <nav class="drawer" id="site-drawer" [attr.aria-label]="'company.menu' | translate" (click)="drawerOpen.set(false)">
+      @for (l of links; track l.id) {
+        <a class="item" [routerLink]="['/', slug()]" [fragment]="l.id" [class.on]="active() === l.id" (click)="jump(l.id)">
+          <i class="pi" [class]="l.icon" aria-hidden="true"></i>{{ l.label | translate }}
+        </a>
+        @if (l.id === 'services' && signedIn()) {
+          @for (m of myPages; track m.path) {
+            <a class="item" [routerLink]="['/', slug(), m.path]" routerLinkActive="on"><i class="pi" [class]="m.icon"></i>{{ m.label | translate }}</a>
           }
         }
-        <hr />
-        <button type="button" class="item" (click)="lang.toggle()">
-          <i class="pi pi-globe" aria-hidden="true"></i>{{ lang.current() === 'ar' ? 'English' : 'العربية' }}
-        </button>
-        @if (store.company()?.bookingOpen) {
-          <div class="drawer-cta">
-            <a class="pill book-cta" [routerLink]="['/', slug(), 'book']">
-              <i class="pi pi-calendar-plus" aria-hidden="true"></i>{{ 'company.bookNow' | translate }}
-            </a>
-          </div>
-        }
-      </nav>
-    </div>
+      }
+      <hr />
+      <button type="button" class="item" (click)="lang.toggle()">
+        <i class="pi pi-globe" aria-hidden="true"></i>{{ lang.current() === 'ar' ? 'English' : 'العربية' }}
+      </button>
+      @if (store.company()?.bookingOpen) {
+        <a class="btn-pill drawer-cta" [routerLink]="['/', slug(), 'book']">
+          <i class="pi pi-calendar" aria-hidden="true"></i>{{ 'company.bookNow' | translate }}
+        </a>
+      }
+    </nav>
   }
-</div>
+</header>

@@ -6,3 +6,19 @@
 .row .txt { flex: 1; min-width: 0; }
 .row .txt small { display: block; color: var(--ink-2); }
 .out { margin-top: 26px; }
+
+/* Addresses: add / edit */
+.addr-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 26px 0 12px; }
+.addr-head .section-title { margin: 0; }
+.add-btn { display: inline-flex; align-items: center; gap: 6px; font-size: .85rem; }
+.icon-btn { flex: none; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--line);
+            background: var(--white); color: var(--ink-2); cursor: pointer; }
+.icon-btn:hover:not(:disabled) { color: var(--tide); border-color: var(--tide); }
+.icon-btn:disabled { opacity: .4; cursor: default; }
+.addr-form { margin-bottom: 12px; border: 1.5px solid var(--tide); }
+.addr-form h3 { margin: 0 0 14px; font-size: 1rem; font-weight: 800; color: var(--ink); }
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px; }
+@media (max-width: 560px) {
+  .two { grid-template-columns: minmax(0, 1fr); }
+}

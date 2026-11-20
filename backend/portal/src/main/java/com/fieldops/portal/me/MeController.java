@@ -18,6 +18,7 @@ import com.fieldops.portal.security.CurrentCustomer;
 import com.fieldops.portal.security.CustomerTokenService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -68,6 +69,29 @@ public class MeController {
         CustomerTokenService.Issued t = tokens.issue(me.tenantId(), me.slug(), c.getPhone(), c.getId(), c.getName());
         Profile p = me(slug);
         return new Profile(p.id(), p.name(), p.phone(), p.email(), p.addresses(), t.token(), t.expiresAt());
+    }
+
+    /** Adds an address from the profile page; returns the profile with the new list. */
+    @PostMapping("/addresses")
+    public Profile addAddress(@PathVariable String slug, @Valid @RequestBody AddressRequest req) {
+        CurrentCustomer me = CurrentCustomer.require(slug);
+        portal.saveAddress(slug, me.customerId(), null, req.form());
+        return me(slug);
+    }
+
+    /** Edits one of the customer's own addresses; returns the profile with the updated list. */
+    @PutMapping("/addresses/{addressId}")
+    public Profile updateAddress(@PathVariable String slug, @PathVariable UUID addressId, @Valid @RequestBody AddressRequest req) {
+        CurrentCustomer me = CurrentCustomer.require(slug);
+        portal.saveAddress(slug, me.customerId(), addressId, req.form());
+        return me(slug);
+    }
+
+    public record AddressRequest(@Size(max = 80) String label, @Size(max = 80) String city, @Size(max = 80) String district,
+                                 @Size(max = 300) String details, @Size(max = 500) String mapUrl) {
+        CustomerPortalService.AddressForm form() {
+            return new CustomerPortalService.AddressForm(label, city, district, details, mapUrl);
+        }
     }
 
     public record Address(UUID id, String label, String city, String district, String details, String mapUrl) {

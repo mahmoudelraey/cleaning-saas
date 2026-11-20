@@ -1,32 +1,32 @@
-// Shared look of the company page's sections (about us, contact us): the emerald + gold palette from the
-// portal_redesign design, the centred section header and the white cards. company.page.scss uses the same tokens.
+// Shared look of the company page's sections (about us, contact us): the teal palette of the company page design,
+// the centred section header (small pill label, big title) and the white cards. company.page.scss uses the same tokens.
 
 :host {
-  --b50: var(--brand-97);
-  --b100: var(--brand-92);
-  --b200: var(--brand-82);
-  --b500: var(--brand-34);
-  --b600: var(--brand-21);
-  --b700: var(--brand-16);
-  --gold: var(--warning-51);
-  --slate-5: var(--slate-47);
-  --slate-2: var(--slate-91);
-  --lift: 0 20px 40px -15px rgba(var(--brand-21-rgb), 0.15);
+  --b50: var(--brand-97-3);
+  --b100: var(--brand-93);
+  --b200: rgba(var(--brand-31-rgb), 0.35);
+  --b500: var(--brand-31);
+  --b600: var(--brand-31);
+  --b700: var(--brand-25);
+  --gold: var(--warning-50);
+  --slate-5: var(--slate-38);
+  --slate-2: var(--brand-91-3);
+  --lift: var(--shadow-soft);
   display: block;
-  color: var(--slate-17);
+  color: var(--slate-15);
 }
 
 .band {
-  padding: 36px 0;
+  padding: 76px 0;
   background: var(--white);
 }
 
 .band-soft {
-  background: var(--slate-98);
+  background: var(--brand-97-3);
 }
 
 .wrap {
-  max-width: 1600px;
+  max-width: 1240px;
   margin: 0 auto;
   padding: 0 20px;
 }
@@ -34,56 +34,54 @@
 h2,
 h3 {
   margin: 0;
-  color: var(--slate-11);
+  color: var(--slate-15);
 }
 
 // Section titles: same look as "Our services and transparent prices" — a small label with a line before it,
 // a big title and a short line under it, all centred.
 .sec-head {
-  max-width: 46rem;
-  margin: 0 auto 22px;
+  max-width: 40rem;
+  margin: 0 auto 48px;
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
 
   h2 {
-    font-size: clamp(1.6rem, 3vw, 2.2rem);
-    font-weight: 900;
-    margin: 6px 0 8px;
+    font-size: clamp(1.65rem, 3.2vw, 2.4rem);
+    font-weight: 800;
+    line-height: 1.2;
+    margin: 0;
   }
 
   p {
-    margin: 0 auto;
+    margin: 10px auto 0;
     max-width: 36rem;
-    color: var(--slate-35);
-    line-height: 1.8;
+    color: var(--slate-38);
+    font-size: 0.97rem;
+    line-height: 1.7;
   }
 }
 
+// The small pill label above a section title.
 .kicker {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--brand-21);
+  display: inline-block;
+  margin-bottom: 12px;
+  padding: 5px 14px;
+  border-radius: var(--r-pill);
+  background: var(--brand-93);
+  color: var(--brand-31);
   font-weight: 800;
-  font-size: 0.85rem;
-
-  &::before {
-    content: '';
-    width: 26px;
-    height: 4px;
-    border-radius: 2px;
-    background: var(--brand-34);
-  }
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
 }
 
 .panel {
   padding: 30px;
   background: var(--white);
-  border: 1px solid rgba(var(--slate-91-rgb), 0.8);
-  border-radius: 26px;
-  box-shadow: 0 4px 6px -1px rgba(var(--slate-11-rgb), 0.06);
+  border: 1px solid var(--brand-91-3);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-soft);
 }
 
 .panel-head {
@@ -135,17 +133,18 @@ h3 {
   gap: 10px;
   padding: 14px 24px;
   border: 0;
-  border-radius: 14px;
-  background: linear-gradient(90deg, var(--b600), var(--b500));
+  border-radius: var(--r-pill);
+  background: var(--brand-31);
   color: var(--white);
   font: inherit;
   font-weight: 800;
   text-decoration: none;
   cursor: pointer;
-  box-shadow: 0 10px 20px -10px rgba(var(--brand-34-rgb), 0.6);
-  transition: transform 0.2s;
+  box-shadow: var(--shadow-brand);
+  transition: transform 0.25s var(--ease), background 0.25s var(--ease);
 
   &:hover {
+    background: var(--brand-25);
     transform: translateY(-1px);
   }
 
@@ -166,8 +165,8 @@ h3 {
   justify-content: center;
   gap: 8px;
   padding: 13px 22px;
-  border: 1px solid var(--b200);
-  border-radius: 14px;
+  border: 1px solid var(--brand-91-3);
+  border-radius: var(--r-pill);
   background: var(--white);
   color: var(--b600);
   font: inherit;
@@ -182,7 +181,7 @@ h3 {
 
 @media (max-width: 759px) {
   .band {
-    padding: 28px 0;
+    padding: 48px 0;
   }
 
   .panel {

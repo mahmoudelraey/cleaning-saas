@@ -7,6 +7,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -176,6 +177,42 @@ public class CustomerPortalService {
             return customers.update(customerId, new CustomerService.CustomerData(clean, c.getPhone(),
                     email == null || email.isBlank() ? null : email.trim(), c.getNotes()));
         });
+    }
+
+    // --- addresses ------------------------------------------------------------------------------------
+
+    /** What the customer types for an address on their profile page (all optional, but not all empty). */
+    public record AddressForm(String label, String city, String district, String details, String mapUrl) {
+    }
+
+    /**
+     * Adds an address ({@code addressId} null) or edits one of the customer's own. On edit, a pin and the city /
+     * district picked from the lookup by the company stay as they were unless the customer changed that text.
+     */
+    public Address saveAddress(String slug, UUID customerId, UUID addressId, AddressForm f) {
+        Tenant t = company(slug);
+        String city = cut(f.city(), 80);
+        String district = cut(f.district(), 80);
+        String details = cut(f.details(), 300);
+        String mapUrl = safeMapUrl(f.mapUrl());
+        if (city == null && district == null && details == null && mapUrl == null) {
+            throw ApiException.badRequest("address_empty", "Enter the city, district or address details");
+        }
+        String typedLabel = cut(f.label(), 80);
+        String label = typedLabel != null ? typedLabel : district != null ? district : city != null ? city : "عنوان";
+        return as(t, () -> tx.execute(s -> {
+            if (addressId == null) {
+                return customers.addAddress(customerId,
+                        new CustomerService.AddressData(label, city, district, details, null, null, mapUrl, null, null));
+            }
+            Address old = customers.get(customerId).getAddresses().stream()
+                    .filter(a -> a.getId().equals(addressId))
+                    .findFirst()
+                    .orElseThrow(() -> ApiException.notFound("address"));
+            boolean samePlace = Objects.equals(city, old.getCity()) && Objects.equals(district, old.getDistrict());
+            return customers.updateAddress(customerId, addressId, new CustomerService.AddressData(label, city, district, details,
+                    old.getLat(), old.getLng(), mapUrl, samePlace ? old.getCityId() : null, samePlace ? old.getDistrictId() : null));
+        }));
     }
 
     // --- booking --------------------------------------------------------------------------------------

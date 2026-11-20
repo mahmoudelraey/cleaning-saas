@@ -303,6 +303,15 @@ export interface Profile {
   tokenExpiresAt?: string;
 }
 
+/** The address form on the profile page. */
+export interface AddressForm {
+  label: string | null;
+  city: string | null;
+  district: string | null;
+  details: string | null;
+  mapUrl: string | null;
+}
+
 export interface NewAddress {
   city?: string | null;
   district?: string | null;

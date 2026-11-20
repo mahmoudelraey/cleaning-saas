@@ -8,8 +8,8 @@ import { SessionService } from '../../../core/session.service';
 import { socialLinks } from '../../../core/socials';
 
 /**
- * Bottom of every portal page: a deep-teal band that answers the hero (a wave on top), with the company,
- * the public pages, how to reach them, and the copyright line.
+ * Bottom of every portal page: a dark slate band with the company, the public pages, how to reach them, and the
+ * copyright line.
  */
 @Component({
   selector: 'pt-public-footer',

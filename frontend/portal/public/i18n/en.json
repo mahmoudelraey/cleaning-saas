@@ -1,7 +1,7 @@
 {
   "shell": {
     "home": "Home",
-    "bookings": "My visits",
+    "bookings": "Visits",
     "invoices": "Invoices",
     "profile": "Account",
     "nav": "Navigation",
@@ -201,7 +201,37 @@
     "servicesN": "{{n}} services",
     "signInToContinue": "Sign in to continue",
     "signInTitle": "Sign in to finish your booking",
-    "signInHint": "After signing in with your mobile number you'll pick the time and address."
+    "signInHint": "After signing in with your mobile number you'll pick the time and address.",
+    "summary": "Order summary",
+    "summaryEmpty": "Choose a service to see its price.",
+    "vatAddedSub": "+ 15% VAT",
+    "signedAs": "Verified:",
+    "continueSchedule": "Continue to date & address",
+    "gateSub": "We'll send a quick code to confirm your number, then you pick the time and address.",
+    "sendCodeContinue": "Send code & continue",
+    "addonsTitle": "Optional add-ons",
+    "earliest": "Earliest available",
+    "chooseDay": "Choose a day",
+    "prevDays": "Earlier days",
+    "nextDays": "Later days",
+    "day": {
+      "open": "Open",
+      "limited": "Few left",
+      "full": "Full",
+      "loading": ""
+    },
+    "noSlotsTitle": "No open times on this day",
+    "noSlotsDesc": "Every time on {{day}} is booked. You can jump straight to the next open day.",
+    "jumpTo": "Go to the next open day ({{day}})",
+    "noneOpen": "No open times in the coming days.",
+    "period": {
+      "morning": "Morning",
+      "afternoon": "Afternoon",
+      "evening": "Evening"
+    },
+    "bookingSummary": "Booking summary",
+    "edit": "Edit",
+    "pickTime": "Pick a time"
   },
   "profile": {
     "details": "My details",
@@ -210,9 +240,17 @@
     "save": "Save",
     "saved": "Saved",
     "addresses": "My addresses",
-    "addressHint": "Addresses are added when you book. Contact the company to change them.",
     "noAddresses": "No saved addresses yet.",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "addAddress": "Add address",
+    "editAddress": "Edit address",
+    "newAddressTitle": "New address",
+    "addressLabel": "Address name (optional)",
+    "addressLabelHint": "e.g. Home, Work",
+    "cancel": "Cancel",
+    "saveAddress": "Save address",
+    "addressSaved": "Address saved",
+    "edit": "Edit"
   },
   "errors": {
     "generic": "Something went wrong. Try again.",
@@ -250,7 +288,8 @@
     "promo_customer_limit": "You've already used this promo",
     "promo_first_booking": "This promo is for a first booking only",
     "promo_min_subtotal": "Your order is below this promo's minimum",
-    "plan_booking_limit": "This company isn't taking more online bookings this month. Please call or WhatsApp them directly."
+    "plan_booking_limit": "This company isn't taking more online bookings this month. Please call or WhatsApp them directly.",
+    "address_empty": "Enter the city, district or address details."
   },
   "company": {
     "signIn": "Sign in",
@@ -388,7 +427,24 @@
     "noMatch": "No services match your search.",
     "pages": "Pages",
     "prevPage": "Previous page",
-    "nextPage": "Next page"
+    "nextPage": "Next page",
+    "bookShort": "Book now",
+    "prevService": "Previous service",
+    "nextService": "Next service",
+    "calcTitle": "Services & instant price calculator",
+    "calcSub": "Pick a service, its size and any add-ons to see the price before you book.",
+    "calcStepService": "Choose your service",
+    "calcStepSize": "Choose the size / type",
+    "calcStepHours": "Number of hours",
+    "calcStepSqm": "Area (m²)",
+    "hoursN": "{{n}} hours",
+    "sqm": "{{n}} m²",
+    "calcStepAddons": "Add-ons",
+    "calcStepAddonsPromo": "Add-ons & promo code",
+    "calcApplyPromo": "Apply promo code: {{code}}",
+    "calcDiscount": "Discount ({{code}})",
+    "vatIncludedLine": "15% VAT (included)",
+    "vatAddedLine": "15% VAT"
   },
   "rate": {
     "title": "Your rating",

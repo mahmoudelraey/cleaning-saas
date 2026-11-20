@@ -9,10 +9,10 @@ import { SessionService } from '../../../core/session.service';
 import { InboxBell } from '../inbox-bell/inbox-bell';
 
 /**
- * Top bar of the portal: brand, the company page's sections, language, account and "Book a visit now".
- * Wide screens show everything in one row. Below 1240px the sections move into a menu that opens under the bar
+ * Top bar of the portal: brand, the company page's sections, language, account and "Book now".
+ * Wide screens show everything in one row. Below 1180px the sections move into a menu that opens under the bar
  * (with booking, the customer's own pages and the language), so nothing is ever cut off or scrolled away.
- * The menu: the company page's sections, with the customer's own pages (my visits, invoices) after "Services".
+ * The customer's own pages (my visits, invoices) are in the account menu and in the menu under the bar.
  */
 @Component({
   selector: 'pt-public-header',
@@ -33,7 +33,7 @@ export class PublicHeader {
   protected readonly firstName = computed(() => (this.sessions.get(this.slug())?.name ?? '').trim().split(/\s+/)[0]);
   protected readonly menuOpen = signal(false);
   protected readonly drawerOpen = signal(false);
-  /** The customer's own pages, in the menu after "Services" (a visitor who isn't signed in is asked to sign in first). */
+  /** The customer's own pages (a visitor who isn't signed in is asked to sign in first). */
   protected readonly myPages = [
     { path: 'bookings', label: 'shell.bookings', icon: 'pi-calendar' },
     { path: 'invoices', label: 'shell.invoices', icon: 'pi-receipt' },

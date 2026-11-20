@@ -1,69 +1,108 @@
 @if (company(); as c) {
-  <!-- HERO: the big promise on one side, a photo of the work on the other -->
+  <!-- HERO: the promise on one side; on the other, the company's services as a slider with timed dots under the picture -->
   <section class="hero" id="hero">
-    <span class="hero-wave" aria-hidden="true"></span>
-    <img class="hero-photo" src="hero/cleaning-pro.jpg" alt="" aria-hidden="true" />
+    <div class="wrap">
+      <div class="hero-grid">
+        <div class="hero-copy">
+          @if (reviews(); as r) {
+            @if (r.count > 0) {
+              <a class="trust-pill" href="#reviews">
+                <span class="trust-stars ltr">★ {{ r.average }}</span>
+                <span>({{ (r.count === 1 ? 'company.ratingsOne' : 'company.ratings') | translate: { n: r.count } }})</span>
+              </a>
+            }
+          }
 
-    <div class="wrap hero-grid">
-      <div class="hero-copy">
-        @if (reviews(); as r) {
-          @if (r.count > 0) {
-            <a class="rating-badge" href="#reviews">
-              <pt-stars [value]="r.average" style="--star-size: .95rem" />
-              <strong class="ltr tnum">{{ r.average }} / 5</strong>
-              <span class="bar-sep" aria-hidden="true"></span>
-              <span>{{ (r.count === 1 ? 'company.ratingsOne' : 'company.ratings') | translate: { n: r.count } }}</span>
+          <h1>
+            @if (store.heroLines(); as h) {
+              <span class="accent">{{ h[0] }}</span>
+              @if (h[1]) { <span>{{ h[1] }}</span> }
+            } @else {
+              <span class="accent">{{ store.name() }}</span>
+              <span>{{ 'company.heroLine1' | translate }} {{ 'company.heroLine2' | translate }}</span>
+            }
+          </h1>
+          <p class="lead">{{ store.headline() || ('company.defaultHeadline' | translate) }}</p>
+
+          <div class="cta">
+            @if (c.bookingOpen) {
+              <a class="btn-primary-lg" [routerLink]="['/', slug(), 'book']" [queryParams]="heroService() ? { service: heroService()!.id } : {}">
+                {{ 'company.bookNow' | translate }}<i class="pi pi-arrow-left rtl-flip" aria-hidden="true"></i>
+              </a>
+            }
+            <a class="btn-secondary-lg" [routerLink]="['/', slug()]" fragment="how">
+              <span class="play-dot"><i class="pi pi-play" aria-hidden="true"></i></span>{{ 'company.watchHow' | translate }}
             </a>
-          }
-        }
+          </div>
+        </div>
 
-        <h1>
-          @if (store.heroLines(); as h) {
-            <span class="l1">{{ h[0] }}</span>
-            @if (h[1]) { <span class="l2">{{ h[1] }}</span> }
-          } @else {
-            <span class="l1">{{ 'company.heroLine1' | translate }}</span>
-            <span class="l2">{{ 'company.heroLine2' | translate }}</span>
-          }
-        </h1>
-        <p class="lead">{{ store.headline() || ('company.defaultHeadline' | translate) }}</p>
+        <div class="hero-visual">
+        <!-- Pointing at the picture pauses the slider; leaving it resumes. -->
+        <div class="visual-stage" (mouseenter)="heroPaused.set(true)" (mouseleave)="heroPaused.set(false)">
+          <div class="floating top">
+            <span class="badge-ico"><i class="pi pi-sparkles" aria-hidden="true"></i></span>
+            <div>
+              @if (heroService(); as s) {
+                <div class="badge-title">{{ s | svc }}</div>
+                <div class="badge-sub">{{ 'company.visitLength' | translate: { d: duration(s.durationMin) } }}</div>
+              } @else {
+                <div class="badge-title">{{ 'company.ts1' | translate }}</div>
+                <div class="badge-sub">{{ 'company.ts1Sub' | translate }}</div>
+              }
+            </div>
+          </div>
 
-        <div class="cta">
-          @if (c.bookingOpen) {
-            <a class="btn-hero" [routerLink]="['/', slug(), 'book']">
-              <i class="pi pi-calendar-plus" aria-hidden="true"></i>{{ 'company.bookNow' | translate }}<i class="pi pi-arrow-left rtl-flip arrow" aria-hidden="true"></i>
-            </a>
+          @for (s of [heroService()]; track s?.id ?? 'none') {
+            <img class="stage-photo" [src]="heroImage(s)" alt="" (error)="imageFailed($event, s)" />
           }
-          <a class="btn-ghost" [routerLink]="['/', slug()]" fragment="how">
-            <i class="pi pi-play-circle" aria-hidden="true"></i>{{ 'company.watchHow' | translate }}
-          </a>
+
+          <div class="floating bottom">
+            <span class="badge-ico solid"><i class="pi pi-verified" aria-hidden="true"></i></span>
+            <div>
+              @if (heroService(); as s) {
+                <div class="badge-title">{{ 'company.startsFrom' | translate }} <span class="ltr">{{ fromPrice(s) | sar }}</span></div>
+              } @else {
+                <div class="badge-title">{{ 'company.ts3' | translate }}</div>
+              }
+              <div class="badge-sub">{{ 'company.ts3' | translate }} · {{ 'company.ts3Sub' | translate }}</div>
+            </div>
+          </div>
+        </div>
+
+          @if (heroServices().length > 1) {
+            <div class="dots hero-dots" role="tablist" [attr.aria-label]="'company.services' | translate">
+              @for (s of heroServices(); track s.id; let i = $index) {
+                <button type="button" role="tab" [class.on]="heroIndex() === i" [attr.aria-selected]="heroIndex() === i"
+                        [attr.aria-label]="s | svc" (click)="goToSlide(i)">
+                  @if (heroIndex() === i) { <span class="dot-timer" [style.width.%]="heroProgress()"></span> }
+                </button>
+              }
+            </div>
+          }
         </div>
       </div>
     </div>
   </section>
 
-  <!-- SERVICES & PRICES: photo cards -->
-  <section class="band" id="services" aria-labelledby="h-services">
+  <!-- What every customer gets through the portal (true for every company) -->
+  <section class="features" [attr.aria-label]="'company.whyUs' | translate">
     <div class="wrap">
-      <!-- What every customer gets through the portal (true for every company) -->
-      <ul class="trust-strip">
-        <li><span class="ts-ico"><i class="pi pi-mobile" aria-hidden="true"></i></span><span><strong>{{ 'company.ts1' | translate }}</strong><small>{{ 'company.ts1Sub' | translate }}</small></span></li>
-        <li><span class="ts-ico"><i class="pi pi-tag" aria-hidden="true"></i></span><span><strong>{{ 'company.ts2' | translate }}</strong><small>{{ 'company.ts2Sub' | translate }}</small></span></li>
-        <li><span class="ts-ico"><i class="pi pi-receipt" aria-hidden="true"></i></span><span><strong>{{ 'company.ts3' | translate }}</strong><small>{{ 'company.ts3Sub' | translate }}</small></span></li>
-        <li><span class="ts-ico"><i class="pi pi-user" aria-hidden="true"></i></span><span><strong>{{ 'company.ts4' | translate }}</strong><small>{{ 'company.ts4Sub' | translate }}</small></span></li>
+      <ul class="features-grid">
+        <li><span class="f-ico"><i class="pi pi-mobile" aria-hidden="true"></i></span><span><strong>{{ 'company.ts1' | translate }}</strong><small>{{ 'company.ts1Sub' | translate }}</small></span></li>
+        <li><span class="f-ico"><i class="pi pi-tag" aria-hidden="true"></i></span><span><strong>{{ 'company.ts2' | translate }}</strong><small>{{ 'company.ts2Sub' | translate }}</small></span></li>
+        <li><span class="f-ico"><i class="pi pi-file" aria-hidden="true"></i></span><span><strong>{{ 'company.ts3' | translate }}</strong><small>{{ 'company.ts3Sub' | translate }}</small></span></li>
+        <li><span class="f-ico"><i class="pi pi-user" aria-hidden="true"></i></span><span><strong>{{ 'company.ts4' | translate }}</strong><small>{{ 'company.ts4Sub' | translate }}</small></span></li>
       </ul>
+    </div>
+  </section>
 
-      <header class="svc-head">
-        <div>
-          <span class="kicker-line">{{ 'company.servicesKicker' | translate }}</span>
-          <h2 id="h-services">{{ 'company.servicesTitle' | translate }}</h2>
-          <p>{{ 'company.servicesSub' | translate }}</p>
-        </div>
-        @if ((services()?.length ?? 0) > cardsShown) {
-          <a class="btn-outline" [routerLink]="['/', slug(), 'services']">
-            {{ 'company.viewAllServices' | translate }}<i class="pi pi-arrow-left rtl-flip" aria-hidden="true"></i>
-          </a>
-        }
+  <!-- SERVICES & LIVE PRICE CALCULATOR: the real services, sizes, add-ons and promo, priced by the server -->
+  <section class="band band-soft" id="services" aria-labelledby="h-services">
+    <div class="wrap">
+      <header class="sec-head">
+        <span class="kicker">{{ 'company.servicesKicker' | translate }}</span>
+        <h2 id="h-services">{{ 'company.calcTitle' | translate }}</h2>
+        <p>{{ 'company.calcSub' | translate }}</p>
       </header>
 
       @if (services() === null) {
@@ -71,21 +110,132 @@
       } @else if (!services()!.length) {
         <p class="empty">{{ 'company.noServices' | translate }}</p>
       } @else {
-        <ul class="cards">
-          @for (s of shownServices(); track s.id) {
-            <li><pt-service-card [service]="s" /></li>
-          }
-        </ul>
-        @if (c.vatRegistered) {
-          <p class="fine">{{ (c.pricesIncludeVat ? 'company.vatIncluded' : 'company.vatExcluded') | translate }}</p>
-        }
+        <div class="calc-grid">
+          <div class="calc-panel">
+            <span class="step-label">{{ stepNo('service') }}. {{ 'company.calcStepService' | translate }}</span>
+            <div class="service-options">
+              @for (s of calcServices(); track s.id) {
+                <button type="button" class="srv-card" [class.active]="pick()?.serviceId === s.id" [attr.aria-pressed]="pick()?.serviceId === s.id"
+                        (click)="chooseService(s)">
+                  <span class="srv-top">
+                    <span class="srv-title">{{ s | svc }}</span>
+                    <span class="srv-price ltr">{{ fromPrice(s) | sar }}+</span>
+                  </span>
+                  @if (s | svc: 'description'; as d) { <span class="srv-desc">{{ d }}</span> }
+                </button>
+              }
+            </div>
+            @if (services()!.length > cardsShown) {
+              <a class="view-all" [routerLink]="['/', slug(), 'services']">
+                {{ 'company.viewAllServices' | translate }}<i class="pi pi-arrow-left rtl-flip" aria-hidden="true"></i>
+              </a>
+            }
+
+            @if (calcService(); as s) {
+              @if (s.options.length) {
+                <span class="step-label">{{ stepNo('size') }}. {{ 'company.calcStepSize' | translate }}</span>
+                <div class="chips" role="radiogroup" [attr.aria-label]="'company.calcStepSize' | translate">
+                  @for (o of s.options; track o.id) {
+                    <button type="button" class="chip" role="radio" [class.on]="pick()?.optionId === o.id" [attr.aria-checked]="pick()?.optionId === o.id"
+                            (click)="chooseOption(o.id)">
+                      <span>{{ o | svc }}</span><b class="ltr">{{ o.priceHalalas | sar }}</b>
+                    </button>
+                  }
+                </div>
+              } @else if (s.pricingType !== 'FIXED') {
+                <div class="slider-block">
+                  <div class="slider-head">
+                    <label class="step-label" for="calc-qty">{{ stepNo('qty') }}. {{ (s.pricingType === 'PER_SQM' ? 'company.calcStepSqm' : 'company.calcStepHours') | translate }}</label>
+                    <span class="slider-badge">{{ (s.pricingType === 'PER_SQM' ? 'company.sqm' : 'company.hoursN') | translate: { n: pick()?.quantity } }}</span>
+                  </div>
+                  <input id="calc-qty" class="range" type="range" [min]="qtyRange().min" [max]="qtyRange().max" [step]="qtyRange().step"
+                         [value]="pick()?.quantity" (input)="setQuantity($any($event.target).value)" />
+                  <div class="slider-hints ltr">
+                    <span>{{ qtyRange().min }}</span><span>{{ qtyRange().max }}{{ s.pricingType === 'PER_SQM' ? ' m²' : '' }}</span>
+                  </div>
+                </div>
+              }
+
+              @if (s.addons.length || c.announcement) {
+                <span class="step-label">{{ stepNo('addons') }}. {{ (c.announcement ? 'company.calcStepAddonsPromo' : 'company.calcStepAddons') | translate }}</span>
+                <div class="addons-grid">
+                  @for (a of s.addons; track a.id) {
+                    <label class="addon">
+                      <span class="addon-left">
+                        <input type="checkbox" [checked]="pick()?.addonIds?.includes(a.id)" (change)="toggleAddon(a.id)" />
+                        <span>{{ a | svc }}</span>
+                      </span>
+                      <span class="addon-tag ltr">+{{ a.priceHalalas | sar }}</span>
+                    </label>
+                  }
+                  @if (c.announcement; as promo) {
+                    <label class="addon wide">
+                      <span class="addon-left">
+                        <input type="checkbox" [checked]="pick()?.promo" (change)="togglePromo()" />
+                        <span>{{ 'company.calcApplyPromo' | translate: { code: promo.code } }}</span>
+                      </span>
+                      <span class="addon-tag ltr">
+                        @if (promo.discountType === 'PERCENT') { −{{ promo.discountValue }}% } @else { −{{ promo.discountValue | sar }} }
+                      </span>
+                    </label>
+                  }
+                </div>
+              }
+            }
+          </div>
+
+          <!-- The estimate, priced by the server (same prices and promo rules as booking) -->
+          <aside class="quote-card" aria-live="polite" [class.busy]="quoting()">
+            <div class="quote-head">
+              <div>
+                <div class="quote-eyebrow">{{ 'company.estTag' | translate }}</div>
+                <div class="quote-title">{{ calcService() | svc }}</div>
+              </div>
+              @if (c.vatRegistered) {
+                <span class="vat-chip">{{ (c.pricesIncludeVat ? 'company.vatIncl' : 'company.vatExcl') | translate }}</span>
+              }
+            </div>
+
+            <div class="quote-lines">
+              @for (l of quoteLines(); track $index) {
+                <div class="q-line"><span>{{ l.text }}</span><strong class="ltr">{{ l.total | sar }}</strong></div>
+              }
+              @if (quote()?.discountHalalas; as d) {
+                <div class="q-line discount"><span>{{ 'company.calcDiscount' | translate: { code: quote()?.promo?.code } }}</span><strong class="ltr">−{{ d | sar }}</strong></div>
+              }
+              @if (pick()?.promo && quote()?.promoError) {
+                <div class="q-line note">{{ ('errors.' + quote()!.promoError) | translate }}</div>
+              }
+              @if (vat(); as v) {
+                <div class="q-line vat">
+                  <span>{{ (v.included ? 'company.vatIncludedLine' : 'company.vatAddedLine') | translate }}</span>
+                  <span class="ltr">{{ v.amount | sar }}</span>
+                </div>
+              }
+              @if (quote(); as q) {
+                <div class="q-line vat"><span>{{ 'company.estDuration' | translate }}</span><span>{{ duration(q.durationMin) }}</span></div>
+              }
+            </div>
+
+            <div class="quote-total">
+              <span>{{ 'company.estTotal' | translate }}</span>
+              <span class="amount ltr">{{ calcTotal() | sar }}</span>
+            </div>
+
+            @if (c.bookingOpen) {
+              <a class="btn-primary-lg block" [routerLink]="['/', slug(), 'book']" [queryParams]="bookParams()">
+                {{ 'company.bookNow' | translate }}<i class="pi pi-arrow-left rtl-flip" aria-hidden="true"></i>
+              </a>
+            }
+          </aside>
+        </div>
       }
     </div>
   </section>
 
   <!-- HOW IT WORKS -->
   @if (c.bookingOpen) {
-    <section class="band band-soft" id="how" aria-labelledby="h-how">
+    <section class="band" id="how" aria-labelledby="h-how">
       <div class="wrap">
         <header class="sec-head">
           <span class="kicker">{{ 'company.howKicker' | translate }}</span>
@@ -93,7 +243,6 @@
           <p>{{ 'company.howSub' | translate }}</p>
         </header>
         <ol class="steps">
-          
           <li><b class="num tnum">1</b><h3>{{ 'company.step1' | translate }}</h3><p>{{ 'company.step1Hint' | translate }}</p></li>
           <li><b class="num tnum">2</b><h3>{{ 'company.step2' | translate }}</h3><p>{{ 'company.step2Hint' | translate }}</p></li>
           <li><b class="num tnum">3</b><h3>{{ 'company.step3' | translate }}</h3><p>{{ 'company.step3Hint' | translate }}</p></li>
@@ -104,18 +253,20 @@
 
   <!-- REVIEWS: real ones only (portal visits and, if linked, Google) -->
   @if (c.googleReviews || (reviews()?.count ?? 0) > 0) {
-    <section class="band" id="reviews" aria-labelledby="h-reviews">
+    <section class="band band-soft" id="reviews" aria-labelledby="h-reviews">
       <div class="wrap">
         <header class="sec-head">
-          <span class="kicker">{{ 'company.reviewsKicker' | translate }}</span>
+          @if (reviews(); as r) {
+            @if (r.count > 0) {
+              <span class="kicker ltr">{{ r.average }} / 5</span>
+            } @else {
+              <span class="kicker">{{ 'company.reviewsKicker' | translate }}</span>
+            }
+          }
           <h2 id="h-reviews">{{ 'company.reviewsHeading' | translate }}</h2>
           @if (reviews(); as r) {
             @if (r.count > 0) {
-              <p class="score">
-                <strong class="ltr tnum">{{ r.average }}</strong>
-                <pt-stars [value]="r.average" style="--star-size: 1.05rem" />
-                <span>{{ (r.count === 1 ? 'company.fromOne' : 'company.from') | translate: { n: r.count } }}</span>
-              </p>
+              <p>{{ (r.count === 1 ? 'company.fromOne' : 'company.from') | translate: { n: r.count } }}</p>
             }
           }
         </header>
@@ -130,14 +281,17 @@
               <li class="quote" aria-roledescription="slide"
                   [attr.aria-label]="'company.slideOf' | translate: { n: i + 1, total: reviews()!.items.length }">
                 <div>
-                  <pt-stars [value]="q.rating" style="--star-size: .95rem" />
+                  <div class="quote-top">
+                    <pt-stars [value]="q.rating" style="--star-size: .95rem" />
+                    <span class="verified"><i class="pi pi-verified" aria-hidden="true"></i>{{ 'company.verified' | translate }}</span>
+                  </div>
                   @if (q.comment) { <p>“{{ q.comment }}”</p> }
                 </div>
                 <footer>
                   <span class="avatar">{{ initials(q.name) }}</span>
                   <span class="who">
                     <strong>{{ q.name || ('company.customer' | translate) }}</strong>
-                    <small><i class="pi pi-verified" aria-hidden="true"></i>{{ 'company.verified' | translate }} · {{ q.at | ldate: 'dayShort' }}</small>
+                    <small>{{ q.at | ldate: 'dayShort' }}</small>
                   </span>
                 </footer>
               </li>
@@ -145,7 +299,7 @@
           </ul>
           @if (pageCount() > 1) {
             <div class="swiper-nav">
-              <button type="button" class="arrow" (click)="step(-1)" [disabled]="slide() === 0" [attr.aria-label]="'company.prevSlide' | translate">
+              <button type="button" class="circle-btn" (click)="step(-1)" [disabled]="slide() === 0" [attr.aria-label]="'company.prevSlide' | translate">
                 <i class="pi pi-chevron-right rtl-flip" aria-hidden="true"></i>
               </button>
               <div class="dots" role="tablist">
@@ -154,7 +308,7 @@
                           [attr.aria-label]="'company.goToSlide' | translate: { n: p + 1 }" (click)="goTo(p)"></button>
                 }
               </div>
-              <button type="button" class="arrow" (click)="step(1)" [disabled]="slide() === pageCount() - 1" [attr.aria-label]="'company.nextSlide' | translate">
+              <button type="button" class="circle-btn" (click)="step(1)" [disabled]="slide() === pageCount() - 1" [attr.aria-label]="'company.nextSlide' | translate">
                 <i class="pi pi-chevron-left rtl-flip" aria-hidden="true"></i>
               </button>
             </div>
@@ -172,26 +326,11 @@
     </section>
   }
 
-  <!-- CONTACT: message form + ways to reach them (was its own page) -->
+  <!-- CONTACT: message form + ways to reach them -->
   <pt-contact-section id="contact" />
 
   <!-- ABOUT US: the company's "about you" text, facts, areas and hours -->
   <pt-about-section id="about" [reviews]="reviews()" />
-
-  <!-- Closing call to book -->
-  @if (c.bookingOpen) {
-    <section class="wrap">
-      <div class="cta-band">
-        <div>
-          <h2>{{ 'company.ctaTitle' | translate }}</h2>
-          <p>{{ 'company.ctaSub' | translate }}</p>
-        </div>
-        <a class="btn-gold" [routerLink]="['/', slug(), 'book']">
-          <i class="pi pi-calendar-plus" aria-hidden="true"></i>{{ 'company.bookNow' | translate }}
-        </a>
-      </div>
-    </section>
-  }
 
   @if (whatsappUrl(); as wa) {
     <a class="wa-fab" [href]="wa" target="_blank" rel="noopener" [attr.aria-label]="'company.whatsappUs' | translate">
@@ -202,7 +341,7 @@
   <!-- Phones: booking stays one tap away -->
   @if (c.bookingOpen) {
     <div class="dock">
-      <a class="dock-book" [routerLink]="['/', slug(), 'book']"><i class="pi pi-calendar-plus" aria-hidden="true"></i>{{ 'company.bookNow' | translate }}</a>
+      <a class="dock-book" [routerLink]="['/', slug(), 'book']"><i class="pi pi-calendar" aria-hidden="true"></i>{{ 'company.bookNow' | translate }}</a>
     </div>
   }
 } @else {

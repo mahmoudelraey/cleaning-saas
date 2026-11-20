@@ -82,8 +82,29 @@
   --brand-97-2-rgb: 243, 250, 248;
   --brand-98-2: #f8fbfa;
   --brand-98-2-rgb: 248, 251, 250;
+  // Company page design (lamaa-clean): the main teal and its tints.
+  --brand-25: #0a736b;
+  --brand-25-rgb: 10, 115, 107;
+  --brand-31: #0e9086;
+  --brand-31-rgb: 14, 144, 134;
+  --brand-72: #9ad8d3;
+  --brand-72-rgb: 154, 216, 211;
+  --brand-90: #dff3f1;
+  --brand-90-rgb: 223, 243, 241;
+  --brand-91-3: #e5eceb;
+  --brand-91-3-rgb: 229, 236, 235;
+  --brand-93: #e5f5f3;
+  --brand-93-rgb: 229, 245, 243;
+  --brand-95-5: #eff9f8;
+  --brand-95-5-rgb: 239, 249, 248;
+  --brand-97-3: #f2faf9;
+  --brand-97-3-rgb: 242, 250, 249;
 
   // Text and lines (blue-grey)
+  --slate-15: #1e2d3b;
+  --slate-15-rgb: 30, 45, 59;
+  --slate-38: #526273;
+  --slate-38-rgb: 82, 98, 115;
   --slate-11: #0f172a;
   --slate-11-rgb: 15, 23, 42;
   --slate-17: #1e293b;
@@ -132,6 +153,8 @@
   --warning-48-rgb: 245, 179, 1;
   --warning-51: #ffc107;
   --warning-51-rgb: 255, 193, 7;
+  --warning-50: #f59e0b;
+  --warning-50-rgb: 245, 158, 11;
   --warning-56: #f0a92e;
   --warning-56-rgb: 240, 169, 46;
   --warning-92: #fdf1da;
@@ -168,14 +191,14 @@
   --black-rgb: 0, 0, 0;
 
   // ---- Semantic names and sizes used across the app ----
-  --ink: var(--info-15);
-  --ink-2: var(--slate-37);
+  --ink: var(--slate-15);
+  --ink-2: var(--slate-38);
   --ink-3: var(--slate-56);
-  --mist: var(--brand-96-2);
+  --mist: var(--brand-97-3);
   --surface: var(--white);
-  --line: var(--brand-89-2);
-  --tide: var(--brand-26);
-  --tide-deep: var(--brand-18);
+  --line: var(--brand-91-3);
+  --tide: var(--brand-31);
+  --tide-deep: var(--brand-25);
   --foam: var(--brand-89);
   --sun: var(--warning-56);
   --sun-soft: var(--warning-92);
@@ -186,5 +209,11 @@
   --r-md: 14px;
   --r-sm: 10px;
   --shadow: 0 18px 40px -24px rgba(var(--info-15-rgb), 0.45);
+  // Company page design: soft card shadow, teal button glow, big card radius, pill radius.
+  --shadow-soft: 0 12px 36px -8px rgba(var(--slate-15-rgb), 0.08);
+  --shadow-brand: 0 12px 26px -6px rgba(var(--brand-31-rgb), 0.36);
+  --r-xl: 24px;
+  --r-pill: 9999px;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
   --tabbar: 68px;
 }
