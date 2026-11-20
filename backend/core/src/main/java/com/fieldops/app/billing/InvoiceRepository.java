@@ -8,10 +8,11 @@ import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
+public interface InvoiceRepository extends JpaRepository<Invoice, UUID>, JpaSpecificationExecutor<Invoice> {
 
     @Query("select distinct i from Invoice i left join fetch i.lines where i.id = :id")
     Optional<Invoice> findWithLines(@Param("id") UUID id);

@@ -1,9 +1,12 @@
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { Button } from 'primeng/button';
+import { IconField } from 'primeng/iconfield';
+import { InputIcon } from 'primeng/inputicon';
+import { Select } from 'primeng/select';
 import { Checkbox } from 'primeng/checkbox';
 import { DatePicker } from 'primeng/datepicker';
 import { AppDialog } from '../../shared/dialog/dialog';
@@ -50,7 +53,7 @@ const STATE_SEVERITY: Record<PromoState, 'success' | 'info' | 'secondary' | 'war
  */
 @Component({
   selector: 'app-promos',
-  imports: [DetailsDialog, CreatedBy,
+  imports: [DetailsDialog, CreatedBy, FormsModule, IconField, InputIcon, Select,
     ReactiveFormsModule,
     TranslatePipe,
     TableModule,
@@ -79,6 +82,30 @@ export class PromosPage implements OnInit {
   protected readonly isOwner = inject(AuthService).hasRole('OWNER');
 
   protected readonly promos = signal<Promo[]>([]);
+
+  /** Search by discount code (or title) and filter by status; the list is small, so it filters in the page. */
+  protected readonly query = signal('');
+  protected readonly stateFilter = signal<PromoState | null>(null);
+  protected readonly stateOptions = computed(() => {
+    this.lang.current(); // relabel when the language changes
+    return (['LIVE', 'SCHEDULED', 'EXPIRED', 'USED_UP', 'OFF'] as PromoState[]).map((s) => ({
+      value: s,
+      label: this.translate.instant('promos.state.' + s),
+    }));
+  });
+  protected readonly filtered = computed(() => {
+    const q = this.query().trim().toLowerCase();
+    const st = this.stateFilter();
+    return this.promos().filter(
+      (p) =>
+        (!st || promoState(p) === st) &&
+        (!q ||
+          p.code.toLowerCase().includes(q) ||
+          p.title.toLowerCase().includes(q) ||
+          (p.titleEn ?? '').toLowerCase().includes(q)),
+    );
+  });
+  protected readonly filtering = computed(() => !!this.query().trim() || !!this.stateFilter());
   protected readonly loading = signal(false);
   protected readonly saving = signal(false);
   protected readonly dialogOpen = signal(false);

@@ -37,7 +37,10 @@ import com.fieldops.app.tenant.TenantService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -134,19 +137,62 @@ public class BillingService {
 
     // ---------------------------------------------------------------------------------------- invoices
 
+    /**
+     * Invoices, newest first. Every filter is optional and they combine.
+     *
+     * @param status   ISSUED, PARTIALLY_PAID, PAID, VOID, or UNPAID (issued + partially paid)
+     * @param number   invoice number: "12", "INV-12", "inv 12" or Arabic digits
+     * @param from     issued on or after this day (the company's time zone)
+     * @param to       issued on or before this day (the company's time zone)
+     */
     @Transactional(readOnly = true)
-    public Page<Invoice> searchInvoices(String status, UUID customerId, Pageable pageable) {
+    public Page<Invoice> searchInvoices(String status, UUID customerId, String number, LocalDate from, LocalDate to,
+                                        Pageable pageable) {
+        List<Specification<Invoice>> where = new ArrayList<>();
         if (customerId != null) {
-            return invoices.findByCustomerIdOrderByIssuedAtDesc(customerId, pageable);
+            where.add((r, q, cb) -> cb.equal(r.get("customerId"), customerId));
         }
         if ("UNPAID".equals(status)) {
-            return invoices.findByStatusInOrderByIssuedAtDesc(
-                    List.of(Invoice.Status.ISSUED, Invoice.Status.PARTIALLY_PAID), pageable);
+            where.add((r, q, cb) -> r.get("status").in(Invoice.Status.ISSUED, Invoice.Status.PARTIALLY_PAID));
+        } else if (status != null && !status.isBlank()) {
+            Invoice.Status st = parse(Invoice.Status.class, status);
+            where.add((r, q, cb) -> cb.equal(r.get("status"), st));
         }
-        if (status != null && !status.isBlank()) {
-            return invoices.findByStatusInOrderByIssuedAtDesc(List.of(parse(Invoice.Status.class, status)), pageable);
+        if (number != null && !number.isBlank()) {
+            String digits = toAsciiDigits(number).replaceAll("\\D", "");
+            if (digits.isEmpty() || digits.length() > 18) {
+                return Page.empty(pageable); // nothing that can be an invoice number
+            }
+            long n = Long.parseLong(digits);
+            where.add((r, q, cb) -> cb.equal(r.get("number"), n));
         }
-        return invoices.findAllByOrderByIssuedAtDesc(pageable);
+        ZoneId zone = zone();
+        if (from != null) {
+            Instant start = from.atStartOfDay(zone).toInstant();
+            where.add((r, q, cb) -> cb.greaterThanOrEqualTo(r.get("issuedAt"), start));
+        }
+        if (to != null) {
+            Instant end = to.plusDays(1).atStartOfDay(zone).toInstant();
+            where.add((r, q, cb) -> cb.lessThan(r.get("issuedAt"), end));
+        }
+        Pageable sorted = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
+                Sort.by(Sort.Direction.DESC, "issuedAt").and(Sort.by(Sort.Direction.DESC, "number")));
+        return invoices.findAll(Specification.allOf(where), sorted);
+    }
+
+    /** ٠١٢ / ۰۱۲ → 012. */
+    private static String toAsciiDigits(String s) {
+        StringBuilder b = new StringBuilder(s.length());
+        for (char c : s.toCharArray()) {
+            if (c >= '\u0660' && c <= '\u0669') {
+                b.append((char) ('0' + c - '\u0660'));
+            } else if (c >= '\u06F0' && c <= '\u06F9') {
+                b.append((char) ('0' + c - '\u06F0'));
+            } else {
+                b.append(c);
+            }
+        }
+        return b.toString();
     }
 
     @Transactional(readOnly = true)

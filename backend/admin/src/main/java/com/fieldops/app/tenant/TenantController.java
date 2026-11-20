@@ -28,7 +28,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -116,35 +115,6 @@ public class TenantController {
 
     private static String mobile(String raw) {
         return raw == null || raw.isBlank() ? null : PhoneNumbers.normalizeSaudiMobile(raw).orElseThrow();
-    }
-
-    /** Find the company's Google Maps listing by name (and city) to connect it. */
-    @RequiresFeature(PlanFeature.BOOKING_PAGE) // customer portal only
-    @GetMapping("/tenant/google/search")
-    @PreAuthorize("hasRole('OWNER')")
-    public List<GooglePlacesClient.Candidate> searchGoogle(@RequestParam @NotBlank @Size(max = 200) String q,
-                                                          @RequestParam(defaultValue = "ar") String lang) {
-        return google.search(q.trim(), "en".equals(lang) ? "en" : "ar");
-    }
-
-    /** Connect (placeId set) or disconnect (placeId empty) the Google Maps listing shown on the public page. */
-    @RequiresFeature(PlanFeature.BOOKING_PAGE) // customer portal only
-    @PutMapping("/tenant/google")
-    @PreAuthorize("hasRole('OWNER')")
-    public TenantDto connectGoogle(@Valid @RequestBody GooglePlaceRequest req) {
-        String id = req.placeId() == null || req.placeId().isBlank() ? null : req.placeId().trim();
-        String name = req.name();
-        if (id != null) {
-            // Confirms the ID is real and takes Google's own name for it.
-            GooglePlacesClient.Details d = google.details(id, "ar");
-            name = d.name() != null ? d.name() : name;
-        }
-        Tenant t = service.connectGoogle(id, name);
-        return dto(t);
-    }
-
-    public record GooglePlaceRequest(@Size(max = 300) @Pattern(regexp = "^$|^[A-Za-z0-9_-]+$", message = "invalid_place_id")
-                                     String placeId, @Size(max = 300) String name) {
     }
 
     public record PublicPageRequest(@Size(max = 120) String headline, @Size(max = 2000) String about,

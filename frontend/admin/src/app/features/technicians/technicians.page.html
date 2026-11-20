@@ -14,12 +14,25 @@
 </div>
 
 <div class="panel-flush">
+  <div class="toolbar-row">
+    <p-iconfield>
+      <p-inputicon styleClass="pi pi-search" />
+      <input
+        pInputText
+        type="search"
+        [placeholder]="'technicians.searchPlaceholder' | translate"
+        [value]="query()"
+        (input)="query.set($any($event.target).value)"
+      />
+    </p-iconfield>
+  </div>
+
   <p-table
-    [value]="technicians()"
+    [value]="filtered()"
     [loading]="loading()"
     [rowHover]="true"
     dataKey="id"
-    [paginator]="technicians().length > 0"
+    [paginator]="filtered().length > 0"
     [rows]="10"
     [showCurrentPageReport]="true"
     [currentPageReportTemplate]="'common.pageReport' | translate"
@@ -89,7 +102,13 @@
     </ng-template>
     <ng-template #emptymessage>
       <tr>
-        <td colspan="9"><div class="empty"><i class="pi pi-wrench"></i>{{ 'technicians.empty' | translate }}</div></td>
+        <td colspan="9">
+          @if (query().trim() && technicians().length) {
+            <div class="empty"><i class="pi pi-search"></i>{{ 'technicians.noMatch' | translate }}</div>
+          } @else {
+            <div class="empty"><i class="pi pi-wrench"></i>{{ 'technicians.empty' | translate }}</div>
+          }
+        </td>
       </tr>
     </ng-template>
   </p-table>

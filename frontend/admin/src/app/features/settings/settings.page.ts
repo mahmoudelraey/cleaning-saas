@@ -12,7 +12,7 @@ import { errorMessage } from '../../core/http/api-error';
 import { LanguageService } from '../../core/i18n/language.service';
 import { TenantService } from '../../core/tenant.service';
 import { portalBase } from '../../core/portal';
-import { GoogleCandidate, PublicPage } from '../../core/api.types';
+import { PublicPage } from '../../core/api.types';
 import { PhonePipe, SAUDI_MOBILE_PATTERN, SarPipe } from '../../shared/format';
 import { LocalDatePipe } from '../../shared/local-date.pipe';
 import { LockedFeature } from '../../shared/locked-feature/locked-feature';
@@ -54,10 +54,6 @@ export class SettingsPage implements OnInit {
   protected readonly slugSaving = signal(false);
   protected pp: PublicPage = {};
   protected readonly thisYear = new Date().getFullYear();
-  protected gQuery = '';
-  protected readonly gResults = signal<GoogleCandidate[] | null>(null);
-  protected readonly gSearching = signal(false);
-  protected readonly gSaving = signal(false);
   protected readonly ppSaving = signal(false);
   protected contact = { phone: '', whatsapp: '', facebook: '', instagram: '', tiktok: '', snapchat: '', x: '' };
   protected readonly contactSaving = signal(false);
@@ -70,7 +66,6 @@ export class SettingsPage implements OnInit {
         this.pageEnabled = t.bookingPageEnabled;
         this.pageNote = t.bookingPageNote ?? '';
         this.slug = t.slug;
-        this.gQuery = t.name;
         const p = t.publicPage ?? {};
         this.pp = { ...p };
         this.contact = {
@@ -275,37 +270,6 @@ export class SettingsPage implements OnInit {
   /** +966551234567 → 0551234567 for an input. */
   private local(e164?: string | null): string {
     return e164 ? this.phonePipe.transform(e164, false).replace(/\s/g, '') : '';
-  }
-
-  searchGoogle(): void {
-    const q = this.gQuery.trim();
-    if (!q) return;
-    this.gSearching.set(true);
-    this.tenants.searchGoogle(q, this.lang.current()).subscribe({
-      next: (r) => {
-        this.gSearching.set(false);
-        this.gResults.set(r);
-      },
-      error: (err) => {
-        this.gSearching.set(false);
-        this.messages.add({ severity: 'error', summary: errorMessage(err, this.translate) });
-      },
-    });
-  }
-
-  connectGoogle(c: GoogleCandidate | null): void {
-    this.gSaving.set(true);
-    this.tenants.connectGoogle(c?.placeId ?? null, c?.name ?? null).subscribe({
-      next: () => {
-        this.gSaving.set(false);
-        this.gResults.set(null);
-        this.messages.add({ severity: 'success', summary: this.translate.instant(c ? 'settings.google.done' : 'settings.google.removed') });
-      },
-      error: (err) => {
-        this.gSaving.set(false);
-        this.messages.add({ severity: 'error', summary: errorMessage(err, this.translate) });
-      },
-    });
   }
 
   copyLink(url: string): void {

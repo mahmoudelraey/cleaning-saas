@@ -97,6 +97,39 @@
     </section>
 
     <section class="box">
+      <h3>{{ 'platform.google.title' | translate }}</h3>
+      <p class="hint">{{ 'platform.google.hint' | translate }}</p>
+      @if (!d.google.available) {
+        <p class="hint">{{ 'platform.google.off' | translate }}</p>
+      } @else if (d.google.placeId) {
+        <div class="g-connected">
+          <i class="pi pi-map-marker"></i>
+          <span class="g-text"><strong>{{ d.google.name }}</strong><br /><small class="hint">{{ 'platform.google.connected' | translate }}</small></span>
+          <p-button [label]="'platform.google.disconnect' | translate" severity="secondary" [outlined]="true" size="small" [loading]="busy()" (onClick)="connectGoogle(c, null)" />
+        </div>
+      } @else {
+        <form class="g-search" (ngSubmit)="searchGoogle(c)">
+          <input pInputText name="gq" [(ngModel)]="gQuery" maxlength="200" [placeholder]="'platform.google.placeholder' | translate" [attr.aria-label]="'platform.google.search' | translate" />
+          <p-button type="submit" icon="pi pi-search" [label]="'platform.google.search' | translate" size="small" [loading]="gSearching()" [disabled]="!gQuery.trim()" />
+        </form>
+        @if (gResults(); as list) {
+          @if (list.length) {
+            <ul class="g-results">
+              @for (p of list; track p.placeId) {
+                <li>
+                  <span class="g-text"><strong>{{ p.name }}</strong><br /><small class="hint">{{ p.address }}</small></span>
+                  <p-button [label]="'platform.google.connect' | translate" size="small" [loading]="busy()" (onClick)="connectGoogle(c, p)" />
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="hint">{{ 'platform.google.noResults' | translate }}</p>
+          }
+        }
+      }
+    </section>
+
+    <section class="box">
       <h3>{{ 'platform.actions.trial' | translate }}</h3>
       <div class="row-f">
         @for (n of [7, 14, 30]; track n) {

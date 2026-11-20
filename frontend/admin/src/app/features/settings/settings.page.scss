@@ -13,12 +13,6 @@ dd { margin: 0; }
 .slug-edit .prefix { color: var(--fo-muted, var(--gray-46)); font-size: .9rem; }
 .slug-edit input { flex: 1 1 10rem; min-width: 8rem; }
 .hint.warn { display: block; color: var(--p-orange-600, var(--warning-40)); margin-top: .25rem; }
-.g-search { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .75rem; }
-.g-search input { flex: 1 1 14rem; }
-.g-results { list-style: none; padding: 0; margin: .75rem 0 0; display: flex; flex-direction: column; gap: .5rem; }
-.g-results li, .g-connected { display: flex; align-items: center; gap: .75rem; padding: .6rem .75rem; border: 1px solid var(--fo-border); border-radius: 10px; }
-.g-connected { margin-top: .75rem; }
-.g-connected > i { color: var(--p-primary-600); }
 .pp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .75rem 1rem; margin-top: .75rem; }
 .pp-grid .wide { grid-column: 1 / -1; }
 .online { display: flex; align-items: flex-start; gap: .6rem; margin: .75rem 0 .25rem; }

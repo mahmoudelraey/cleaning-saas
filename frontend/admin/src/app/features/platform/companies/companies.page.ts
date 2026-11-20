@@ -21,7 +21,17 @@ import { PhonePipe } from '../../../shared/format';
 import { LocalDatePipe } from '../../../shared/local-date.pipe';
 import { isoDate } from '../../analytics/analytics.api';
 import { sarCurrency } from '../../analytics/charts';
-import { BillingCycle, CompanyDetail, CompanyFilter, CompanyRow, PlanRow, PlatformApi, daysUntil, statusSeverity } from '../platform.api';
+import {
+  BillingCycle,
+  CompanyDetail,
+  CompanyFilter,
+  CompanyRow,
+  GooglePlace,
+  PlanRow,
+  PlatformApi,
+  daysUntil,
+  statusSeverity,
+} from '../platform.api';
 
 /** All companies on FieldOps; open one to change its plan, trial or paid period, or to suspend it. */
 @Component({
@@ -120,12 +130,39 @@ export class PlatformCompaniesPage {
     return v === null ? '∞' : String(v);
   }
 
+  // ---- Google Maps listing ----
+  protected gQuery = '';
+  protected readonly gResults = signal<GooglePlace[] | null>(null);
+  protected readonly gSearching = signal(false);
+
+  protected searchGoogle(c: CompanyRow): void {
+    const q = this.gQuery.trim();
+    if (!q) return;
+    this.gSearching.set(true);
+    this.api.searchCompanyGoogle(c.id, q, this.lang.current()).subscribe({
+      next: (r) => {
+        this.gSearching.set(false);
+        this.gResults.set(r);
+      },
+      error: (e) => {
+        this.gSearching.set(false);
+        this.messages.add({ severity: 'error', summary: errorMessage(e, this.translate) });
+      },
+    });
+  }
+
+  protected connectGoogle(c: CompanyRow, place: GooglePlace | null): void {
+    this.run(this.api.setCompanyGoogle(c.id, place?.placeId ?? null, place?.name ?? null));
+  }
+
   private show(d: CompanyDetail): void {
     const c = d.company;
     this.detail.set(d);
     this.limTech = d.limits.maxTechniciansOverride;
     this.limMessages = d.limits.monthlyMessagesOverride;
     this.limBookings = d.limits.monthlyBookingsOverride;
+    this.gQuery = c.name;
+    this.gResults.set(null);
     this.planDraft = c.planId;
     this.activatePlan = c.planId;
     this.note = '';

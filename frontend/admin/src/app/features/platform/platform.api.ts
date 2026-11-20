@@ -35,6 +35,21 @@ export interface CompanyDetail {
   staff: { id: string; name: string; phone: string; email: string | null; role: Role; active: boolean; lastLoginAt: string | null }[];
   history: { action: string; details: string | null; actorName: string | null; at: string }[];
   limits: CompanyLimits;
+  google: CompanyGoogle;
+}
+
+/** The company's Google Maps listing (rating and reviews on its public page), connected from the platform. */
+export interface CompanyGoogle {
+  /** Google reviews are switched on in Platform → Settings with a key. */
+  available: boolean;
+  placeId: string | null;
+  name: string | null;
+}
+
+export interface GooglePlace {
+  placeId: string;
+  name: string | null;
+  address: string | null;
 }
 
 /** Plan values, this company's overrides (null = none), what applies now (null = unlimited) and this month's use. */
@@ -105,6 +120,18 @@ export interface GeneralSettings {
 export interface Secret {
   set: boolean;
   hint: string | null;
+}
+
+/** Google reviews for every company. */
+export interface GoogleSettings {
+  /** Switched on by the platform owner. */
+  enabled: boolean;
+  /** Key saved in the console (masked). */
+  key: Secret;
+  /** GOOGLE_PLACES_API_KEY is set on the server (used when no key is saved). */
+  envKey: boolean;
+  /** On and a key is available: companies see Google reviews. */
+  active: boolean;
 }
 
 export type MessageChannel = 'WHATSAPP' | 'SMS';
@@ -184,6 +211,15 @@ export class PlatformApi {
   }
 
   /** This company's own limits; null = the plan's value. */
+  searchCompanyGoogle(id: string, q: string, lang: string): Observable<GooglePlace[]> {
+    return this.http.get<GooglePlace[]>(`${BASE}/companies/${id}/google/search`, { params: { q, lang } });
+  }
+
+  /** Connect a Google Maps listing to the company, or disconnect with null. */
+  setCompanyGoogle(id: string, placeId: string | null, name: string | null): Observable<CompanyDetail> {
+    return this.http.put<CompanyDetail>(`${BASE}/companies/${id}/google`, { placeId, name });
+  }
+
   setLimits(id: string, body: LimitsInput): Observable<CompanyDetail> {
     return this.http.put<CompanyDetail>(`${BASE}/companies/${id}/limits`, body);
   }
@@ -234,6 +270,15 @@ export class PlatformApi {
 
   saveGeneral(g: GeneralSettings): Observable<GeneralSettings> {
     return this.http.put<GeneralSettings>(`${BASE}/settings`, g);
+  }
+
+  google(): Observable<GoogleSettings> {
+    return this.http.get<GoogleSettings>(`${BASE}/google`);
+  }
+
+  /** apiKey: null = keep the saved key, '' = remove it, text = replace it. */
+  saveGoogle(enabled: boolean, apiKey: string | null): Observable<GoogleSettings> {
+    return this.http.put<GoogleSettings>(`${BASE}/google`, { enabled, apiKey });
   }
 
   messaging(): Observable<MessagingView> {

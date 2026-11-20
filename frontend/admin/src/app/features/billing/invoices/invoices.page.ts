@@ -3,10 +3,16 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { Button } from 'primeng/button';
+import { DatePicker } from 'primeng/datepicker';
+import { IconField } from 'primeng/iconfield';
+import { InputIcon } from 'primeng/inputicon';
+import { InputText } from 'primeng/inputtext';
 import { SelectButton } from 'primeng/selectbutton';
 import { TableLazyLoadEvent, TableModule } from 'primeng/table';
 import { Tooltip } from 'primeng/tooltip';
 import { MessageService } from 'primeng/api';
+import { Subject, debounceTime, distinctUntilChanged } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { InvoiceSummary } from '../../../core/api.types';
 import { InvoiceStatusTag } from '../../../shared/document-status/document-status';
@@ -16,10 +22,11 @@ import { BillingApi, openPdf } from '../billing.api';
 import { errorMessage } from '../../../core/http/api-error';
 import { DetailField, DetailsDialog } from '../../../shared/details-dialog/details-dialog';
 import { CreatedBy } from '../../../shared/details-dialog/audit-block';
+import { isoDate } from '../../analytics/analytics.api';
 
 @Component({
   selector: 'app-invoices',
-  imports: [Tooltip, DetailsDialog, CreatedBy, FormsModule, RouterLink, TranslatePipe, TableModule, Button, SelectButton, InvoiceStatusTag, SarPipe, LocalDatePipe],
+  imports: [Tooltip, DetailsDialog, CreatedBy, FormsModule, RouterLink, TranslatePipe, TableModule, Button, SelectButton, DatePicker, IconField, InputIcon, InputText, InvoiceStatusTag, SarPipe, LocalDatePipe],
   styleUrl: './invoices.page.scss',
   templateUrl: './invoices.page.html',
 })
@@ -55,6 +62,32 @@ export class InvoicesPage {
   protected status = '';
   private page = 0;
 
+  /** Search by invoice number ("12" or "INV-12") and by issue date range. */
+  protected readonly number$ = new Subject<string>();
+  private number = '';
+  protected range: Date[] | null = null;
+
+  constructor() {
+    this.number$.pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed()).subscribe((v) => {
+      this.number = v.trim();
+      this.reload();
+    });
+  }
+
+  /** Reload once both ends of the range are picked (a single day: pick it twice). */
+  protected onRange(): void {
+    if (this.range?.[0] && this.range[1]) this.reload();
+  }
+
+  protected clearRange(): void {
+    this.range = null;
+    this.reload();
+  }
+
+  protected get filtering(): boolean {
+    return !!this.number || !!this.range?.[0];
+  }
+
   protected readonly filters = computed(() =>
     ['', 'UNPAID', 'PAID', 'VOID'].map((v) => ({ value: v, label: this.translate.instant('invoices.filter.' + (v || 'ALL')) })),
   );
@@ -83,7 +116,14 @@ export class InvoicesPage {
 
   private fetch(): void {
     this.loading.set(true);
-    this.api.invoices(this.status || null, this.page, this.pageSize).subscribe({
+    const [from, to] = this.range ?? [];
+    this.api
+      .invoices(this.status || null, this.page, this.pageSize, undefined, {
+        number: this.number || null,
+        from: from ? isoDate(from) : null,
+        to: to ? isoDate(to) : from ? isoDate(from) : null,
+      })
+      .subscribe({
       next: (p) => {
         this.rows.set(p.items);
         this.total.set(p.total);

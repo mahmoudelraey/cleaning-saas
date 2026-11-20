@@ -29,6 +29,7 @@ import com.fieldops.app.tenant.RequiresFeature;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -66,9 +67,13 @@ public class BillingController {
     @GetMapping("/invoices")
     public PageResponse<Audited<InvoiceSummary>> invoices(@RequestParam(required = false) String status,
                                                  @RequestParam(required = false) UUID customerId,
+                                                 @RequestParam(required = false) @Size(max = 30) String number,
+                                                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                                                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
                                                  @RequestParam(defaultValue = "0") int page,
                                                  @RequestParam(defaultValue = "20") int size) {
-        return audits.page(billing.searchInvoices(status, customerId, pageRequest(page, size)), InvoiceSummary::of);
+        return audits.page(billing.searchInvoices(status, customerId, number, from, to, pageRequest(page, size)),
+                InvoiceSummary::of);
     }
 
     @RequiresFeature(PlanFeature.INVOICES)

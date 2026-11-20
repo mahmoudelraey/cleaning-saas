@@ -4,9 +4,13 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
+import com.fieldops.app.google.GooglePlacesClient;
 import com.fieldops.app.platform.PlatformService.CompanyDetail;
 import com.fieldops.app.platform.PlatformService.CompanyRow;
 import com.fieldops.app.platform.PlatformService.General;
+import com.fieldops.app.platform.PlatformService.GoogleData;
+import com.fieldops.app.platform.PlatformService.GooglePlaceData;
+import com.fieldops.app.platform.PlatformService.GoogleView;
 import com.fieldops.app.platform.PlatformService.LimitsData;
 import com.fieldops.app.platform.PlatformService.MessagingView;
 import com.fieldops.app.platform.PlatformService.Overview;
@@ -58,6 +62,19 @@ public class PlatformController {
     @GetMapping("/companies/{id}")
     public CompanyDetail company(@PathVariable UUID id) {
         return platform.company(id);
+    }
+
+    /** Find a company's Google Maps listing by name (and city). */
+    @GetMapping("/companies/{id}/google/search")
+    public List<GooglePlacesClient.Candidate> searchGoogle(@PathVariable UUID id, @RequestParam String q,
+                                                          @RequestParam(defaultValue = "ar") String lang) {
+        return platform.searchGoogle(id, q, lang);
+    }
+
+    /** Connect (placeId set) or disconnect (placeId empty) the company's Google Maps listing. */
+    @PutMapping("/companies/{id}/google")
+    public CompanyDetail setGoogle(@PathVariable UUID id, @RequestBody GooglePlaceData req) {
+        return platform.setGoogle(id, req);
     }
 
     /** This company's own technician / monthly message / monthly booking limits (null = the plan's). */
@@ -137,6 +154,17 @@ public class PlatformController {
     @PutMapping("/settings")
     public General updateGeneral(@RequestBody General req) {
         return platform.updateGeneral(req);
+    }
+
+    /** Google reviews for every company: switched on / off, and the Places API key. */
+    @GetMapping("/google")
+    public GoogleView google() {
+        return platform.google();
+    }
+
+    @PutMapping("/google")
+    public GoogleView updateGoogle(@RequestBody GoogleData req) {
+        return platform.updateGoogle(req);
     }
 
     @GetMapping("/messaging")

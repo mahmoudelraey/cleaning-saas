@@ -8,6 +8,23 @@
 
 <div class="panel-flush">
   <div class="toolbar-row">
+    <p-iconfield>
+      <p-inputicon styleClass="pi pi-search" />
+      <input pInputText type="search" inputmode="numeric" [placeholder]="'invoices.searchNumber' | translate"
+             (input)="number$.next($any($event.target).value)" />
+    </p-iconfield>
+    <p-datepicker
+      [(ngModel)]="range"
+      selectionMode="range"
+      [readonlyInput]="true"
+      [showIcon]="true"
+      [showButtonBar]="true"
+      (onSelect)="onRange()"
+      (onClearClick)="clearRange()"
+      [placeholder]="'invoices.dateRange' | translate"
+      dateFormat="yy-mm-dd"
+      appendTo="body"
+    />
     <p-selectbutton [options]="filters()" [(ngModel)]="status" (onChange)="reload()" optionLabel="label" optionValue="value" [allowEmpty]="false" />
   </div>
   <p-table [value]="rows()" [lazy]="true" (onLazyLoad)="load($event)" [paginator]="true" [rows]="pageSize"
@@ -52,7 +69,13 @@
       </tr>
     </ng-template>
     <ng-template #emptymessage>
-      <tr><td colspan="8"><div class="empty"><i class="pi pi-file"></i>{{ 'invoices.empty' | translate }}</div></td></tr>
+      <tr><td colspan="8">
+        @if (filtering) {
+          <div class="empty"><i class="pi pi-search"></i>{{ 'invoices.noMatch' | translate }}</div>
+        } @else {
+          <div class="empty"><i class="pi pi-file"></i>{{ 'invoices.empty' | translate }}</div>
+        }
+      </td></tr>
     </ng-template>
   </p-table>
 </div>

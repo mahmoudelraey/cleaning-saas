@@ -4,9 +4,9 @@ import java.util.List;
 import java.util.Map;
 
 import com.fieldops.app.common.web.ApiException;
+import com.fieldops.app.platform.PlatformSettingsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -19,7 +19,9 @@ import org.springframework.web.client.RestClientException;
  *
  * <p>Google's terms: only the Place ID may be stored; ratings and reviews are fetched live and never saved,
  * and wherever they are shown they must carry Google attribution (see the portal's Google reviews section).
- * Without {@code app.google.places-api-key} every call reports "not configured" and the feature stays hidden.
+ * The platform owner switches Google reviews on or off and sets the API key in Platform → Settings (the key falls
+ * back to {@code GOOGLE_PLACES_API_KEY}). When off, or without a key, every call reports "not configured" and the
+ * feature is hidden everywhere.
  */
 @Component
 public class GooglePlacesClient {
@@ -31,15 +33,16 @@ public class GooglePlacesClient {
     private static final String DETAIL_FIELDS = "id,displayName,rating,userRatingCount,googleMapsUri,reviews";
 
     private final RestClient http;
-    private final String apiKey;
+    private final PlatformSettingsService settings;
 
-    public GooglePlacesClient(RestClient.Builder builder, @Value("${app.google.places-api-key:}") String apiKey) {
+    public GooglePlacesClient(RestClient.Builder builder, PlatformSettingsService settings) {
         this.http = builder.baseUrl(BASE).build();
-        this.apiKey = apiKey == null ? "" : apiKey.trim();
+        this.settings = settings;
     }
 
+    /** Google reviews are switched on in the platform console and a key is set. */
     public boolean configured() {
-        return !apiKey.isEmpty();
+        return !settings.googlePlacesKey().isEmpty();
     }
 
     public record Candidate(String placeId, String name, String address) {
@@ -58,7 +61,7 @@ public class GooglePlacesClient {
 
     /** Businesses matching the text, biased to Saudi Arabia. */
     public List<Candidate> search(String text, String language) {
-        requireConfigured();
+        String apiKey = requireKey();
         try {
             SearchResponse r = http.post().uri("/places:searchText")
                     .contentType(MediaType.APPLICATION_JSON)
@@ -82,7 +85,7 @@ public class GooglePlacesClient {
 
     /** Rating, number of ratings and up to five reviews (chosen and ordered by Google). */
     public Details details(String placeId, String language) {
-        requireConfigured();
+        String apiKey = requireKey();
         try {
             PlaceResponse p = http.get()
                     .uri(u -> u.path("/places/{id}").queryParam("languageCode", language).build(placeId))
@@ -112,10 +115,12 @@ public class GooglePlacesClient {
         }
     }
 
-    private void requireConfigured() {
-        if (!configured()) {
+    private String requireKey() {
+        String key = settings.googlePlacesKey();
+        if (key.isEmpty()) {
             throw ApiException.notFound("google_places");
         }
+        return key;
     }
 
     private static ApiException unavailable() {

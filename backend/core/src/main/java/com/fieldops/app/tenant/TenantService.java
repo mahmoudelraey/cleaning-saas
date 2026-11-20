@@ -172,14 +172,6 @@ public class TenantService {
         return v;
     }
 
-    /** Links the company to its Google Maps listing (null placeId disconnects it). */
-    @Transactional
-    public Tenant connectGoogle(String placeId, String placeName) {
-        Tenant t = current();
-        t.connectGoogle(clean(placeId), clean(placeName));
-        return t;
-    }
-
     private static String clean(String s) {
         return s == null || s.isBlank() ? null : s.trim();
     }

@@ -1,0 +1,17 @@
+{
+  "name": "fieldops-screenshots",
+  "private": true,
+  "type": "module",
+  "description": "Playwright screenshots of every FieldOps admin page for marketing videos",
+  "scripts": {
+    "capture": "node take-screenshots.mjs",
+    "capture-portal": "node take-portal-screenshots.mjs",
+    "install-browser": "playwright install chromium"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

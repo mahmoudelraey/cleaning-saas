@@ -39,6 +39,36 @@
   </div>
 }
 
+@if (google(); as g) {
+  @let gs = googleStatus(g);
+  <div class="panel">
+    <h2>{{ 'platform.settings.google.title' | translate }} <p-tag [severity]="gs.severity" [value]="gs.key | translate" /></h2>
+    <p class="sub">{{ 'platform.settings.google.hint' | translate }}</p>
+    <div class="google-row">
+      <p-toggleswitch inputId="g-on" [(ngModel)]="googleEnabled" [ariaLabel]="'platform.settings.google.show' | translate" />
+      <label for="g-on">{{ 'platform.settings.google.show' | translate }}</label>
+    </div>
+    <div class="form-grid">
+      <div class="field">
+        <label for="g-key">{{ 'platform.settings.google.key' | translate }}</label>
+        <div class="secret">
+          <p-password inputId="g-key" [(ngModel)]="googleKey" [feedback]="false" [toggleMask]="true" [fluid]="true"
+                      [placeholder]="googlePlaceholder(g)" autocomplete="off" />
+          @if (g.key.set) {
+            <p-button icon="pi pi-times" [text]="true" severity="danger" (onClick)="googleKey = ''" [ariaLabel]="'platform.settings.clear' | translate" />
+          }
+        </div>
+        @if (googleKey === '' && g.key.set) {
+          <small class="hint">{{ 'platform.settings.willClear' | translate }}</small>
+        } @else {
+          <small class="hint">{{ 'platform.settings.google.keyHint' | translate }}</small>
+        }
+      </div>
+    </div>
+    <div class="save"><p-button [label]="'common.save' | translate" [loading]="savingGoogle()" (onClick)="saveGoogle()" /></div>
+  </div>
+}
+
 @if (msg(); as m) {
   <div class="panel">
     <h2>{{ 'platform.settings.messaging' | translate }}</h2>

@@ -50,7 +50,7 @@
     </form>
   </div>
 
-  <!-- Contact details, Google Maps reviews and the subscription sit under the company details. -->
+  <!-- Contact details and the subscription sit under the company details. -->
   @if (tenants.tenant(); as t) {
     <div class="panel" style="margin-top: 1rem">
       <h2>{{ 'settings.contact.title' | translate }}</h2>
@@ -95,43 +95,6 @@
         <p-button [label]="'common.save' | translate" size="small" [loading]="contactSaving()" (onClick)="saveContact()" />
         <a [href]="tenants.portalUrl() + '/contact'" target="_blank" rel="noopener" [hidden]="tenants.locked('booking_page')"><p-button icon="pi pi-external-link" [label]="'settings.contact.preview' | translate" [text]="true" size="small" /></a>
       </div>
-    </div>
-    <div class="panel" style="margin-top: 1rem">
-      <h2>{{ 'settings.google.title' | translate }}</h2>
-      <p class="hint">{{ 'settings.google.hint' | translate }}</p>
-      @if (tenants.locked('booking_page')) {
-        <app-locked-feature feature="booking_page" />
-      } @else {
-      @if (!t.google?.available) {
-        <p class="hint warn">{{ 'settings.google.notAvailable' | translate }}</p>
-      } @else if (t.google?.placeId) {
-        <div class="g-connected">
-          <i class="pi pi-map-marker"></i>
-          <span style="flex:1"><strong>{{ t.google?.name }}</strong><br /><small class="hint">{{ 'settings.google.connected' | translate }}</small></span>
-          <a [href]="tenants.portalUrl() + '#reviews'" target="_blank" rel="noopener"><p-button icon="pi pi-external-link" [text]="true" size="small" [ariaLabel]="'settings.pp.preview' | translate" /></a>
-          <p-button [label]="'settings.google.disconnect' | translate" severity="secondary" [outlined]="true" size="small" [loading]="gSaving()" (onClick)="connectGoogle(null)" />
-        </div>
-      } @else {
-        <form class="g-search" (ngSubmit)="searchGoogle()">
-          <input pInputText name="gq" [(ngModel)]="gQuery" maxlength="200" [placeholder]="'settings.google.placeholder' | translate" [attr.aria-label]="'settings.google.search' | translate" />
-          <p-button type="submit" icon="pi pi-search" [label]="'settings.google.search' | translate" size="small" [loading]="gSearching()" [disabled]="!gQuery.trim()" />
-        </form>
-        @if (gResults(); as list) {
-          @if (list.length) {
-            <ul class="g-results">
-              @for (c of list; track c.placeId) {
-                <li>
-                  <span style="flex:1; min-width:0"><strong>{{ c.name }}</strong><br /><small class="hint">{{ c.address }}</small></span>
-                  <p-button [label]="'settings.google.thisIsUs' | translate" size="small" [loading]="gSaving()" (onClick)="connectGoogle(c)" />
-                </li>
-              }
-            </ul>
-          } @else {
-            <p class="hint">{{ 'settings.google.noResults' | translate }}</p>
-          }
-        }
-      }
-      }
     </div>
     <div class="panel" style="margin-top: 1rem">
       <h2>{{ 'settings.subscription' | translate }}</h2>

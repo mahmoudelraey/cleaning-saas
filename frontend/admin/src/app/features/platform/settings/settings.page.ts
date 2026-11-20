@@ -16,6 +16,7 @@ import { AppDialog } from '../../../shared/dialog/dialog';
 import { LocalDatePipe } from '../../../shared/local-date.pipe';
 import {
   GeneralSettings,
+  GoogleSettings,
   MessageChannel,
   MessagingView,
   PlanRow,
@@ -39,7 +40,8 @@ const ICONS: Record<ProviderType, string> = {
 
 /**
  * Platform settings: trial length and plan for new signups, grace period after a paid period ends, the support
- * contact companies see, and the message providers (Meta WhatsApp, Gupshup, Twilio, Taqnyat, Unifonic): switched
+ * contact companies see, Google reviews (shown or hidden for every company, with the Places API key), and the
+ * message providers (Meta WhatsApp, Gupshup, Twilio, Taqnyat, Unifonic): switched
  * on and off from the list, configured and tested in a dialog.
  */
 @Component({
@@ -58,6 +60,13 @@ export class PlatformSettingsPage {
   protected readonly msg = signal<MessagingView | null>(null);
   protected readonly plans = signal<PlanRow[]>([]);
   protected readonly savingGeneral = signal(false);
+
+  // ---- Google reviews ----
+  protected readonly google = signal<GoogleSettings | null>(null);
+  protected googleEnabled = false;
+  /** Typed key: undefined = keep, '' = remove, text = replace. */
+  protected googleKey: string | undefined;
+  protected readonly savingGoogle = signal(false);
   protected readonly toggling = signal<ProviderType | null>(null);
   /** Bumped to rebuild the list rows (puts a switch back after a refused toggle). */
   protected readonly rev = signal(0);
@@ -91,6 +100,43 @@ export class PlatformSettingsPage {
     this.api.general().subscribe({ next: (g) => this.general.set(g), error: (e) => this.fail(e) });
     this.api.plans().subscribe({ next: (p) => this.plans.set(p.plans), error: () => {} });
     this.api.messaging().subscribe({ next: (m) => this.msg.set(m), error: (e) => this.fail(e) });
+    this.api.google().subscribe({ next: (g) => this.setGoogle(g), error: (e) => this.fail(e) });
+  }
+
+  // ---- Google reviews ----
+
+  protected googleStatus(g: GoogleSettings): { key: string; severity: Severity } {
+    if (g.active) return { key: 'platform.settings.google.shown', severity: 'success' };
+    if (g.enabled) return { key: 'platform.settings.google.noKey', severity: 'danger' };
+    return { key: 'platform.settings.google.hidden', severity: 'secondary' };
+  }
+
+  protected googlePlaceholder(g: GoogleSettings): string {
+    if (g.key.set) return this.translate.instant('platform.settings.savedKeep', { h: g.key.hint ?? '' });
+    if (g.envKey) return this.translate.instant('platform.settings.google.envKeyUsed');
+    return this.translate.instant('platform.settings.notSet');
+  }
+
+  protected saveGoogle(): void {
+    const key = this.googleKey === undefined ? null : this.googleKey.trim();
+    this.savingGoogle.set(true);
+    this.api.saveGoogle(this.googleEnabled, key).subscribe({
+      next: (g) => {
+        this.setGoogle(g);
+        this.savingGoogle.set(false);
+        this.messages.add({ severity: 'success', summary: this.translate.instant('common.saved') });
+      },
+      error: (e) => {
+        this.savingGoogle.set(false);
+        this.fail(e);
+      },
+    });
+  }
+
+  private setGoogle(g: GoogleSettings): void {
+    this.google.set(g);
+    this.googleEnabled = g.enabled;
+    this.googleKey = undefined;
   }
 
   protected saveGeneral(g: GeneralSettings): void {

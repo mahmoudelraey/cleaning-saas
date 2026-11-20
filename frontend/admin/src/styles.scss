@@ -183,6 +183,19 @@ a {
   justify-content: flex-end;
 }
 
+// In a table the actions cell must stay a table cell: as a flex box it no longer stretches to the row's height,
+// so its bottom border sat higher than the other columns'. Buttons line up with inline spacing instead.
+td.row-actions {
+  display: table-cell;
+  white-space: nowrap;
+  text-align: end;
+  vertical-align: middle;
+
+  > * + * {
+    margin-inline-start: 0.25rem;
+  }
+}
+
 .color-dot {
   width: 12px;
   height: 12px;

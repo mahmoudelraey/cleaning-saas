@@ -267,7 +267,9 @@
     "rating": "Rating",
     "ratingOf": "Rated {{r}} out of 5",
     "ratingCount": "({{n}})",
-    "noRating": "No ratings yet"
+    "noRating": "No ratings yet",
+    "searchPlaceholder": "Search by name or mobile",
+    "noMatch": "No technician matches this search"
   },
   "users": {
     "title": "Team",
@@ -369,19 +371,6 @@
       "enHint": "Visitors browsing in English see the English text; if it is empty they see the Arabic one.",
       "heroTitle": "Big title at the top of the page",
       "heroTitleHint": "Write it on two lines: the second line shows in green. Leave it empty to use the default title."
-    },
-    "google": {
-      "title": "Google Maps reviews",
-      "hint": "Connect your Google Maps listing to show your Google rating and reviews on your public page, with Google attribution. They load live from Google.",
-      "notAvailable": "Google reviews aren't enabled on this server yet (GOOGLE_PLACES_API_KEY is not set).",
-      "search": "Find on Google",
-      "placeholder": "Business name and city, e.g. Sparkle Clean Riyadh",
-      "thisIsUs": "This is us",
-      "noResults": "Nothing found. Try the exact name shown on Google Maps, with the city.",
-      "connected": "Connected. Your page shows its rating and reviews from Google.",
-      "disconnect": "Disconnect",
-      "done": "Google listing connected",
-      "removed": "Google listing disconnected"
     },
     "contact": {
       "title": "Contact details",
@@ -876,7 +865,10 @@
     "issueForBooking": "Issue invoice",
     "issueConfirm": "Issue an invoice for this booking's services and send it to the customer? Invoices cannot be edited once issued.",
     "autoPending": "The invoice will be issued automatically within a minute and sent to the customer.",
-    "autoFailed": "The automatic invoice could not be issued. Issue it manually with the button below."
+    "autoFailed": "The automatic invoice could not be issued. Issue it manually with the button below.",
+    "searchNumber": "Invoice number, e.g. INV-12",
+    "dateRange": "Issue date",
+    "noMatch": "No invoices match this search"
   },
   "quotes": {
     "title": "Quotes",
@@ -1765,7 +1757,18 @@
       "templatesHint_GUPSHUP_WHATSAPP": "The Gupshup template ID of each approved template, with the variables in the same order as the app sends them.",
       "templatesHint_TWILIO": "The Content SID (HX…) of each approved WhatsApp template in Twilio; variables 1, 2, 3… in the order the app sends them.",
       "twilioNote": "WhatsApp needs the WhatsApp sender number; SMS needs an SMS sender or a Messaging Service SID. Each channel turns on when its sender is filled in.",
-      "saveFirst": "Save your changes before sending a test."
+      "saveFirst": "Save your changes before sending a test.",
+      "google": {
+        "title": "Google reviews",
+        "hint": "Shows each company's Google rating and reviews on its public page. Connect a company's Google Maps listing from Companies → the company. When hidden, nothing about Google appears anywhere.",
+        "show": "Show Google reviews",
+        "key": "Google Places API key",
+        "keyHint": "From Google Cloud Console → APIs & Services → Credentials, with \"Places API (New)\" enabled. Stored encrypted.",
+        "envKeyUsed": "Not saved here: the server's GOOGLE_PLACES_API_KEY is used",
+        "shown": "Shown",
+        "hidden": "Hidden",
+        "noKey": "On, but no key"
+      }
     },
     "limits": {
       "title": "Limits for this company",
@@ -1776,6 +1779,17 @@
       "used": "Using {{used}} of {{max}}",
       "reset": "Use the plan's limits",
       "unlimited": "Unlimited"
+    },
+    "google": {
+      "title": "Google Maps reviews",
+      "hint": "Connect the company's Google Maps listing to show its Google rating and reviews on its public page (plans with the customer portal).",
+      "off": "Google reviews are hidden. Switch them on in Platform → Settings first.",
+      "search": "Find on Google",
+      "placeholder": "Business name and city",
+      "connect": "Connect",
+      "noResults": "Nothing found. Try the exact name shown on Google Maps, with the city.",
+      "connected": "Connected. The public page shows its rating and reviews from Google.",
+      "disconnect": "Disconnect"
     }
   },
   "promos": {
@@ -1831,7 +1845,10 @@
     "confirmDelete": "Delete promo {{code}}?",
     "confirmDeleteUsed": "{{code}} was used in past bookings. Their discounts stay, but the code will stop working. Delete it?",
     "bookingDiscount": "Promo {{code}}",
-    "afterDiscount": "Total after discount"
+    "afterDiscount": "Total after discount",
+    "searchPlaceholder": "Search by discount code",
+    "allStatuses": "All statuses",
+    "noMatch": "No codes match this search"
   },
   "publicBooking": {
     "limitReached": "This company isn't taking more online bookings this month. Please call or WhatsApp them directly."

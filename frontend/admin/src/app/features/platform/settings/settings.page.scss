@@ -35,3 +35,7 @@ h3 { font-size: .95rem; margin: 1.25rem 0 .75rem; display: flex; align-items: ce
 .req { color: var(--danger-35); }
 .note.env { margin: 0 .25rem .6rem; }
 @media (max-width: 640px) { .provider { flex-wrap: wrap; } }
+
+// Google reviews: show / hide switch
+.google-row { display: flex; align-items: center; gap: .6rem; margin: .25rem 0 1rem; }
+.google-row label { font-weight: 600; cursor: pointer; }

@@ -19,6 +19,7 @@ import com.fieldops.app.common.security.CurrentUser;
 import com.fieldops.app.common.security.Role;
 import com.fieldops.app.common.util.PhoneNumbers;
 import com.fieldops.app.common.web.ApiException;
+import com.fieldops.app.google.GooglePlacesClient;
 import com.fieldops.app.notification.NotificationTemplate;
 import com.fieldops.app.notification.channel.ChannelType;
 import com.fieldops.app.notification.provider.MessagingProviderService;
@@ -50,6 +51,10 @@ import org.springframework.web.client.RestClientResponseException;
 @Service
 public class PlatformService {
 
+    /** Google API keys: letters, digits, "-" and "_" (usually 39 characters starting with "AIza"). */
+    private static final Pattern GOOGLE_KEY = Pattern.compile("^[A-Za-z0-9_-]{20,200}$");
+    private static final Pattern GOOGLE_PLACE_ID = Pattern.compile("^[A-Za-z0-9_-]{1,300}$");
+
     /** Dates entered in the console are Saudi days. */
     static final ZoneId ZONE = ZoneId.of("Asia/Riyadh");
     private static final Pattern PLAN_ID = Pattern.compile("[a-z][a-z0-9_-]{1,29}");
@@ -66,12 +71,15 @@ public class PlatformService {
     private final com.fieldops.app.tenant.PlanLimitService limits;
     private final JdbcTemplate jdbc;
     private final Clock clock;
+    private final GooglePlacesClient google;
 
     public PlatformService(TenantRepository tenants, PlanRepository plans, UserRepository users,
                            PlatformSettingsService settings, TenantAccessService access,
                            PlanFeatureService planFeatures, NotificationProviders providers,
                            MessagingProviderService providerSettings,
-                           com.fieldops.app.tenant.PlanLimitService limits, JdbcTemplate jdbc, Clock clock) {
+                           com.fieldops.app.tenant.PlanLimitService limits, JdbcTemplate jdbc, Clock clock,
+                           GooglePlacesClient google) {
+        this.google = google;
         this.limits = limits;
         this.tenants = tenants;
         this.plans = plans;
@@ -118,7 +126,19 @@ public class PlatformService {
     }
 
     public record CompanyDetail(CompanyRow company, List<StaffRow> staff, List<AuditRow> history,
-                                CompanyLimits limits) {
+                                CompanyLimits limits, CompanyGoogle google) {
+    }
+
+    /**
+     * The company's Google Maps listing (rating and reviews on its public page), connected by the platform owner.
+     *
+     * @param available Google reviews are switched on in Platform → Settings with a key
+     */
+    public record CompanyGoogle(boolean available, String placeId, String name) {
+    }
+
+    /** placeId empty = disconnect. */
+    public record GooglePlaceData(String placeId, String name) {
     }
 
     public record PlanCount(String planId, long companies) {
@@ -143,6 +163,21 @@ public class PlatformService {
 
     public record General(int trialDays, String trialPlanId, int graceDays, String supportWhatsapp,
                           String supportEmail) {
+    }
+
+    /**
+     * Google reviews for every company.
+     *
+     * @param enabled shown (connect a Google Maps listing in Settings, rating and reviews on the public page)
+     * @param key     the key saved in the console (masked)
+     * @param envKey  GOOGLE_PLACES_API_KEY is set on the server (used when no key is saved)
+     * @param active  switched on and a key is available: companies see Google reviews
+     */
+    public record GoogleView(boolean enabled, Secret key, boolean envKey, boolean active) {
+    }
+
+    /** @param apiKey null = keep the saved key, "" = remove it, text = replace it */
+    public record GoogleData(boolean enabled, String apiKey) {
     }
 
     /** Secret values are never returned: only whether one is saved and its last 4 characters. */
@@ -249,7 +284,37 @@ public class PlatformService {
                         where tenant_id = ? order by created_at desc limit 50""",
                 (rs, i) -> new AuditRow(rs.getString(1), rs.getString(2), rs.getString(3), instant(rs.getTimestamp(4))),
                 id);
-        return new CompanyDetail(rows.get(0), staff, history, companyLimits(id));
+        Tenant t = tenant(id);
+        return new CompanyDetail(rows.get(0), staff, history, companyLimits(id),
+                new CompanyGoogle(google.configured(), t.getGooglePlaceId(), t.getGooglePlaceName()));
+    }
+
+    /** Google Maps businesses matching the text (biased to Saudi Arabia), to connect one to a company. */
+    public List<GooglePlacesClient.Candidate> searchGoogle(UUID id, String q, String lang) {
+        tenant(id);
+        String text = q == null ? "" : q.trim();
+        if (text.isEmpty() || text.length() > 200) {
+            throw ApiException.badRequest("invalid_query", "Type the business name (up to 200 characters)");
+        }
+        return google.search(text, "en".equals(lang) ? "en" : "ar");
+    }
+
+    /** Connects (placeId set) or disconnects (placeId empty) the Google Maps listing shown on the company's public page. */
+    @Transactional
+    public CompanyDetail setGoogle(UUID id, GooglePlaceData d) {
+        Tenant t = tenant(id);
+        String placeId = d.placeId() == null || d.placeId().isBlank() ? null : d.placeId().trim();
+        String name = null;
+        if (placeId != null) {
+            if (!GOOGLE_PLACE_ID.matcher(placeId).matches()) {
+                throw ApiException.badRequest("invalid_place_id", "Invalid Google place id");
+            }
+            // Confirms the ID is real and takes Google's own name for it.
+            GooglePlacesClient.Details det = google.details(placeId, "ar");
+            name = det.name() != null ? det.name() : blankToNull(d.name());
+        }
+        t.connectGoogle(placeId, name);
+        return done(t, placeId == null ? "GOOGLE_DISCONNECTED" : "GOOGLE_CONNECTED", placeId == null ? null : name);
     }
 
     private CompanyLimits companyLimits(UUID id) {
@@ -519,6 +584,30 @@ public class PlatformService {
                 CurrentUser.idOrNull());
         audit(null, "SETTINGS_UPDATED", "trial " + g.trialDays() + "d on " + p.getId() + ", grace " + g.graceDays() + "d");
         return general();
+    }
+
+    public GoogleView google() {
+        PlatformSettingsService.Settings s = settings.get();
+        boolean envKey = settings.googlePlacesEnvKeySet();
+        boolean hasKey = (s.googlePlacesKey() != null && !s.googlePlacesKey().isBlank()) || envKey;
+        return new GoogleView(s.googlePlacesEnabled(), mask(s.googlePlacesKey()), envKey, s.googlePlacesEnabled() && hasKey);
+    }
+
+    @Transactional
+    public GoogleView updateGoogle(GoogleData d) {
+        String key = d.apiKey() == null ? null : d.apiKey().trim();
+        if (key != null && !key.isEmpty() && !GOOGLE_KEY.matcher(key).matches()) {
+            throw ApiException.badRequest("invalid_google_key", "This doesn't look like a Google API key");
+        }
+        String saved = settings.get().googlePlacesKey();
+        boolean willHaveKey = key == null ? (saved != null && !saved.isBlank()) : !key.isEmpty();
+        if (d.enabled() && !willHaveKey && !settings.googlePlacesEnvKeySet()) {
+            throw ApiException.conflict("google_key_missing", "Enter the Google Places API key to switch Google reviews on");
+        }
+        settings.updateGooglePlaces(d.enabled(), key, CurrentUser.idOrNull());
+        audit(null, "SETTINGS_UPDATED", "Google reviews " + (d.enabled() ? "on" : "off")
+                + (key == null ? "" : key.isEmpty() ? ", key removed" : ", key changed"));
+        return google();
     }
 
     public MessagingView messaging() {

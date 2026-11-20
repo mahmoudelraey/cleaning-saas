@@ -4,6 +4,8 @@ import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angula
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { MessageService } from 'primeng/api';
 import { Button } from 'primeng/button';
+import { IconField } from 'primeng/iconfield';
+import { InputIcon } from 'primeng/inputicon';
 import { AppDialog } from '../../shared/dialog/dialog';
 import { InputNumber } from 'primeng/inputnumber';
 import { InputText } from 'primeng/inputtext';
@@ -48,7 +50,7 @@ type ShiftGroup = ReturnType<typeof makeShift>;
 
 @Component({
   selector: 'app-technicians',
-  imports: [DetailsDialog, CreatedBy,
+  imports: [DetailsDialog, CreatedBy, IconField, InputIcon,
     ReactiveFormsModule,
     TranslatePipe,
     TableModule,
@@ -78,6 +80,22 @@ export class TechniciansPage implements OnInit {
   private readonly finance = inject(FinanceApi);
 
   protected readonly technicians = signal<Technician[]>([]);
+  /** Search by name or mobile (Arabic or English digits, with or without 0 / +966). */
+  protected readonly query = signal('');
+  protected readonly filtered = computed(() => {
+    const q = this.query().trim();
+    if (!q) return this.technicians();
+    const text = normalizeName(q);
+    const digits = toAsciiDigits(q).replace(/\D/g, '').replace(/^(00966|966|0)/, '');
+    return this.technicians().filter((t) => {
+      if (text && normalizeName(t.name).includes(text)) return true;
+      if (digits.length >= 2) {
+        const phone = toAsciiDigits(t.phone ?? '').replace(/\D/g, '').replace(/^(966|0)/, '');
+        return phone.includes(digits);
+      }
+      return false;
+    });
+  });
   protected readonly activeCount = signal(0);
   protected readonly loading = signal(false);
   protected readonly saving = signal(false);
@@ -255,4 +273,21 @@ export class TechniciansPage implements OnInit {
     ];
   }
 
+}
+
+/** ٠١٢٣ / ۰۱۲۳ → 0123. */
+function toAsciiDigits(s: string): string {
+  return s.replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660)).replace(/[\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) - 0x06f0));
+}
+
+/** Case- and spelling-tolerant name for matching: أ/إ/آ → ا, ة → ه, ى → ي, no tashkeel. */
+function normalizeName(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[\u064B-\u0652\u0640]/g, '')
+    .replace(/[أإآ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي')
+    .replace(/\s+/g, ' ')
+    .trim();
 }

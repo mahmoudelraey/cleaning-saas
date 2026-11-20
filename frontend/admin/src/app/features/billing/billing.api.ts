@@ -54,10 +54,20 @@ export class BillingApi {
   private readonly http = inject(HttpClient);
 
   // invoices
-  invoices(status: string | null, page: number, size: number, customerId?: string): Observable<Page<InvoiceSummary>> {
+  /** filters: invoice number ("12" or "INV-12") and issue days from / to (yyyy-mm-dd, inclusive). */
+  invoices(
+    status: string | null,
+    page: number,
+    size: number,
+    customerId?: string,
+    filters?: { number?: string | null; from?: string | null; to?: string | null },
+  ): Observable<Page<InvoiceSummary>> {
     let params = new HttpParams().set('page', page).set('size', size);
     if (status) params = params.set('status', status);
     if (customerId) params = params.set('customerId', customerId);
+    if (filters?.number) params = params.set('number', filters.number);
+    if (filters?.from) params = params.set('from', filters.from);
+    if (filters?.to) params = params.set('to', filters.to);
     return this.http.get<Page<InvoiceSummary>>('/api/v1/invoices', { params });
   }
 

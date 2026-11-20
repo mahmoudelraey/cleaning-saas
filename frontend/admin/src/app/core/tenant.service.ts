@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, finalize, of, shareReplay, tap } from 'rxjs';
 
-import { GoogleCandidate, PublicPage, TenantInfo } from './api.types';
+import { PublicPage, TenantInfo } from './api.types';
 import { PlanFeatureKey } from './plan-features';
 import { portalUrl } from './portal';
 
@@ -81,15 +81,6 @@ export class TenantService {
 
   update(body: TenantUpdate): Observable<TenantInfo> {
     return this.http.put<TenantInfo>('/api/v1/tenant', body).pipe(tap((t) => this.tenant.set(t)));
-  }
-
-  searchGoogle(q: string, lang: string): Observable<GoogleCandidate[]> {
-    return this.http.get<GoogleCandidate[]>('/api/v1/tenant/google/search', { params: { q, lang } });
-  }
-
-  /** Connect a Google Maps listing, or disconnect with null. */
-  connectGoogle(placeId: string | null, name: string | null): Observable<TenantInfo> {
-    return this.http.put<TenantInfo>('/api/v1/tenant/google', { placeId, name }).pipe(tap((t) => this.tenant.set(t)));
   }
 
   /** Mobile, WhatsApp and social accounts shown to customers. */
