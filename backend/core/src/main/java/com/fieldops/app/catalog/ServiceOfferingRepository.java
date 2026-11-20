@@ -22,4 +22,12 @@ public interface ServiceOfferingRepository extends JpaRepository<ServiceOffering
     @EntityGraph(attributePaths = {"addons", "options"})
     @Query("select s from ServiceOffering s where s.id = :id")
     Optional<ServiceOffering> findWithAddons(@Param("id") UUID id);
+
+    /** Another service of this company (active or archived) already has this Arabic name (case and spaces ignored). */
+    @Query("select count(s) > 0 from ServiceOffering s where lower(trim(s.name)) = :name and s.id <> :exceptId")
+    boolean nameTaken(@Param("name") String name, @Param("exceptId") UUID exceptId);
+
+    /** Same for the English name. */
+    @Query("select count(s) > 0 from ServiceOffering s where lower(trim(s.nameEn)) = :name and s.id <> :exceptId")
+    boolean nameEnTaken(@Param("name") String name, @Param("exceptId") UUID exceptId);
 }

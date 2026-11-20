@@ -106,14 +106,17 @@ export class ServicesPage implements OnInit {
   /** Our ready-made pictures the owner can pick instead of uploading one. */
   protected readonly gallery = [
     { key: 'home', src: 'services/home.jpg', label: 'services.gallery.home' },
-    { key: 'sofa', src: 'services/sofa.jpg', label: 'services.gallery.sofa' },
     { key: 'car', src: 'services/car.jpg', label: 'services.gallery.car' },
-    { key: 'villa', src: 'services/villa.jpg', label: 'services.gallery.villa' },
   ];
   /** What the photo picker shows as selected: no photo (auto), one of our pictures, or the owner's own photo. */
   protected readonly choice = signal<string>('auto');
-  /** The owner's own photo (new upload, or the one already saved). */
-  protected readonly ownPreview = () => this.pendingOwn() ?? this.editing()?.imageUrl ?? null;
+  /** One of our pictures picked in the dialog, saved by name when the service is saved (nothing is uploaded). */
+  private pendingPreset: string | null = null;
+  /** The owner's own photo (new upload, or the uploaded one already saved; our pictures don't count). */
+  protected readonly ownPreview = () => {
+    const saved = this.editing()?.imageUrl ?? null;
+    return this.pendingOwn() ?? (saved && !presetOf(saved) ? saved : null);
+  };
   private readonly pendingOwn = signal<string | null>(null);
   private ownFile: File | null = null;
 
@@ -202,12 +205,13 @@ export class ServicesPage implements OnInit {
   open(s: ServiceOffering | null): void {
     this.editing.set(s);
     this.pendingPhoto = null;
+    this.pendingPreset = null;
     this.setPreview(null);
     this.pendingOwn.set(null);
     this.ownFile = null;
     this.removePhoto.set(false);
     // A new service starts without a photo (the page shows a default picture chosen from its name).
-    this.choice.set(s?.imageUrl ? 'own' : 'auto');
+    this.choice.set(s?.imageUrl ? (presetOf(s.imageUrl) ?? 'own') : 'auto');
     this.nameValue.set(s?.name ?? '');
     this.addons.clear();
     this.options.clear();
@@ -298,6 +302,7 @@ export class ServicesPage implements OnInit {
       return;
     }
     this.pendingPhoto = file;
+    this.pendingPreset = null;
     this.removePhoto.set(false);
     this.setPreview(URL.createObjectURL(file));
     this.ownFile = file;
@@ -308,21 +313,17 @@ export class ServicesPage implements OnInit {
   /** No photo: the public page shows the default picture that matches the service name. */
   protected chooseAuto(): void {
     this.pendingPhoto = null;
+    this.pendingPreset = null;
     this.removePhoto.set(true);
     this.choice.set('auto');
   }
 
-  /** One of our pictures: saved as the service photo (uploaded like any other photo when the service is saved). */
+  /** One of our pictures: saved by name (the apps serve it from public/services), so no copy is uploaded. */
   protected chooseGallery(g: { key: string; src: string }): void {
     this.choice.set(g.key);
-    fetch(g.src)
-      .then((r) => r.blob())
-      .then((b) => {
-        if (this.choice() !== g.key) return; // the owner picked something else meanwhile
-        this.pendingPhoto = new File([b], `${g.key}.jpg`, { type: b.type || 'image/jpeg' });
-        this.removePhoto.set(false);
-      })
-      .catch(() => this.messages.add({ severity: 'error', summary: this.translate.instant('errors.unsupported_file') }));
+    this.pendingPreset = g.key;
+    this.pendingPhoto = null;
+    this.removePhoto.set(false);
   }
 
   /** Back to the owner's own photo (the one just uploaded, or the saved one). */
@@ -330,12 +331,18 @@ export class ServicesPage implements OnInit {
     if (!this.ownPreview()) return;
     // A new upload is sent again; a saved photo is simply kept.
     this.pendingPhoto = this.pendingOwn() ? this.ownFile : null;
+    this.pendingPreset = null;
     this.removePhoto.set(false);
     this.choice.set('own');
   }
 
   /** Uploads the chosen photo, or removes the current one, once the service is saved. */
   private syncPhoto(saved: ServiceOffering): Observable<unknown> {
+    if (this.pendingPreset) {
+      return presetOf(saved.imageUrl) === this.pendingPreset
+        ? of(null)
+        : this.http.put(`${BASE}/${saved.id}/image/preset`, { preset: this.pendingPreset });
+    }
     if (this.pendingPhoto) {
       const data = new FormData();
       data.append('file', this.pendingPhoto);
@@ -457,4 +464,9 @@ export class ServicesPage implements OnInit {
     this.messages.add({ severity: 'error', summary: errorMessage(err, this.translate) });
     this.reload();
   }
+}
+
+/** "home" / "car" when the service uses one of our pictures ("/services/home.jpg"); null for an upload or none. */
+function presetOf(url?: string | null): string | null {
+  return url?.match(/^\/services\/([a-z]+)\.jpg$/)?.[1] ?? null;
 }

@@ -145,6 +145,12 @@ public class ServiceOffering extends TenantScopedEntity {
         return active;
     }
 
+    /** Prefix of {@code imageKey} for one of the built-in pictures (no file stored), e.g. "preset:home". */
+    public static final String PRESET_PREFIX = "preset:";
+
+    /** The built-in pictures, served by the admin and portal apps themselves (public/services/<name>.jpg). */
+    public static final java.util.Set<String> PRESETS = java.util.Set.of("home", "car");
+
     /** Sets (or clears, with null) the photo and returns the key it replaced, for deleting the old file. */
     public String replaceImage(String key) {
         String old = this.imageKey;
@@ -156,13 +162,22 @@ public class ServiceOffering extends TenantScopedEntity {
         return imageKey;
     }
 
+    /** True when the photo is a file the company uploaded (not one of the built-in pictures). */
+    public boolean hasUploadedImage() {
+        return imageKey != null && !imageKey.startsWith(PRESET_PREFIX);
+    }
+
     /**
-     * Public address of the photo on the admin backend (null without one). The {@code v} part changes with every
-     * upload, so browsers and caches never show an old picture.
+     * Address of the photo (null without one). A built-in picture is a path both web apps serve, e.g.
+     * "/services/home.jpg". An uploaded one is on the admin backend; its {@code v} part changes with every upload,
+     * so browsers and caches never show an old picture.
      */
     public String getImageUrl() {
         if (imageKey == null) {
             return null;
+        }
+        if (imageKey.startsWith(PRESET_PREFIX)) {
+            return "/services/" + imageKey.substring(PRESET_PREFIX.length()) + ".jpg";
         }
         String file = imageKey.substring(imageKey.lastIndexOf('/') + 1);
         int dot = file.indexOf('.');

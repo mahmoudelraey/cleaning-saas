@@ -238,9 +238,7 @@
     "gallery": {
       "auto": "Automatic",
       "home": "Home",
-      "sofa": "Sofa & carpet",
       "car": "Car",
-      "villa": "Villa",
       "own": "Your photo"
     }
   },
@@ -547,7 +545,9 @@
     "promo_code_taken": "Another promo already uses this code",
     "promo_invalid": "The promo details are not valid",
     "plan_booking_limit": "You've reached your plan's bookings for this month",
-    "invalid_limit": "Enter a number from 0 to 1,000,000"
+    "invalid_limit": "Enter a number from 0 to 1,000,000",
+    "service_name_taken": "Another service already has this name. Choose a different name.",
+    "service_name_en_taken": "Another service already has this English name."
   },
   "primeng": {
     "accept": "Yes",

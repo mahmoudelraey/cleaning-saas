@@ -1,6 +1,7 @@
 package com.fieldops.app.catalog;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 import jakarta.persistence.EntityManager;
@@ -44,6 +45,7 @@ public class CatalogService {
 
     @Transactional
     public ServiceOffering create(ServiceData d) {
+        requireUniqueNames(d, null);
         ServiceOffering s = new ServiceOffering(d.name().trim(), blankToNull(d.description()), d.pricingType(),
                 d.basePriceHalalas(), d.durationMin());
         s.setEnglish(blankToNull(d.nameEn()), blankToNull(d.descriptionEn()));
@@ -56,10 +58,28 @@ public class CatalogService {
     @Transactional
     public ServiceOffering update(UUID id, ServiceData d) {
         ServiceOffering s = get(id);
+        requireUniqueNames(d, id);
         s.update(d.name().trim(), blankToNull(d.description()), d.pricingType(), d.basePriceHalalas(),
                 d.durationMin(), d.active());
         s.setEnglish(blankToNull(d.nameEn()), blankToNull(d.descriptionEn()));
         return s;
+    }
+
+    /** Customers pick services by name, so two services of one company can't share an Arabic or English name. */
+    private void requireUniqueNames(ServiceData d, UUID exceptId) {
+        UUID except = exceptId == null ? new UUID(0, 0) : exceptId;
+        if (services.nameTaken(normalized(d.name()), except)) {
+            throw ApiException.conflict("service_name_taken", "Another service already has this name");
+        }
+        String en = blankToNull(d.nameEn());
+        if (en != null && services.nameEnTaken(normalized(en), except)) {
+            throw ApiException.conflict("service_name_en_taken", "Another service already has this English name");
+        }
+    }
+
+    /** Lower case and trimmed, the same as the database side of the check (lower(trim(name))). */
+    private static String normalized(String name) {
+        return name.trim().toLowerCase(Locale.ROOT);
     }
 
     /** Archive instead of delete: past bookings and invoices keep referencing the service. */

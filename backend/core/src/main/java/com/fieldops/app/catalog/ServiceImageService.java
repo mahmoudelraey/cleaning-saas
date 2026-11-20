@@ -66,6 +66,19 @@ public class ServiceImageService {
         return s;
     }
 
+    /** Uses one of the built-in pictures ("home", "car"): nothing is uploaded or stored, the apps serve it. */
+    @Transactional
+    public ServiceOffering usePreset(UUID serviceId, String preset) {
+        String name = preset == null ? "" : preset.trim().toLowerCase(java.util.Locale.ROOT);
+        if (!ServiceOffering.PRESETS.contains(name)) {
+            throw ApiException.badRequest("invalid_image", "Unknown picture");
+        }
+        ServiceOffering s = get(serviceId);
+        String old = s.replaceImage(ServiceOffering.PRESET_PREFIX + name);
+        afterCompletion(null, old);
+        return s;
+    }
+
     @Transactional
     public ServiceOffering remove(UUID serviceId) {
         ServiceOffering s = get(serviceId);
@@ -78,8 +91,8 @@ public class ServiceImageService {
     public Optional<Image> load(UUID tenantId, UUID serviceId) {
         String key = TenantContext.runAs(tenantId,
                 () -> tx.execute(st -> services.findById(serviceId).map(ServiceOffering::getImageKey).orElse(null)));
-        if (key == null) {
-            return Optional.empty();
+        if (key == null || key.startsWith(ServiceOffering.PRESET_PREFIX)) {
+            return Optional.empty(); // built-in pictures are served by the web apps, not from storage
         }
         try (InputStream in = storage.get(key)) {
             String type = key.endsWith(".png") ? "image/png" : key.endsWith(".webp") ? "image/webp" : "image/jpeg";
@@ -100,7 +113,7 @@ public class ServiceImageService {
             @Override
             public void afterCompletion(int status) {
                 String victim = status == STATUS_COMMITTED ? replaced : added;
-                if (victim != null) {
+                if (victim != null && !victim.startsWith(ServiceOffering.PRESET_PREFIX)) {
                     try {
                         storage.delete(victim);
                     } catch (RuntimeException e) {

@@ -51,6 +51,17 @@ public class CatalogController {
         return ServiceDto.of(service.get(id)); // re-read with its add-ons (the upload's entity is detached by now)
     }
 
+    /** One of the built-in pictures ("home" or "car"); nothing is uploaded. */
+    @PutMapping("/{id}/image/preset")
+    @PreAuthorize("hasRole('OWNER')")
+    public ServiceDto usePresetImage(@PathVariable UUID id, @RequestBody PresetRequest req) {
+        images.usePreset(id, req.preset());
+        return ServiceDto.of(service.get(id));
+    }
+
+    public record PresetRequest(String preset) {
+    }
+
     /** Back to the default picture. */
     @DeleteMapping("/{id}/image")
     @PreAuthorize("hasRole('OWNER')")

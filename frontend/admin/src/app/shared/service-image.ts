@@ -4,8 +4,7 @@
  */
 export function defaultServiceImage(name?: string | null, nameEn?: string | null): string {
   const n = `${name ?? ''} ${nameEn ?? ''}`.toLowerCase();
-  if (/سيار|car|auto|vehicle/.test(n)) return 'services/car.jpg';
-  if (/كنب|كنب|سجاد|موكيت|مفروش|مرات|ستائر|sofa|couch|carpet|rug|upholster|mattress|curtain/.test(n)) return 'services/sofa.jpg';
-  if (/فيلا|فلل|قصر|استراحة|villa|palace|mansion/.test(n)) return 'services/villa.jpg';
+  // Cars only ("carpet" is not a car); everything else shows the home picture.
+  if (/سيار|\bcars?\b|\bauto|vehicle/.test(n)) return 'services/car.jpg';
   return 'services/home.jpg';
 }

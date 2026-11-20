@@ -158,7 +158,8 @@ public class CompanyController {
 
     /**
      * {@code name}/{@code description} are Arabic; the {@code ...En} ones are English (may be empty).
-     * {@code imageUrl}: the service's photo on the admin backend, or null (the portal then shows a default picture).
+     * {@code imageUrl}: the service's photo: an upload on the admin backend, a built-in picture the portal serves
+     * itself ("/services/home.jpg"), or null (the portal then picks a default picture from the name).
      */
     public record ServiceDto(UUID id, String name, String description, String nameEn, String descriptionEn,
                              PricingType pricingType, long basePriceHalalas, int durationMin, List<AddonDto> addons,
@@ -172,7 +173,8 @@ public class CompanyController {
                             .map(o -> new OptionDto(o.getId(), o.getName(), o.getNameEn(), o.getPriceHalalas(),
                                     o.getDurationMin()))
                             .toList(),
-                    s.getImageUrl() == null ? null : adminPublicUrl + s.getImageUrl());
+                    s.getImageUrl() == null ? null
+                            : s.hasUploadedImage() ? adminPublicUrl + s.getImageUrl() : s.getImageUrl());
         }
     }
 
