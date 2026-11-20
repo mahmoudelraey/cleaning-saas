@@ -25,6 +25,13 @@ body {
   display: inline-block;
 }
 
+// A table cell must stay a table cell (inline-block cells don't stretch to the row, so their lines sit
+// higher than the other columns'). Put .ltr on a <span> inside the cell instead.
+td.ltr,
+th.ltr {
+  display: table-cell;
+}
+
 // ---------- Page scaffolding used by every feature page ----------
 .page-header {
   position: relative;

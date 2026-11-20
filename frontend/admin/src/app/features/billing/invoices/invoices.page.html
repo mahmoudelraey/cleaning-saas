@@ -43,7 +43,7 @@
     </ng-template>
     <ng-template #body let-i>
       <tr (click)="open(i)" style="cursor: pointer">
-        <td class="num ltr">INV-{{ i.number }}</td>
+        <td class="num"><span class="ltr">INV-{{ i.number }}</span></td>
         <td>
           {{ i.issuedAt | ldate: 'mediumDate' }}
           @if (isOverdue(i)) { <div class="overdue">{{ 'invoices.overdue' | translate }}</div> }

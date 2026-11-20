@@ -26,7 +26,7 @@
     </ng-template>
     <ng-template #body let-q>
       <tr (click)="open(q)" style="cursor: pointer">
-        <td class="num ltr">Q-{{ q.number }}</td>
+        <td class="num"><span class="ltr">Q-{{ q.number }}</span></td>
         <td>{{ q.createdAt | ldate: 'mediumDate' }}</td>
         <td>{{ q.customerName }}</td>
         <td>{{ q.validUntil | ldate: 'dayMonthYear' }}</td>

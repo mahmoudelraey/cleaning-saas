@@ -216,21 +216,21 @@
           <div class="grid-2">
             <div class="field">
               <label for="s-name">{{ 'services.nameAr' | translate }} <span class="req">*</span></label>
-              <div class="affix">
+              <div class="affix" dir="rtl">
                 <input pInputText id="s-name" dir="rtl" formControlName="name" placeholder="مثال: تنظيف شقة" />
                 <span class="tag">AR</span>
               </div>
             </div>
             <div class="field">
               <label for="s-name-en">{{ 'services.nameEn' | translate }}</label>
-              <div class="affix">
+              <div class="affix" dir="ltr">
                 <input pInputText id="s-name-en" dir="ltr" formControlName="nameEn" placeholder="e.g. Apartment cleaning" />
                 <span class="tag">EN</span>
               </div>
             </div>
             <div class="field">
               <label for="s-desc">{{ 'services.descriptionAr' | translate }} <small class="opt">({{ 'services.optional' | translate }})</small></label>
-              <div class="textarea-wrap">
+              <div class="textarea-wrap" dir="rtl">
                 <i class="pi pi-file-edit" aria-hidden="true"></i>
                 <textarea pTextarea id="s-desc" dir="rtl" formControlName="description" rows="3" maxlength="1000"
                           [placeholder]="'services.descriptionPlaceholder' | translate"></textarea>
@@ -239,7 +239,7 @@
             </div>
             <div class="field">
               <label for="s-desc-en">{{ 'services.descriptionEn' | translate }} <small class="opt">({{ 'services.optional' | translate }})</small></label>
-              <div class="textarea-wrap">
+              <div class="textarea-wrap" dir="ltr">
                 <i class="pi pi-file-edit" aria-hidden="true"></i>
                 <textarea pTextarea id="s-desc-en" dir="ltr" formControlName="descriptionEn" rows="3" maxlength="1000"></textarea>
                 <span class="count ltr">{{ form.controls.descriptionEn.value.length }} / 1000</span>

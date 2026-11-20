@@ -65,7 +65,8 @@
 .req { color: var(--danger-51); }
 .opt { color: var(--fo-muted); font-weight: 400; }
 
-// Input with a small tag (AR / EN / SAR / min) on its end side.
+// Input with a small tag (AR / EN / SAR / min) on its end side. When the input has its own direction (an English
+// field on an Arabic page), give the wrapper the same dir so the tag sits on the side the input leaves free.
 .affix {
   position: relative;
   input, ::ng-deep .p-inputnumber-input { width: 100%; padding-inline-end: 3.6rem; }

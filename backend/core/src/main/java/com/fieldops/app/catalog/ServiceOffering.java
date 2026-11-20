@@ -1,6 +1,5 @@
 package com.fieldops.app.catalog;
 
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -51,9 +50,13 @@ public class ServiceOffering extends TenantScopedEntity {
     @Column(name = "image_key")
     private String imageKey;
 
+    /**
+     * Extras. A Set, like {@code options}: both are fetched in one query, and as a List every add-on came back
+     * once per option (3 sizes = each add-on shown 3 times). {@link #getAddons()} returns them oldest first.
+     */
     @OneToMany(mappedBy = "service", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("createdAt asc")
-    private List<ServiceAddon> addons = new ArrayList<>();
+    private Set<ServiceAddon> addons = new LinkedHashSet<>();
 
     /**
      * Sizes / types with their own price. A Set (not a List) so it can be fetched together with {@code addons}
@@ -167,8 +170,12 @@ public class ServiceOffering extends TenantScopedEntity {
                 + (dot > 0 ? file.substring(0, dot) : file);
     }
 
+    /** All add-ons (active or not), oldest first, each once. */
     public List<ServiceAddon> getAddons() {
-        return addons;
+        return addons.stream()
+                .sorted(Comparator.comparing(
+                        (ServiceAddon a) -> a.getCreatedAt() == null ? java.time.Instant.MAX : a.getCreatedAt()))
+                .toList();
     }
 
     /** All options (active or not) in display order. */
